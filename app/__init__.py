@@ -43,6 +43,13 @@ def create_app(config_name='default'):
 
 
 def _register_cli_commands(app):
+    @app.cli.command('init-db')
+    def init_db_cmd():
+        """Create all database tables (idempotent, safe to re-run)."""
+        with app.app_context():
+            db.create_all()
+            click.echo('Database tables created/verified.')
+
     @app.cli.command('create-admin')
     def create_admin_cmd():
         """Create the default admin user from environment config."""

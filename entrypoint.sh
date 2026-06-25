@@ -5,18 +5,16 @@ echo "=== Warhammer Fantasy Professions Manager ==="
 echo "Waiting for MySQL to be ready..."
 
 until python -c "
-import sys
-import pymysql, os
+import sys, os, re, pymysql
+url = os.environ.get('DATABASE_URL', '')
+m = re.match(r'mysql\+pymysql://([^:]+):([^@]+)@([^:]+):(\d+)/(.+)', url)
+if not m:
+    sys.exit(1)
 try:
-    url = os.environ.get('DATABASE_URL', '')
-    # Parse user/pass/host/db from URL
-    import re
-    m = re.match(r'mysql\+pymysql://([^:]+):([^@]+)@([^:]+):(\d+)/(.+)', url)
-    if m:
-        conn = pymysql.connect(host=m.group(3), user=m.group(1), password=m.group(2), database=m.group(5), port=int(m.group(4)))
-        conn.close()
-        sys.exit(0)
-except Exception as e:
+    conn = pymysql.connect(host=m.group(3), user=m.group(1), password=m.group(2),
+                           database=m.group(5), port=int(m.group(4)))
+    conn.close()
+except Exception:
     sys.exit(1)
 "; do
     echo "Database not ready yet, retrying in 2s..."
@@ -25,8 +23,8 @@ done
 
 echo "Database is ready!"
 
-echo "Running database migrations..."
-flask db upgrade
+echo "Creating/updating database tables..."
+flask init-db
 
 echo "Creating default admin user if needed..."
 flask create-admin

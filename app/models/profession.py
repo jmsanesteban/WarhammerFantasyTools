@@ -126,6 +126,7 @@ class Profession(db.Model):
         primaryjoin=lambda: Profession.id == career_exits_table.c.target_id,
         secondaryjoin=lambda: Profession.id == career_exits_table.c.source_id,
         lazy='subquery',
+        overlaps='exits',
     )
 
     # --- Helpers ---
