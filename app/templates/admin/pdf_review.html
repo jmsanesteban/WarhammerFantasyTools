@@ -53,64 +53,85 @@
             </div>
           </div>
 
-          {# Characteristics #}
-          <div class="row g-2 mb-3">
-            {% for field, label in [('ws','HA'),('bs','HP'),('s_char','F'),('t_char','R'),('ag','Ag'),('int_char','I'),('wp','V'),('fel','Em')] %}
-            <div class="col-3 col-md-1">
-              <label class="form-label wh-label text-center d-block">{{ label }}</label>
-              <input type="number" name="{{ field }}" step="5" min="0" max="100"
-                     class="form-control form-control-sm wh-input text-center"
-                     value="{{ prof_data[field] if prof_data[field] is not none else '' }}" placeholder="—">
+          {# Characteristics — two rows of 8, like the book #}
+          <div class="mb-3">
+            <div class="wh-stat-group mb-1">
+              <div class="wh-stat-group-title">Características Primarias</div>
+              <div class="row g-1">
+                {% for field, label in [('ws','HA'),('bs','HP'),('s_char','F'),('t_char','R'),('ag','Ag'),('int_char','I'),('wp','V'),('fel','Em')] %}
+                <div class="col">
+                  <label class="form-label wh-stat-lbl text-center d-block mb-1">{{ label }}</label>
+                  <input type="number" name="{{ field }}" step="5" min="0" max="100"
+                         class="form-control form-control-sm wh-input text-center wh-stat-input"
+                         value="{{ prof_data[field] if prof_data[field] is not none else '' }}" placeholder="—">
+                </div>
+                {% endfor %}
+              </div>
             </div>
-            {% endfor %}
-            {% for field, label in [('attacks','A'),('wounds','H'),('strength_bonus','BF'),('toughness_bonus','BR'),('movement','M'),('magic','Mag'),('insanity_points','PL'),('fate_points','PD')] %}
-            <div class="col-3 col-md-1">
-              <label class="form-label wh-label text-center d-block">{{ label }}</label>
-              <input type="number" name="{{ field }}" min="0"
-                     class="form-control form-control-sm wh-input text-center"
-                     value="{{ prof_data[field] if prof_data[field] is not none else '' }}" placeholder="—">
+            <div class="wh-stat-group">
+              <div class="wh-stat-group-title">Características Secundarias</div>
+              <div class="row g-1">
+                {% for field, label in [('attacks','A'),('wounds','H'),('strength_bonus','BF'),('toughness_bonus','BR'),('movement','M'),('magic','Mag'),('insanity_points','PL'),('fate_points','PD')] %}
+                <div class="col">
+                  <label class="form-label wh-stat-lbl text-center d-block mb-1">{{ label }}</label>
+                  <input type="number" name="{{ field }}" min="0"
+                         class="form-control form-control-sm wh-input text-center wh-stat-input"
+                         value="{{ prof_data[field] if prof_data[field] is not none else '' }}" placeholder="—">
+                </div>
+                {% endfor %}
+              </div>
             </div>
-            {% endfor %}
           </div>
 
-          {# Skills — chip field #}
+          {# Skills — chip field with DB autocomplete #}
           <div class="row g-2 mb-3">
             <div class="col-md-6">
               <label class="form-label wh-label">Habilidades</label>
               <div class="chip-wrap" data-type="skills">
                 <div class="chip-container">
                   <div class="chip-input-wrap">
-                    <input type="text" class="chip-input" placeholder="Buscar o añadir…" autocomplete="off">
+                    <input type="text" class="chip-input" placeholder="Buscar habilidad…" autocomplete="off">
                     <div class="chip-dropdown"></div>
                   </div>
                 </div>
                 <input type="hidden" name="skills_raw" value="{{ prof_data.skills_raw or '' }}">
               </div>
+              <small class="text-muted">Busca por nombre. Si no existe aún, <a href="{{ url_for('skills_talents.create_skill') }}" target="_blank" class="wh-link">crea la habilidad primero</a>.</small>
             </div>
 
-            {# Talents — chip field #}
+            {# Talents — chip field with DB autocomplete #}
             <div class="col-md-6">
               <label class="form-label wh-label">Talentos</label>
               <div class="chip-wrap" data-type="talents">
                 <div class="chip-container">
                   <div class="chip-input-wrap">
-                    <input type="text" class="chip-input" placeholder="Buscar o añadir…" autocomplete="off">
+                    <input type="text" class="chip-input" placeholder="Buscar talento…" autocomplete="off">
                     <div class="chip-dropdown"></div>
                   </div>
                 </div>
                 <input type="hidden" name="talents_raw" value="{{ prof_data.talents_raw or '' }}">
               </div>
+              <small class="text-muted">Busca por nombre. Si no existe aún, <a href="{{ url_for('skills_talents.create_talent') }}" target="_blank" class="wh-link">crea el talento primero</a>.</small>
             </div>
 
             {# Hidden: English raws — used server-side for better DB matching on EN PDFs #}
             <input type="hidden" name="skills_raw_en"  value="{{ prof_data.skills_raw_en  or '' }}">
             <input type="hidden" name="talents_raw_en" value="{{ prof_data.talents_raw_en or '' }}">
 
-            {# Trappings, Entries, Exits — plain textareas #}
+            {# Trappings — chip field (free text, no DB validation) #}
             <div class="col-md-4">
               <label class="form-label wh-label">Enseres</label>
-              <textarea name="trappings_raw" rows="2" class="form-control form-control-sm wh-input">{{ prof_data.trappings_raw or '' }}</textarea>
+              <div class="chip-wrap" data-type="trappings">
+                <div class="chip-container">
+                  <div class="chip-input-wrap">
+                    <input type="text" class="chip-input" placeholder="Añadir enser…" autocomplete="off">
+                  </div>
+                </div>
+                <input type="hidden" name="trappings_raw" value="{{ prof_data.trappings_raw or '' }}">
+              </div>
+              <small class="text-muted">Escribe y pulsa Enter o coma para añadir. Haz clic en el nombre para editar.</small>
             </div>
+
             <div class="col-md-4">
               <label class="form-label wh-label">Accesos <small class="text-muted">(enlazar después)</small></label>
               <textarea name="entries_raw" rows="2" class="form-control form-control-sm wh-input">{{ prof_data.entries_raw or '' }}</textarea>
@@ -189,8 +210,36 @@
   {% endif %}
 </div>
 
-{# ─── Chip styles ─── #}
+{# ─── Chip + Stat styles ─── #}
 <style>
+/* ── Stats ── */
+.wh-stat-group {
+  background: #18120a;
+  border: 1px solid #5c4a1e;
+  border-radius: 4px;
+  padding: 8px 10px 6px;
+}
+.wh-stat-group-title {
+  font-size: .68rem;
+  text-transform: uppercase;
+  letter-spacing: .06em;
+  color: #8b7a4a;
+  font-weight: 600;
+  margin-bottom: 5px;
+}
+.wh-stat-lbl {
+  font-size: .75rem;
+  color: #c9a84c;
+  font-weight: 600;
+  margin-bottom: 2px !important;
+}
+.wh-stat-input {
+  font-size: .78rem;
+  padding: 2px 3px;
+  text-align: center;
+}
+
+/* ── Chips ── */
 .chip-wrap { position: relative; }
 
 .chip-container {
@@ -217,8 +266,9 @@
   white-space: nowrap;
   line-height: 1.5;
 }
-.chip.match   { background: rgba(30,110,30,.45); border: 1px solid rgba(60,180,60,.5); color: #9cec9c; }
-.chip.nomatch { background: rgba(130,70,0,.4);   border: 1px solid rgba(200,110,0,.5); color: #f0b060; }
+.chip.match    { background: rgba(30,110,30,.45); border: 1px solid rgba(60,180,60,.5);  color: #9cec9c; }
+.chip.nomatch  { background: rgba(130,70,0,.4);   border: 1px solid rgba(200,110,0,.5);  color: #f0b060; }
+.chip.trapping { background: rgba(60,44,12,.55);  border: 1px solid rgba(140,100,30,.5); color: #c9a84c; }
 
 .chip-remove {
   background: none; border: none; padding: 0 0 0 2px;
@@ -254,6 +304,11 @@
 }
 .chip-option strong { color: #e8c97a; }
 .chip-option:hover { background: rgba(255,255,255,.08); }
+.chip-option.chip-hint {
+  color: #8b7a4a; cursor: default; font-size: .78rem; font-style: italic;
+}
+.chip-option.chip-hint:hover { background: none; }
+.chip-option.chip-hint a { color: #c9a84c; pointer-events: all; }
 
 .chip-legend-dot { font-size: .85rem; }
 .chip-legend-dot.match   { color: #9cec9c; }
@@ -267,9 +322,16 @@
   const SKILLS_DB  = {{ skills_data  | tojson }};
   const TALENTS_DB = {{ talents_data | tojson }};
 
-  /* Lower-case sets for fast exact-match lookup */
-  const skillSet  = new Set(SKILLS_DB.map(s => s.es.toLowerCase()));
+  const skillSet  = new Set(SKILLS_DB.map(s  => s.es.toLowerCase()));
   const talentSet = new Set(TALENTS_DB.map(t => t.es.toLowerCase()));
+
+  /* Links to creation pages for "not found" hints */
+  const CREATE_URL = {
+    skills:  '{{ url_for("skills_talents.create_skill") }}',
+    talents: '{{ url_for("skills_talents.create_talent") }}',
+  };
+  const TYPE_LABEL = { skills: 'habilidad', talents: 'talento' };
+  const SECTION_LABEL = { skills: 'Habilidades', talents: 'Talentos' };
 
   /* ── ChipField ── */
   function ChipField(wrap) {
@@ -278,13 +340,16 @@
     this.container = wrap.querySelector('.chip-container');
     this.inputWrap = wrap.querySelector('.chip-input-wrap');
     this.input     = wrap.querySelector('.chip-input');
-    this.dropdown  = wrap.querySelector('.chip-dropdown');
-    this.type      = wrap.dataset.type;           // 'skills' or 'talents'
-    this.dbList    = this.type === 'skills' ? SKILLS_DB  : TALENTS_DB;
-    this.matchSet  = this.type === 'skills' ? skillSet   : talentSet;
+    this.dropdown  = wrap.querySelector('.chip-dropdown');  // null for trappings
+    this.type      = wrap.dataset.type;   // 'skills', 'talents', or 'trappings'
+    this.dbList    = this.type === 'skills'  ? SKILLS_DB
+                   : this.type === 'talents' ? TALENTS_DB
+                   : [];
+    this.matchSet  = this.type === 'skills'  ? skillSet
+                   : this.type === 'talents' ? talentSet
+                   : null;
     this.chips     = [];
 
-    /* Parse initial value */
     var raw = (this.hidden.value || '').trim();
     if (raw) {
       this.chips = raw.split(',').map(s => s.trim()).filter(Boolean);
@@ -293,17 +358,18 @@
     this._render();
     this._bindInput();
 
-    /* Clicking the container focuses the text input */
     var self = this;
     this.container.addEventListener('click', function (e) {
       if (!e.target.closest('.chip')) self.input.focus();
     });
   }
 
-  ChipField.prototype._isMatch = function (text) {
-    /* A chip matches if the full text OR any " o "/" or "-separated part matches */
+  /* Returns CSS class string for a chip */
+  ChipField.prototype._chipClass = function (text) {
+    if (this.type === 'trappings') return 'chip trapping';
     var parts = text.toLowerCase().split(/\s+(?:o|or)\s+/);
-    return parts.some(p => this.matchSet.has(p.trim()));
+    var matched = parts.some(p => this.matchSet.has(p.trim()));
+    return 'chip ' + (matched ? 'match' : 'nomatch');
   };
 
   ChipField.prototype._render = function () {
@@ -311,25 +377,24 @@
 
     var self = this;
     this.chips.forEach(function (text, idx) {
-      var el  = document.createElement('span');
-      el.className = 'chip ' + (self._isMatch(text) ? 'match' : 'nomatch');
+      var el = document.createElement('span');
+      el.className = self._chipClass(text);
 
-      /* Label — click to edit */
       var label = document.createElement('span');
-      label.className = 'chip-label';
+      label.className   = 'chip-label';
       label.textContent = text;
-      label.title = 'Haz clic para editar';
+      label.title       = 'Haz clic para editar';
       label.addEventListener('click', function (e) {
         e.stopPropagation();
         self._editChip(el, idx);
       });
 
       var btn = document.createElement('button');
-      btn.type      = 'button';
-      btn.className = 'chip-remove';
+      btn.type          = 'button';
+      btn.className     = 'chip-remove';
       btn.setAttribute('aria-label', 'Eliminar');
-      btn.textContent = '×';
-      btn.dataset.idx = idx;
+      btn.textContent   = '×';
+      btn.dataset.idx   = idx;
       btn.addEventListener('click', function (e) {
         e.stopPropagation();
         self.chips.splice(parseInt(this.dataset.idx), 1);
@@ -350,7 +415,7 @@
     var original = this.chips[idx];
     var label    = chipEl.querySelector('.chip-label');
 
-    var inp = document.createElement('input');
+    var inp       = document.createElement('input');
     inp.type      = 'text';
     inp.className = 'chip-edit-input';
     inp.value     = original;
@@ -391,9 +456,39 @@
   ChipField.prototype._bindInput = function () {
     var self = this;
 
+    /* ── Trappings: free-text, no dropdown ── */
+    if (this.type === 'trappings') {
+      this.input.addEventListener('keydown', function (e) {
+        if (e.key === 'Enter' || e.key === ',') {
+          e.preventDefault();
+          var val = this.value.replace(/,$/, '').trim();
+          if (val) { self.addChip(val); this.value = ''; }
+        }
+        if (e.key === 'Backspace' && !this.value && self.chips.length) {
+          self.chips.pop();
+          self._render();
+          self._sync();
+        }
+      });
+      /* Paste of comma-separated list */
+      this.input.addEventListener('paste', function () {
+        setTimeout(function () {
+          var val   = self.input.value;
+          var parts = val.split(',').map(s => s.trim()).filter(Boolean);
+          if (parts.length > 1) {
+            parts.forEach(p => self.addChip(p));
+            self.input.value = '';
+          }
+        }, 0);
+      });
+      return;
+    }
+
+    /* ── Skills / Talents: DB autocomplete with "not found" hint ── */
     this.input.addEventListener('input', function () {
       var q = this.value.trim().toLowerCase();
       self.dropdown.innerHTML = '';
+
       if (!q) { self.dropdown.classList.remove('open'); return; }
 
       var matches = self.dbList.filter(function (item) {
@@ -401,29 +496,47 @@
                (item.en && item.en.toLowerCase().includes(q));
       }).slice(0, 8);
 
-      if (!matches.length) { self.dropdown.classList.remove('open'); return; }
-
-      matches.forEach(function (item) {
-        var opt = document.createElement('div');
-        opt.className = 'chip-option';
-        var hl = item.es.replace(new RegExp('(' + q.replace(/[.*+?^${}()|[\]\\]/g,'\\$&') + ')', 'gi'), '<strong>$1</strong>');
-        opt.innerHTML = hl + (item.en ? ' <span class="text-muted" style="font-size:.75rem">(' + item.en + ')</span>' : '');
-        opt.addEventListener('mousedown', function (e) {
-          e.preventDefault();
-          self.addChip(item.es);
-          self.input.value = '';
-          self.dropdown.innerHTML = '';
-          self.dropdown.classList.remove('open');
+      if (matches.length) {
+        matches.forEach(function (item) {
+          var opt = document.createElement('div');
+          opt.className = 'chip-option';
+          var safe = q.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+          var hl   = item.es.replace(new RegExp('(' + safe + ')', 'gi'), '<strong>$1</strong>');
+          opt.innerHTML = hl + (item.en
+            ? ' <span class="text-muted" style="font-size:.75rem">(' + item.en + ')</span>'
+            : '');
+          opt.addEventListener('mousedown', function (e) {
+            e.preventDefault();
+            self.addChip(item.es);
+            self.input.value = '';
+            self.dropdown.innerHTML = '';
+            self.dropdown.classList.remove('open');
+          });
+          self.dropdown.appendChild(opt);
         });
-        self.dropdown.appendChild(opt);
-      });
+      } else if (q.length >= 2) {
+        /* Not found — show guidance hint */
+        var typeLabel    = TYPE_LABEL[self.type]    || self.type;
+        var sectionLabel = SECTION_LABEL[self.type] || self.type;
+        var createUrl    = CREATE_URL[self.type]    || '#';
+
+        var hint = document.createElement('div');
+        hint.className = 'chip-option chip-hint';
+        hint.innerHTML =
+          '«' + self.input.value.trim() + '» no está en la BD. ' +
+          'Para añadir una ' + typeLabel + ' nueva, ve a ' +
+          '<a href="' + createUrl + '" target="_blank">' + sectionLabel + '</a> ' +
+          'y créala primero. O pulsa <kbd>Enter</kbd> para añadirla igualmente.';
+        self.dropdown.appendChild(hint);
+      }
+
       self.dropdown.classList.add('open');
     });
 
     this.input.addEventListener('keydown', function (e) {
       if (e.key === 'Enter') {
         e.preventDefault();
-        var first = self.dropdown.querySelector('.chip-option');
+        var first = self.dropdown.querySelector('.chip-option:not(.chip-hint)');
         if (first) {
           first.dispatchEvent(new MouseEvent('mousedown'));
         } else if (this.value.trim()) {
@@ -432,9 +545,7 @@
           self.dropdown.classList.remove('open');
         }
       }
-      if (e.key === 'Escape') {
-        self.dropdown.classList.remove('open');
-      }
+      if (e.key === 'Escape') { self.dropdown.classList.remove('open'); }
       if (e.key === 'Backspace' && !this.value && self.chips.length) {
         self.chips.pop();
         self._render();
@@ -443,7 +554,7 @@
     });
 
     this.input.addEventListener('blur', function () {
-      setTimeout(function () { self.dropdown.classList.remove('open'); }, 160);
+      setTimeout(function () { self.dropdown.classList.remove('open'); }, 200);
     });
   };
 
