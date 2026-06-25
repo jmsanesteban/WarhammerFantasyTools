@@ -101,6 +101,14 @@ _RE_SECTION = {
 }
 _SECTION_ORDER = ['skills', 'talents', 'trappings', 'entries', 'exits']
 
+# Marks where the career block ends and the narrative/adventure section begins.
+# Everything after this point is description text, not career data.
+_RE_NARRATIVE_START = re.compile(
+    r'^(?:hechos?\s+poco\s+conocidos?|semillas?\s+de\s+aventura|'
+    r'little\s+known\s+facts?|adventure\s+seeds?|trasfondo|background)\b',
+    re.IGNORECASE | re.MULTILINE,
+)
+
 # Detects any section header appearing mid-line so we can insert \n before it.
 _RE_SECTION_INLINE = re.compile(
     r'(?<!\n)'
@@ -171,6 +179,7 @@ def process_pdf(file_bytes: bytes, progress_cb=None) -> dict:
             word_rows = _digital_word_rows(page)
 
         # ---- 2. Translation ----
+        original_text = text  # always preserve pre-translation text
         if needs_translation(text):
             if progress_cb:
                 progress_cb(
@@ -193,6 +202,13 @@ def process_pdf(file_bytes: bytes, progress_cb=None) -> dict:
 
         # ---- 4. Section extraction (text-based) ----
         sections = _parse_sections(text)
+        if was_translated:
+            # Also extract sections from the original English text so that
+            # admin can match skill/talent names against DB name_en, bypassing
+            # the Google-Translate ≠ official-Spanish-WFRP2 translation gap.
+            en_sects = _parse_sections(original_text)
+            sections['skills_raw_en']  = en_sects.get('skills_raw', '')
+            sections['talents_raw_en'] = en_sects.get('talents_raw', '')
 
         # ---- 5. Emit profession entry if this is a career page ----
         if _is_career_page(stats, sections):
@@ -382,6 +398,11 @@ def _normalize_sections(text: str) -> str:
 def _parse_sections(text: str) -> dict:
     """Extract Skills, Talents, Trappings, Entries, Exits from page text."""
     text = _normalize_sections(text)
+    # Drop everything from the narrative/adventure section onwards —
+    # "Hechos poco conocidos", "Semillas de aventura", etc. are not career data.
+    m_narr = _RE_NARRATIVE_START.search(text)
+    if m_narr:
+        text = text[:m_narr.start()]
     sections = {k + '_raw': '' for k in _SECTION_ORDER}
     for idx, key in enumerate(_SECTION_ORDER):
         m = _RE_SECTION[key].search(text)
@@ -420,16 +441,18 @@ def _filter_items(raw: str) -> str:
 def _filter_career_list(raw: str) -> str:
     """Extract profession names from an entries/exits raw string.
 
-    Stops accumulating at the first token that looks like a sentence
-    (contains a period or is longer than 60 chars).
+    Profession names are short (≤60 chars, no period).  Any token exceeding
+    these bounds is assumed to be description text and terminates the list.
+    Splits on both commas and newlines so that e.g. "Scholar\\nLittle Known"
+    correctly yields only "Scholar".
     """
     clean = []
-    for part in raw.split(','):
+    for part in re.split(r'[,\n]+', raw):
         item = part.strip()
         if not item:
             continue
         if len(item) > 60 or '.' in item:
-            break   # everything after this is description text
+            break
         clean.append(item)
     return ', '.join(clean)
 

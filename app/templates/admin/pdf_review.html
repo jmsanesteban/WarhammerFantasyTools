@@ -102,6 +102,10 @@
               </div>
             </div>
 
+            {# Hidden: English raws — used server-side for better DB matching on EN PDFs #}
+            <input type="hidden" name="skills_raw_en"  value="{{ prof_data.skills_raw_en  or '' }}">
+            <input type="hidden" name="talents_raw_en" value="{{ prof_data.talents_raw_en or '' }}">
+
             {# Trappings, Entries, Exits — plain textareas #}
             <div class="col-md-4">
               <label class="form-label wh-label">Enseres</label>

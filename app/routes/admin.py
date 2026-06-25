@@ -266,9 +266,17 @@ def pdf_save():
         if item:
             db.session.add(ProfessionTrapping(profession_id=prof.id, name=item))
 
-    # Skills: match by name (best-effort fuzzy)
-    _match_and_save_skills(prof, request.form.get('skills_raw', ''))
-    _match_and_save_talents(prof, request.form.get('talents_raw', ''))
+    # Skills/Talents: prefer pre-translation English raw for better name matching
+    _match_and_save_skills(
+        prof,
+        request.form.get('skills_raw', ''),
+        request.form.get('skills_raw_en', ''),
+    )
+    _match_and_save_talents(
+        prof,
+        request.form.get('talents_raw', ''),
+        request.form.get('talents_raw_en', ''),
+    )
 
     # Career exits (just store raw names for now; admin can link later)
     # We store them in description as a note if prof doesn't exist yet
@@ -310,9 +318,14 @@ def _validate_pdf_professions(professions: list, all_skills, all_talents) -> lis
             talent_names.add(t.name_en.lower())
 
     for prof in professions:
+        # For English PDFs, use the pre-translation English raw for better matching
+        # against name_en in the DB (avoids Google-Translate ≠ official-Spanish gap).
+        skills_to_check  = prof.get('skills_raw_en')  or prof.get('skills_raw', '')
+        talents_to_check = prof.get('talents_raw_en') or prof.get('talents_raw', '')
+
         unmatched_skills = []
         if skill_names:
-            for raw in prof.get('skills_raw', '').replace(' o ', ',').replace(' or ', ',').split(','):
+            for raw in skills_to_check.replace(' or ', ',').replace(' o ', ',').split(','):
                 item = raw.strip()
                 if not item or len(item) > 80 or '.' in item:
                     continue
@@ -321,7 +334,7 @@ def _validate_pdf_professions(professions: list, all_skills, all_talents) -> lis
 
         unmatched_talents = []
         if talent_names:
-            for raw in prof.get('talents_raw', '').replace(' o ', ',').replace(' or ', ',').split(','):
+            for raw in talents_to_check.replace(' or ', ',').replace(' o ', ',').split(','):
                 item = raw.strip()
                 if not item or len(item) > 80 or '.' in item:
                     continue
@@ -336,13 +349,16 @@ def _validate_pdf_professions(professions: list, all_skills, all_talents) -> lis
     return professions
 
 
-def _match_and_save_skills(prof, skills_raw: str):
+def _match_and_save_skills(prof, skills_raw: str, skills_raw_en: str = ''):
     import difflib
     all_skills = Skill.query.all()
     skill_map = {s.name_es.lower(): s for s in all_skills}
     skill_map.update({s.name_en.lower(): s for s in all_skills if s.name_en})
 
-    parts = [p.strip() for p in skills_raw.replace(' o ', ',').replace(' or ', ',').split(',')]
+    # Prefer English source so "Charm" matches name_en="Charm" instead of
+    # "encanto" (Google Translate) failing to match name_es="Carisma".
+    source = skills_raw_en or skills_raw
+    parts = [p.strip() for p in source.replace(' or ', ',').replace(' o ', ',').split(',')]
     group = None
     for raw_part in parts:
         if not raw_part or len(raw_part) > 80 or '.' in raw_part:
@@ -354,13 +370,14 @@ def _match_and_save_skills(prof, skills_raw: str):
             db.session.add(ps)
 
 
-def _match_and_save_talents(prof, talents_raw: str):
+def _match_and_save_talents(prof, talents_raw: str, talents_raw_en: str = ''):
     import difflib
     all_talents = Talent.query.all()
     talent_map = {t.name_es.lower(): t for t in all_talents}
     talent_map.update({t.name_en.lower(): t for t in all_talents if t.name_en})
 
-    parts = [p.strip() for p in talents_raw.replace(' o ', ',').replace(' or ', ',').split(',')]
+    source = talents_raw_en or talents_raw
+    parts = [p.strip() for p in source.replace(' or ', ',').replace(' o ', ',').split(',')]
     group = None
     for raw_part in parts:
         if not raw_part or len(raw_part) > 80 or '.' in raw_part:
