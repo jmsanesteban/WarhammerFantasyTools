@@ -127,12 +127,27 @@ _RE_LEADING_JUNK = re.compile(r'^[\d.\s\-–—♦•★◆▶▸·]+')
 # OCR often splits a capital letter from the rest of its word: "A Nimal" → "Animal"
 _RE_SPLIT_LETTER = re.compile(r'\b([A-Z])\s+([A-Z][a-z]{2,})')
 
+# ---------------------------------------------------------------------------
+# Spanish scanned format — career title pattern:  — Nombre de la Profesión —
+# Allows for OCR noise: dashes, em-dashes, 1-3 delimiters on each side.
+# ---------------------------------------------------------------------------
+
+_RE_SPANISH_TITLE = re.compile(
+    r'[—\-]{1,3}\s+([A-ZÁÉÍÓÚÜÑ][^—\-\n]{3,50}?)\s+[—\-]{1,3}',
+    re.MULTILINE,
+)
+
+# "Avanzada / Especial" badge in the scanned Spanish layout
+_RE_SPANISH_ADVANCED = re.compile(
+    r'\b(?:avan[cz]ada?|especial)\b', re.IGNORECASE
+)
+
 
 # ---------------------------------------------------------------------------
 # Main entry point
 # ---------------------------------------------------------------------------
 
-def process_pdf(file_bytes: bytes, progress_cb=None) -> dict:
+def process_pdf(file_bytes: bytes, progress_cb=None, format_hint: str = 'auto') -> dict:
     """
     Process a PDF binary.  Returns:
       {
@@ -141,6 +156,11 @@ def process_pdf(file_bytes: bytes, progress_cb=None) -> dict:
         'errors':      [str, ...],
       }
     progress_cb(percent, stage) is called after each page when provided.
+
+    format_hint:
+      'auto'    — detect automatically (digital → English, scanned Spanish → Spanish)
+      'english' — Career Compendium format (digital, 1 profession/page, English text)
+      'spanish' — Scanned Spanish book (OCR, 1-2 professions/page, Spanish text)
     """
     result = {'pages': [], 'professions': [], 'errors': []}
 
@@ -154,6 +174,61 @@ def process_pdf(file_bytes: bytes, progress_cb=None) -> dict:
         result['errors'].append(f"Error al abrir el PDF: {e}")
         return result
 
+    # Detect format if not specified
+    fmt = format_hint
+    if fmt == 'auto':
+        fmt = _detect_format(doc, file_bytes)
+
+    logger.info("PDF format: %s", fmt)
+
+    if fmt == 'spanish':
+        return _process_pdf_spanish(doc, file_bytes, result, progress_cb)
+    else:
+        return _process_pdf_english(doc, file_bytes, result, progress_cb)
+
+
+def _detect_format(doc, file_bytes: bytes) -> str:
+    """
+    Heuristic format detection.
+
+    - Digital pages (much text) → English Career Compendium
+    - Scanned pages with Spanish keywords → Spanish scanned book
+    - Scanned pages with English/no-text detected → English (OCR path)
+    """
+    sample = min(5, len(doc))
+    digital_count = 0
+    spanish_signals = 0
+    english_signals = 0
+
+    for i in range(sample):
+        text = doc[i].get_text("text").strip()
+        if len(text) > 150:
+            digital_count += 1
+            tl = text.lower()
+            if 'career entries' in tl or 'career exits' in tl or 'trappings' in tl:
+                english_signals += 1
+            if 'características' in tl or 'esquema de mejoras' in tl or 'accesos' in tl:
+                spanish_signals += 1
+
+    if digital_count >= sample * 0.5:
+        # Mostly digital → English Career Compendium
+        return 'spanish' if spanish_signals > english_signals else 'english'
+
+    # Scanned — try OCR on first page to detect language
+    if PDF2IMAGE_AVAILABLE and TESSERACT_AVAILABLE:
+        try:
+            text, _ = _ocr_page(file_bytes, 0)
+            tl = text.lower()
+            if 'características' in tl or 'habilidades' in tl or 'accesos' in tl:
+                return 'spanish'
+        except Exception:
+            pass
+
+    return 'english'  # safe default
+
+
+def _process_pdf_english(doc, file_bytes: bytes, result: dict, progress_cb) -> dict:
+    """Process an English digital PDF (Career Compendium format)."""
     total_pages = len(doc)
 
     for page_num in range(total_pages):
@@ -254,6 +329,129 @@ def process_pdf(file_bytes: bytes, progress_cb=None) -> dict:
 
     doc.close()
     return result
+
+
+# ---------------------------------------------------------------------------
+# Spanish scanned format (Sistema 2)
+# ---------------------------------------------------------------------------
+
+def _process_pdf_spanish(doc, file_bytes: bytes, result: dict, progress_cb) -> dict:
+    """
+    Process a Spanish scanned PDF.
+
+    Layout: 1-2 professions per page inside red-bordered boxes.
+    Each career block starts with '— Nombre —' and ends before the next title.
+    Stat table uses Spanish abbreviations (HA HP F R Ag I V Em / A H BF BR M Mag PL PD).
+    No translation is needed — the text is already in Spanish.
+    """
+    total_pages = len(doc)
+
+    for page_num in range(total_pages):
+        if progress_cb:
+            progress_cb(
+                5 + int(page_num / total_pages * 85),
+                f'OCR página {page_num + 1} de {total_pages}…'
+            )
+
+        # OCR the page
+        text, word_rows = _ocr_page(file_bytes, page_num)
+        if not text.strip():
+            continue
+
+        result['pages'].append({
+            'page':       page_num + 1,
+            'text':       text,
+            'translated': False,
+        })
+
+        # Split text into 1 or 2 career blocks based on '— Name —' titles
+        blocks = _split_spanish_page(text)
+        if not blocks:
+            continue
+
+        # For 2 blocks, split word_rows spatially by finding the y-split point
+        if len(blocks) == 2:
+            split_name = _extract_spanish_career_name(blocks[1])
+            split_idx = _find_title_in_rows(word_rows, split_name) if split_name else None
+            if split_idx is None:
+                split_idx = len(word_rows) // 2
+            rows_per_block = [word_rows[:split_idx], word_rows[split_idx:]]
+        else:
+            rows_per_block = [word_rows]
+
+        for block_text, block_rows in zip(blocks, rows_per_block):
+            name = _extract_spanish_career_name(block_text)
+            if not name:
+                continue
+
+            sections = _parse_sections(block_text)
+            stats    = _extract_stats(block_rows)
+
+            if not _is_career_page(stats, sections):
+                continue
+
+            prof_type = 'advanced' if _RE_SPANISH_ADVANCED.search(block_text) else 'basic'
+
+            result['professions'].append({
+                'name':        name,
+                'name_en':     '',
+                'type':        prof_type,
+                'description': '',
+                **_empty_stats(),
+                **stats,
+                **sections,
+                'skills_raw_en':  '',
+                'talents_raw_en': '',
+            })
+
+    doc.close()
+    return result
+
+
+def _split_spanish_page(text: str) -> list:
+    """
+    Find 1-2 career blocks in a Spanish scanned page.
+    Each block starts at a '— Name —' title pattern.
+    Returns a list with 0, 1, or 2 text strings.
+    """
+    matches = list(_RE_SPANISH_TITLE.finditer(text))
+    if not matches:
+        return []
+    if len(matches) == 1:
+        # Single profession — start from the title
+        return [text[matches[0].start():].strip()]
+    # Two (or more) — take first two blocks
+    return [
+        text[matches[0].start(): matches[1].start()].strip(),
+        text[matches[1].start():].strip(),
+    ]
+
+
+def _extract_spanish_career_name(block: str) -> str:
+    """Return the career name from the first '— Name —' in block, title-cased."""
+    m = _RE_SPANISH_TITLE.search(block)
+    if not m:
+        return ''
+    raw = m.group(1).strip()
+    # Remove any OCR artefacts that survived the regex
+    raw = re.sub(r'[—\-]+', '', raw).strip()
+    return raw.title() if raw else ''
+
+
+def _find_title_in_rows(word_rows: list, title: str) -> int | None:
+    """
+    Estimate the word_rows index where the given career title starts.
+    Uses the first word of the title as a search key (case-insensitive).
+    Returns the row index, or None if not found.
+    """
+    if not title:
+        return None
+    first_word = title.split()[0].lower()
+    for i, row in enumerate(word_rows):
+        for w in row:
+            if w.lower().startswith(first_word[:4]):  # partial match for OCR noise
+                return i
+    return None
 
 
 # ---------------------------------------------------------------------------

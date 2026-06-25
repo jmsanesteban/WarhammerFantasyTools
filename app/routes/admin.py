@@ -54,14 +54,14 @@ def _read_job(job_id: str) -> dict | None:
         return None
 
 
-def _run_pdf_job(job_id: str, file_bytes: bytes) -> None:
+def _run_pdf_job(job_id: str, file_bytes: bytes, fmt: str = 'auto') -> None:
     def progress_cb(percent: int, stage: str) -> None:
         job = _read_job(job_id) or {}
         job.update(percent=percent, stage=stage)
         _write_job(job_id, job)
 
     try:
-        result = process_pdf(file_bytes, progress_cb=progress_cb)
+        result = process_pdf(file_bytes, progress_cb=progress_cb, format_hint=fmt)
         job = _read_job(job_id) or {}
         job.update(percent=100, stage='Completado', done=True, result=result)
         _write_job(job_id, job)
@@ -162,6 +162,7 @@ def pdf_upload():
         return jsonify({'error': 'Solo se aceptan archivos PDF.'}), 400
 
     file_bytes = file.read()
+    pdf_format = request.form.get('pdf_format', 'auto')
     job_id = str(uuid.uuid4())
 
     _write_job(job_id, {
@@ -172,9 +173,10 @@ def pdf_upload():
         'error': None,
         'result': None,
         'started_at': time.time(),
+        'format': pdf_format,
     })
 
-    thread = threading.Thread(target=_run_pdf_job, args=(job_id, file_bytes), daemon=True)
+    thread = threading.Thread(target=_run_pdf_job, args=(job_id, file_bytes, pdf_format), daemon=True)
     thread.start()
 
     return jsonify({'job_id': job_id})

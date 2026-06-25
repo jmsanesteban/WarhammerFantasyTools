@@ -10,12 +10,14 @@
     <div class="card wh-card mb-4">
       <div class="card-body">
         <p class="wh-description">
-          Sube un PDF del libro de Warhammer Fantasy (escaneado o digital). El sistema:
+          Sube un PDF del libro de Warhammer Fantasy. El sistema admite dos formatos:
         </p>
         <ul class="wh-description">
-          <li>Extrae el texto (con OCR si está escaneado).</li>
-          <li>Detecta el idioma y lo traduce al español si es necesario.</li>
-          <li>Analiza el texto buscando las secciones de profesión.</li>
+          <li><strong>Inglés — Career Compendium:</strong> PDF digital, 1 profesión/página, texto en inglés que se traduce automáticamente.</li>
+          <li><strong>Español — libro escaneado:</strong> OCR por página, hasta 2 profesiones dentro de recuadros rojos, texto ya en español (sin traducción).</li>
+        </ul>
+        <ul class="wh-description">
+          <li>Extrae habilidades, talentos, enseres, accesos y salidas de cada profesión.</li>
           <li>Te muestra los resultados para que los revises antes de guardar.</li>
         </ul>
         <p class="text-warning small"><i class="bi bi-exclamation-triangle me-1"></i>
@@ -34,6 +36,34 @@
             <small class="text-muted">Máximo 100 MB. Solo archivos PDF.</small>
             <div id="size-error" class="text-danger small mt-1" style="display:none"></div>
           </div>
+
+          <div class="mb-4">
+            <label class="form-label wh-label">Formato del libro</label>
+            <div class="d-flex flex-wrap gap-3">
+              <div class="form-check">
+                <input class="form-check-input" type="radio" name="pdf_format" id="fmt_auto" value="auto" checked>
+                <label class="form-check-label wh-description" for="fmt_auto">
+                  Detección automática
+                </label>
+              </div>
+              <div class="form-check">
+                <input class="form-check-input" type="radio" name="pdf_format" id="fmt_en" value="english">
+                <label class="form-check-label wh-description" for="fmt_en">
+                  Inglés <span class="text-muted small">— Career Compendium</span>
+                </label>
+              </div>
+              <div class="form-check">
+                <input class="form-check-input" type="radio" name="pdf_format" id="fmt_es" value="spanish">
+                <label class="form-check-label wh-description" for="fmt_es">
+                  Español <span class="text-muted small">— libro escaneado</span>
+                </label>
+              </div>
+            </div>
+            <small class="text-muted">
+              "Español" activa OCR y detecta hasta 2 profesiones por página dentro de recuadros rojos.
+            </small>
+          </div>
+
           <button type="submit" id="submit-btn" class="btn btn-wh">
             <i class="bi bi-upload me-1"></i>Procesar PDF
           </button>
