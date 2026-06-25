@@ -1,0 +1,52 @@
+{% extends 'base.html' %}
+{% block title %}Mis Personajes — Profesiones WH{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+  <div class="d-flex justify-content-between align-items-center mb-3">
+    <h2 class="wh-heading"><i class="bi bi-people me-2"></i>Mis Personajes</h2>
+    <a href="{{ url_for('characters.create') }}" class="btn btn-wh btn-sm">
+      <i class="bi bi-plus-circle me-1"></i>Nuevo personaje
+    </a>
+  </div>
+
+  {% if characters %}
+  <div class="row g-3">
+    {% for char in characters %}
+    <div class="col-md-4">
+      <div class="card wh-card h-100">
+        <div class="card-body">
+          <h5 class="wh-name">{{ char.name }}</h5>
+          <p class="text-muted small mb-1">
+            {% if char.race %}{{ char.race }}{% endif %}
+            {% if char.gender %} · {{ char.gender }}{% endif %}
+          </p>
+          {% if char.professions %}
+          <div>
+            {% for cp in char.professions %}
+            <span class="badge wh-badge-prof me-1">{{ cp.profession.name if cp.profession else '?' }}</span>
+            {% endfor %}
+          </div>
+          {% endif %}
+        </div>
+        <div class="card-footer d-flex gap-2">
+          <a href="{{ url_for('characters.detail', char_id=char.id) }}" class="btn btn-wh btn-sm flex-grow-1">Ver</a>
+          <a href="{{ url_for('characters.edit', char_id=char.id) }}" class="btn btn-outline-warning btn-sm"><i class="bi bi-pencil"></i></a>
+          <form method="POST" action="{{ url_for('characters.delete', char_id=char.id) }}"
+                onsubmit="return confirm('¿Eliminar a {{ char.name }}?')" class="d-inline">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <button class="btn btn-outline-danger btn-sm"><i class="bi bi-trash"></i></button>
+          </form>
+        </div>
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+  {% else %}
+  <div class="alert alert-info wh-alert">
+    <i class="bi bi-info-circle me-2"></i>No tienes personajes todavía.
+    <a href="{{ url_for('characters.create') }}" class="wh-link">¡Crea el primero!</a>
+  </div>
+  {% endif %}
+</div>
+{% endblock %}

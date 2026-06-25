@@ -1,0 +1,53 @@
+{% extends 'base.html' %}
+{% block title %}Talentos — Profesiones WH{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+  <div class="d-flex justify-content-between align-items-center mb-3">
+    <h2 class="wh-heading"><i class="bi bi-star me-2"></i>Talentos</h2>
+    {% if current_user.is_authenticated and current_user.is_admin %}
+    <a href="{{ url_for('skills_talents.create_talent') }}" class="btn btn-wh btn-sm">
+      <i class="bi bi-plus-circle me-1"></i>Nuevo
+    </a>
+    {% endif %}
+  </div>
+
+  <form method="GET" class="d-flex gap-2 mb-4">
+    <input type="text" name="q" class="form-control wh-input" placeholder="Buscar talento…" value="{{ search }}">
+    <button class="btn btn-wh" type="submit"><i class="bi bi-search"></i></button>
+    {% if search %}<a href="{{ url_for('skills_talents.list_talents') }}" class="btn btn-outline-secondary"><i class="bi bi-x-lg"></i></a>{% endif %}
+  </form>
+
+  {% if talents %}
+  <div class="table-responsive">
+    <table class="table wh-table">
+      <thead>
+        <tr><th>Nombre (ES)</th><th>Nombre (EN)</th><th>Máx. veces</th><th>Descripción</th><th></th></tr>
+      </thead>
+      <tbody>
+        {% for talent in talents %}
+        <tr>
+          <td><a href="{{ url_for('skills_talents.talent_detail', talent_id=talent.id) }}" class="wh-link fw-bold">{{ talent.name_es }}</a></td>
+          <td class="text-muted">{{ talent.name_en or '—' }}</td>
+          <td class="text-center">{{ talent.max_times }}</td>
+          <td class="text-muted small">{{ (talent.description or '')[:60] }}{% if talent.description and talent.description|length > 60 %}…{% endif %}</td>
+          <td>
+            {% if current_user.is_authenticated and current_user.is_admin %}
+            <a href="{{ url_for('skills_talents.edit_talent', talent_id=talent.id) }}" class="btn btn-outline-warning btn-sm me-1"><i class="bi bi-pencil"></i></a>
+            <form method="POST" action="{{ url_for('skills_talents.delete_talent', talent_id=talent.id) }}" class="d-inline"
+                  onsubmit="return confirm('¿Eliminar «{{ talent.name_es }}»?')">
+              <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+              <button class="btn btn-outline-danger btn-sm"><i class="bi bi-trash"></i></button>
+            </form>
+            {% endif %}
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <div class="alert alert-info wh-alert">No se encontraron talentos.</div>
+  {% endif %}
+</div>
+{% endblock %}

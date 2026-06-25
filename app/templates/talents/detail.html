@@ -1,0 +1,45 @@
+{% extends 'base.html' %}
+{% block title %}{{ talent.name_es }} — Talentos WH{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+  <nav aria-label="breadcrumb">
+    <ol class="breadcrumb wh-breadcrumb">
+      <li class="breadcrumb-item"><a href="{{ url_for('skills_talents.list_talents') }}" class="wh-link">Talentos</a></li>
+      <li class="breadcrumb-item active">{{ talent.name_es }}</li>
+    </ol>
+  </nav>
+  <div class="card wh-card">
+    <div class="card-header wh-card-header d-flex justify-content-between">
+      <span><i class="bi bi-star me-2"></i>{{ talent.name_es }}</span>
+      {% if current_user.is_authenticated and current_user.is_admin %}
+      <a href="{{ url_for('skills_talents.edit_talent', talent_id=talent.id) }}" class="btn btn-outline-warning btn-sm">
+        <i class="bi bi-pencil me-1"></i>Editar
+      </a>
+      {% endif %}
+    </div>
+    <div class="card-body">
+      {% if talent.name_en %}<p class="text-muted"><em>{{ talent.name_en }}</em></p>{% endif %}
+      <p><small class="wh-label">Máximo: {{ talent.max_times }} vez/veces</small></p>
+      {% if talent.description %}<p class="wh-description">{{ talent.description }}</p>{% endif %}
+    </div>
+  </div>
+  {% if professions %}
+  <h4 class="wh-heading mt-4 mb-3">Profesiones que otorgan este talento</h4>
+  <div class="row g-2">
+    {% for prof in professions %}
+    <div class="col-md-3">
+      <a href="{{ url_for('professions.detail', prof_id=prof.id) }}" class="text-decoration-none">
+        <div class="card wh-card-sm text-center p-2">
+          <small class="wh-name">{{ prof.name }}</small>
+          <span class="badge {% if prof.type=='basic' %}bg-success{% else %}bg-warning text-dark{% endif %} mt-1">
+            {{ 'Básica' if prof.type=='basic' else 'Avanzada' }}
+          </span>
+        </div>
+      </a>
+    </div>
+    {% endfor %}
+  </div>
+  {% endif %}
+</div>
+{% endblock %}

@@ -1,0 +1,125 @@
+{% extends 'base.html' %}
+{% block title %}Revisar PDF — Admin WH{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+  <h2 class="wh-heading mb-2"><i class="bi bi-file-earmark-check me-2"></i>Revisar datos del PDF</h2>
+  <p class="text-muted mb-4">
+    Se encontraron <strong>{{ professions|length }}</strong> profesión(es) potencial(es).
+    Revisa cada una y guarda las que sean correctas.
+  </p>
+
+  {% if professions %}
+    {% for prof_data in professions %}
+    <div class="card wh-card mb-4">
+      <div class="card-header wh-card-header d-flex justify-content-between">
+        <span>{{ loop.index }}. {{ prof_data.name or '(sin nombre)' }}</span>
+        <span class="badge {% if prof_data.type == 'basic' %}bg-success{% else %}bg-warning text-dark{% endif %}">
+          {{ 'Básica' if prof_data.type == 'basic' else 'Avanzada' }}
+        </span>
+      </div>
+      <div class="card-body">
+        <form method="POST" action="{{ url_for('admin.pdf_save') }}">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+          <div class="row g-3 mb-3">
+            <div class="col-md-5">
+              <label class="form-label wh-label">Nombre (ES) *</label>
+              <input type="text" name="name" class="form-control wh-input" required value="{{ prof_data.name or '' }}">
+            </div>
+            <div class="col-md-5">
+              <label class="form-label wh-label">Nombre (EN)</label>
+              <input type="text" name="name_en" class="form-control wh-input" value="{{ prof_data.name_en or '' }}">
+            </div>
+            <div class="col-md-2">
+              <label class="form-label wh-label">Tipo</label>
+              <select name="type" class="form-select wh-input">
+                <option value="basic" {% if prof_data.type == 'basic' %}selected{% endif %}>Básica</option>
+                <option value="advanced" {% if prof_data.type == 'advanced' %}selected{% endif %}>Avanzada</option>
+              </select>
+            </div>
+          </div>
+
+          <!-- Characteristics -->
+          <div class="row g-2 mb-3">
+            {% for field, label in [('ws','HA'),('bs','HP'),('s_char','F'),('t_char','R'),('ag','Ag'),('int_char','I'),('wp','V'),('fel','Em')] %}
+            <div class="col-3 col-md-1">
+              <label class="form-label wh-label text-center d-block">{{ label }}</label>
+              <input type="number" name="{{ field }}" step="5" min="0" max="100"
+                     class="form-control form-control-sm wh-input text-center"
+                     value="{{ prof_data[field] if prof_data[field] is not none else '' }}" placeholder="—">
+            </div>
+            {% endfor %}
+            {% for field, label in [('attacks','A'),('wounds','H'),('strength_bonus','BF'),('toughness_bonus','BR'),('movement','M'),('magic','Mag'),('insanity_points','PL'),('fate_points','PD')] %}
+            <div class="col-3 col-md-1">
+              <label class="form-label wh-label text-center d-block">{{ label }}</label>
+              <input type="number" name="{{ field }}" min="0"
+                     class="form-control form-control-sm wh-input text-center"
+                     value="{{ prof_data[field] if prof_data[field] is not none else '' }}" placeholder="—">
+            </div>
+            {% endfor %}
+          </div>
+
+          <!-- Raw text sections for review -->
+          <div class="row g-2 mb-3">
+            <div class="col-md-6">
+              <label class="form-label wh-label">Habilidades (revisar)</label>
+              <textarea name="skills_raw" rows="2" class="form-control form-control-sm wh-input">{{ prof_data.skills_raw or '' }}</textarea>
+            </div>
+            <div class="col-md-6">
+              <label class="form-label wh-label">Talentos (revisar)</label>
+              <textarea name="talents_raw" rows="2" class="form-control form-control-sm wh-input">{{ prof_data.talents_raw or '' }}</textarea>
+            </div>
+            <div class="col-md-4">
+              <label class="form-label wh-label">Enseres</label>
+              <textarea name="trappings_raw" rows="2" class="form-control form-control-sm wh-input">{{ prof_data.trappings_raw or '' }}</textarea>
+            </div>
+            <div class="col-md-4">
+              <label class="form-label wh-label">Accesos (para enlazar después)</label>
+              <textarea name="entries_raw" rows="2" class="form-control form-control-sm wh-input">{{ prof_data.entries_raw or '' }}</textarea>
+            </div>
+            <div class="col-md-4">
+              <label class="form-label wh-label">Salidas (para enlazar después)</label>
+              <textarea name="exits_raw" rows="2" class="form-control form-control-sm wh-input">{{ prof_data.exits_raw or '' }}</textarea>
+            </div>
+          </div>
+
+          <button type="submit" class="btn btn-wh btn-sm">
+            <i class="bi bi-floppy me-1"></i>Guardar esta profesión
+          </button>
+        </form>
+      </div>
+    </div>
+    {% endfor %}
+  {% else %}
+  <div class="alert alert-warning wh-alert">
+    No se detectaron profesiones en el PDF. Puedes <a href="{{ url_for('professions.create') }}" class="wh-link">crear una manualmente</a>.
+  </div>
+  {% endif %}
+
+  <!-- Extracted text by page (collapsible) -->
+  {% if pages %}
+  <div class="mt-4">
+    <h5 class="wh-heading">Texto extraído por página</h5>
+    <div class="accordion wh-accordion" id="pagesAccordion">
+      {% for page in pages %}
+      <div class="accordion-item wh-accordion-item">
+        <h2 class="accordion-header">
+          <button class="accordion-button wh-accordion-btn collapsed" type="button"
+                  data-bs-toggle="collapse" data-bs-target="#page_{{ page.page }}">
+            Página {{ page.page }}
+            {% if page.translated %}<span class="badge bg-info ms-2">Traducida</span>{% endif %}
+          </button>
+        </h2>
+        <div id="page_{{ page.page }}" class="accordion-collapse collapse">
+          <div class="accordion-body">
+            <pre class="wh-pre-text">{{ page.text }}</pre>
+          </div>
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+  {% endif %}
+</div>
+{% endblock %}

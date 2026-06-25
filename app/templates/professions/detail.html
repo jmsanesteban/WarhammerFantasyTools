@@ -1,0 +1,205 @@
+{% extends 'base.html' %}
+{% block title %}{{ prof.name }} — Profesiones WH{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+  <nav aria-label="breadcrumb">
+    <ol class="breadcrumb wh-breadcrumb">
+      <li class="breadcrumb-item"><a href="{{ url_for('professions.list_professions') }}" class="wh-link">Profesiones</a></li>
+      <li class="breadcrumb-item active">{{ prof.name }}</li>
+    </ol>
+  </nav>
+
+  <div class="row g-4">
+    <!-- Left col: image + basics -->
+    <div class="col-md-3 text-center">
+      {% if prof.image_path %}
+        <img src="{{ url_for('main.uploaded_file', filename=prof.image_path) }}"
+             class="img-fluid wh-prof-image rounded mb-3" alt="{{ prof.name }}">
+      {% else %}
+        <div class="wh-prof-image-placeholder mb-3"><i class="bi bi-person-bounding-box"></i></div>
+      {% endif %}
+      <span class="badge {% if prof.type == 'basic' %}bg-success{% else %}bg-warning text-dark{% endif %} fs-6">
+        {{ 'Básica' if prof.type == 'basic' else 'Avanzada' }}
+      </span>
+      {% if prof.name_en %}
+      <p class="text-muted mt-2"><small><em>{{ prof.name_en }}</em></small></p>
+      {% endif %}
+
+      {% if current_user.is_authenticated and current_user.is_admin %}
+      <div class="mt-3 d-grid gap-2">
+        <a href="{{ url_for('professions.edit', prof_id=prof.id) }}" class="btn btn-outline-warning btn-sm">
+          <i class="bi bi-pencil me-1"></i>Editar
+        </a>
+        <form method="POST" action="{{ url_for('professions.delete', prof_id=prof.id) }}"
+              onsubmit="return confirm('¿Eliminar «{{ prof.name }}»?')">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+          <button class="btn btn-outline-danger btn-sm w-100"><i class="bi bi-trash me-1"></i>Eliminar</button>
+        </form>
+      </div>
+      {% endif %}
+    </div>
+
+    <!-- Right col: details -->
+    <div class="col-md-9">
+      <h2 class="wh-title">{{ prof.name }}</h2>
+      {% if prof.description %}
+      <p class="wh-description">{{ prof.description }}</p>
+      {% endif %}
+
+      <!-- Perfil Principal -->
+      <div class="card wh-card mb-3">
+        <div class="card-header wh-card-header">Perfil Principal</div>
+        <div class="card-body p-2">
+          <div class="table-responsive">
+            <table class="table table-sm wh-stat-table text-center mb-0">
+              <thead>
+                <tr>
+                  {% for field in prof.PRIMARY_FIELDS %}
+                    {% set labels = prof.PRIMARY_LABELS[field] %}
+                    <th title="{{ labels[2] }}">{{ labels[0] }}</th>
+                  {% endfor %}
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  {% for field in prof.PRIMARY_FIELDS %}
+                    {% set val = prof|attr(field) %}
+                    <td class="{% if val %}wh-stat-positive{% endif %}">
+                      {% if val %}+{{ val }}%{% else %}—{% endif %}
+                    </td>
+                  {% endfor %}
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- Perfil Secundario -->
+      <div class="card wh-card mb-3">
+        <div class="card-header wh-card-header">Perfil Secundario</div>
+        <div class="card-body p-2">
+          <div class="table-responsive">
+            <table class="table table-sm wh-stat-table text-center mb-0">
+              <thead>
+                <tr>
+                  {% for field in prof.SECONDARY_FIELDS %}
+                    {% set labels = prof.SECONDARY_LABELS[field] %}
+                    <th title="{{ labels[2] }}">{{ labels[0] }}</th>
+                  {% endfor %}
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  {% for field in prof.SECONDARY_FIELDS %}
+                    {% set val = prof|attr(field) %}
+                    <td class="{% if val %}wh-stat-positive{% endif %}">
+                      {% if val %}+{{ val }}{% else %}—{% endif %}
+                    </td>
+                  {% endfor %}
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- Skills -->
+      {% set skills_groups = prof.get_skills_by_group() %}
+      {% if skills_groups %}
+      <div class="card wh-card mb-3">
+        <div class="card-header wh-card-header"><i class="bi bi-book me-2"></i>Habilidades</div>
+        <div class="card-body">
+          {% for group_key, skill_list in skills_groups.items() %}
+            {% if group_key is none %}
+              {% for skill in skill_list %}
+              <a href="{{ url_for('skills_talents.skill_detail', skill_id=skill.id) }}" class="badge wh-badge-skill me-1 mb-1">{{ skill.name_es }}</a>
+              {% endfor %}
+            {% else %}
+            <span class="wh-choice-group me-2 mb-1">
+              {% for skill in skill_list %}
+                <a href="{{ url_for('skills_talents.skill_detail', skill_id=skill.id) }}" class="badge wh-badge-skill-opt">{{ skill.name_es }}</a>
+                {% if not loop.last %} <span class="wh-or">o</span> {% endif %}
+              {% endfor %}
+            </span>
+            {% endif %}
+          {% endfor %}
+        </div>
+      </div>
+      {% endif %}
+
+      <!-- Talents -->
+      {% set talent_groups = prof.get_talents_by_group() %}
+      {% if talent_groups %}
+      <div class="card wh-card mb-3">
+        <div class="card-header wh-card-header"><i class="bi bi-star me-2"></i>Talentos</div>
+        <div class="card-body">
+          {% for group_key, talent_list in talent_groups.items() %}
+            {% if group_key is none %}
+              {% for talent in talent_list %}
+              <a href="{{ url_for('skills_talents.talent_detail', talent_id=talent.id) }}" class="badge wh-badge-talent me-1 mb-1">{{ talent.name_es }}</a>
+              {% endfor %}
+            {% else %}
+            <span class="wh-choice-group me-2 mb-1">
+              {% for talent in talent_list %}
+                <a href="{{ url_for('skills_talents.talent_detail', talent_id=talent.id) }}" class="badge wh-badge-talent-opt">{{ talent.name_es }}</a>
+                {% if not loop.last %} <span class="wh-or">o</span> {% endif %}
+              {% endfor %}
+            </span>
+            {% endif %}
+          {% endfor %}
+        </div>
+      </div>
+      {% endif %}
+
+      <!-- Trappings -->
+      {% if prof.trappings %}
+      <div class="card wh-card mb-3">
+        <div class="card-header wh-card-header"><i class="bi bi-bag me-2"></i>Enseres</div>
+        <div class="card-body">
+          {% for trapping in prof.trappings %}
+          <span class="badge wh-badge-trapping me-1 mb-1">{{ trapping.name }}</span>
+          {% endfor %}
+        </div>
+      </div>
+      {% endif %}
+
+      <!-- Career connections -->
+      <div class="row g-3">
+        {% if prof.entries %}
+        <div class="col-md-6">
+          <div class="card wh-card">
+            <div class="card-header wh-card-header"><i class="bi bi-arrow-down-circle me-2"></i>Accesos</div>
+            <div class="card-body">
+              {% for entry in prof.entries %}
+              <a href="{{ url_for('professions.detail', prof_id=entry.id) }}" class="badge wh-badge-prof me-1 mb-1">{{ entry.name }}</a>
+              {% endfor %}
+            </div>
+          </div>
+        </div>
+        {% endif %}
+        {% if prof.exits %}
+        <div class="col-md-6">
+          <div class="card wh-card">
+            <div class="card-header wh-card-header"><i class="bi bi-arrow-up-circle me-2"></i>Salidas</div>
+            <div class="card-body">
+              {% for exit_prof in prof.exits %}
+              <a href="{{ url_for('professions.detail', prof_id=exit_prof.id) }}" class="badge wh-badge-prof me-1 mb-1">{{ exit_prof.name }}</a>
+              {% endfor %}
+            </div>
+          </div>
+        </div>
+        {% endif %}
+      </div>
+
+      <!-- Pathfinder quick-link -->
+      <div class="mt-3">
+        <a href="{{ url_for('pathfinder.index') }}?start_id={{ prof.id }}" class="btn btn-wh btn-sm">
+          <i class="bi bi-signpost-split me-1"></i>Buscar camino desde aquí
+        </a>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

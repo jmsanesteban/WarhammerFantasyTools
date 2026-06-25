@@ -1,0 +1,90 @@
+{% extends 'base.html' %}
+{% block title %}{{ char.name }} — Personajes WH{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+  <nav aria-label="breadcrumb">
+    <ol class="breadcrumb wh-breadcrumb">
+      <li class="breadcrumb-item"><a href="{{ url_for('characters.list_characters') }}" class="wh-link">Personajes</a></li>
+      <li class="breadcrumb-item active">{{ char.name }}</li>
+    </ol>
+  </nav>
+
+  <div class="row g-4">
+    <div class="col-md-4">
+      <div class="card wh-card">
+        <div class="card-header wh-card-header">{{ char.name }}</div>
+        <div class="card-body">
+          {% if char.race %}<p><strong class="wh-label">Raza:</strong> {{ char.race }}</p>{% endif %}
+          {% if char.gender %}<p><strong class="wh-label">Género:</strong> {{ char.gender }}</p>{% endif %}
+          {% if char.notes %}<p class="text-muted small">{{ char.notes }}</p>{% endif %}
+        </div>
+        <div class="card-footer d-flex gap-2">
+          <a href="{{ url_for('characters.edit', char_id=char.id) }}" class="btn btn-outline-warning btn-sm">
+            <i class="bi bi-pencil me-1"></i>Editar
+          </a>
+          <form method="POST" action="{{ url_for('characters.delete', char_id=char.id) }}"
+                onsubmit="return confirm('¿Eliminar a {{ char.name }}?')">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <button class="btn btn-outline-danger btn-sm"><i class="bi bi-trash me-1"></i>Eliminar</button>
+          </form>
+        </div>
+      </div>
+    </div>
+
+    <div class="col-md-8">
+      <h4 class="wh-heading mb-3">Carrera profesional</h4>
+      {% if char.professions %}
+        {% for cp in char.professions %}
+        <div class="card wh-card mb-3 {% if cp.is_current %}border-warning{% endif %}">
+          <div class="card-header wh-card-header d-flex justify-content-between">
+            <span>{{ loop.index }}. {{ cp.profession.name if cp.profession else 'Profesión eliminada' }}</span>
+            {% if cp.is_current %}<span class="badge bg-warning text-dark">Actual</span>{% endif %}
+          </div>
+          {% if cp.profession %}
+          <div class="card-body p-2">
+            <div class="table-responsive">
+              <table class="table table-sm wh-stat-table text-center mb-0">
+                <thead>
+                  <tr>
+                    <th>HA</th><th>HP</th><th>F</th><th>R</th><th>Ag</th><th>I</th><th>V</th><th>Em</th>
+                    <th>A</th><th>H</th><th>BF</th><th>BR</th><th>M</th><th>Mag</th><th>PL</th><th>PD</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    {% for field in ['ws','bs','s_char','t_char','ag','int_char','wp','fel'] %}
+                      {% set val = cp.profession|attr(field) %}
+                      <td class="{% if val %}wh-stat-positive{% endif %}">{% if val %}+{{ val }}%{% else %}—{% endif %}</td>
+                    {% endfor %}
+                    {% for field in ['attacks','wounds','strength_bonus','toughness_bonus','movement','magic','insanity_points','fate_points'] %}
+                      {% set val = cp.profession|attr(field) %}
+                      <td class="{% if val %}wh-stat-positive{% endif %}">{% if val %}+{{ val }}{% else %}—{% endif %}</td>
+                    {% endfor %}
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+            <div class="mt-2">
+              {% set skills_g = cp.profession.get_skills_by_group() %}
+              {% if skills_g %}
+              <small class="wh-label">Habilidades:</small>
+              {% for gk, slist in skills_g.items() %}
+                {% if gk is none %}{% for sk in slist %}<span class="badge wh-badge-skill me-1">{{ sk.name_es }}</span>{% endfor %}
+                {% else %}
+                <span class="wh-choice-group">{% for sk in slist %}<span class="badge wh-badge-skill-opt">{{ sk.name_es }}</span>{% if not loop.last %}<span class="wh-or">o</span>{% endif %}{% endfor %}</span>
+                {% endif %}
+              {% endfor %}
+              {% endif %}
+            </div>
+          </div>
+          {% endif %}
+        </div>
+        {% endfor %}
+      {% else %}
+      <p class="text-muted">Sin profesiones asignadas.</p>
+      {% endif %}
+    </div>
+  </div>
+</div>
+{% endblock %}

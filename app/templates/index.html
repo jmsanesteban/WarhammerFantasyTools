@@ -1,0 +1,108 @@
+{% extends 'base.html' %}
+{% block title %}Inicio — Profesiones WH{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+  <div class="text-center mb-5">
+    <h1 class="wh-title display-4">Gestor de Profesiones</h1>
+    <p class="lead wh-subtitle">Warhammer Fantasy Roleplay</p>
+    <hr class="wh-divider">
+  </div>
+
+  <!-- Stats cards -->
+  <div class="row g-4 mb-5">
+    <div class="col-md-4">
+      <div class="card wh-card text-center h-100">
+        <div class="card-body">
+          <i class="bi bi-person-badge wh-icon-lg"></i>
+          <h2 class="wh-stat-number">{{ total_professions }}</h2>
+          <p class="card-text">Profesiones registradas</p>
+          <a href="{{ url_for('professions.list_professions') }}" class="btn btn-wh btn-sm">Ver todas</a>
+        </div>
+      </div>
+    </div>
+    <div class="col-md-4">
+      <div class="card wh-card text-center h-100">
+        <div class="card-body">
+          <i class="bi bi-book wh-icon-lg"></i>
+          <h2 class="wh-stat-number">{{ total_skills }}</h2>
+          <p class="card-text">Habilidades disponibles</p>
+          <a href="{{ url_for('skills_talents.list_skills') }}" class="btn btn-wh btn-sm">Ver todas</a>
+        </div>
+      </div>
+    </div>
+    <div class="col-md-4">
+      <div class="card wh-card text-center h-100">
+        <div class="card-body">
+          <i class="bi bi-star wh-icon-lg"></i>
+          <h2 class="wh-stat-number">{{ total_talents }}</h2>
+          <p class="card-text">Talentos disponibles</p>
+          <a href="{{ url_for('skills_talents.list_talents') }}" class="btn btn-wh btn-sm">Ver todos</a>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Quick actions -->
+  <div class="row g-3 mb-5">
+    <div class="col-md-6">
+      <div class="card wh-card h-100">
+        <div class="card-body">
+          <h5 class="card-title wh-heading"><i class="bi bi-signpost-split me-2"></i>Buscador de Caminos</h5>
+          <p class="card-text">Encuentra la ruta más corta entre dos profesiones, con todos los requisitos y mejoras acumuladas.</p>
+          <a href="{{ url_for('pathfinder.index') }}" class="btn btn-wh">Abrir buscador</a>
+        </div>
+      </div>
+    </div>
+    {% if current_user.is_authenticated %}
+    <div class="col-md-6">
+      <div class="card wh-card h-100">
+        <div class="card-body">
+          <h5 class="card-title wh-heading"><i class="bi bi-people me-2"></i>Mis Personajes</h5>
+          <p class="card-text">Crea y gestiona tus personajes, asignándoles profesiones y habilidades.</p>
+          <a href="{{ url_for('characters.list_characters') }}" class="btn btn-wh">Ver personajes</a>
+        </div>
+      </div>
+    </div>
+    {% else %}
+    <div class="col-md-6">
+      <div class="card wh-card h-100">
+        <div class="card-body">
+          <h5 class="card-title wh-heading"><i class="bi bi-person-plus me-2"></i>Únete</h5>
+          <p class="card-text">Regístrate para crear y guardar tus personajes y acceder a todas las funciones.</p>
+          <a href="{{ url_for('auth.register') }}" class="btn btn-wh">Registrarse</a>
+        </div>
+      </div>
+    </div>
+    {% endif %}
+  </div>
+
+  <!-- Recent professions -->
+  {% if recent_professions %}
+  <h4 class="wh-heading mb-3"><i class="bi bi-clock-history me-2"></i>Profesiones recientes</h4>
+  <div class="row g-3">
+    {% for prof in recent_professions %}
+    <div class="col-md-4 col-lg-2">
+      <a href="{{ url_for('professions.detail', prof_id=prof.id) }}" class="text-decoration-none">
+        <div class="card wh-card-sm text-center h-100 p-2">
+          {% if prof.image_path %}
+            <img src="{{ url_for('main.uploaded_file', filename=prof.image_path) }}"
+                 class="card-img-top wh-prof-thumb" alt="{{ prof.name }}">
+          {% else %}
+            <div class="wh-prof-thumb-placeholder"><i class="bi bi-person-bounding-box"></i></div>
+          {% endif %}
+          <div class="card-body p-1">
+            <small class="wh-name">{{ prof.name }}</small>
+            <br>
+            <span class="badge {% if prof.type == 'basic' %}bg-success{% else %}bg-warning text-dark{% endif %} badge-sm">
+              {{ 'Básica' if prof.type == 'basic' else 'Avanzada' }}
+            </span>
+          </div>
+        </div>
+      </a>
+    </div>
+    {% endfor %}
+  </div>
+  {% endif %}
+</div>
+{% endblock %}

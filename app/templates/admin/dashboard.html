@@ -1,0 +1,80 @@
+{% extends 'base.html' %}
+{% block title %}Panel de Administración — Profesiones WH{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+  <h2 class="wh-heading mb-4"><i class="bi bi-speedometer2 me-2"></i>Panel de Administración</h2>
+
+  <div class="row g-3 mb-5">
+    <div class="col-md-2">
+      <div class="card wh-card text-center">
+        <div class="card-body">
+          <div class="wh-stat-number">{{ stats.professions }}</div>
+          <small>Profesiones</small>
+          <div class="mt-1">
+            <span class="badge bg-success">{{ stats.basic }} básicas</span>
+            <span class="badge bg-warning text-dark">{{ stats.advanced }} avanz.</span>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="col-md-2">
+      <div class="card wh-card text-center">
+        <div class="card-body">
+          <div class="wh-stat-number">{{ stats.skills }}</div>
+          <small>Habilidades</small>
+        </div>
+      </div>
+    </div>
+    <div class="col-md-2">
+      <div class="card wh-card text-center">
+        <div class="card-body">
+          <div class="wh-stat-number">{{ stats.talents }}</div>
+          <small>Talentos</small>
+        </div>
+      </div>
+    </div>
+    <div class="col-md-2">
+      <div class="card wh-card text-center">
+        <div class="card-body">
+          <div class="wh-stat-number">{{ stats.users }}</div>
+          <small>Usuarios</small>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="row g-3">
+    <div class="col-md-4">
+      <div class="card wh-card">
+        <div class="card-header wh-card-header"><i class="bi bi-file-earmark-pdf me-2"></i>Importar PDF</div>
+        <div class="card-body">
+          <p>Sube un PDF del libro de Warhammer Fantasy para importar profesiones automáticamente.</p>
+          <a href="{{ url_for('admin.pdf_upload') }}" class="btn btn-wh">Subir PDF</a>
+        </div>
+      </div>
+    </div>
+    <div class="col-md-4">
+      <div class="card wh-card">
+        <div class="card-header wh-card-header"><i class="bi bi-person-badge me-2"></i>Profesiones</div>
+        <div class="card-body">
+          <p>Crear, editar y gestionar profesiones manualmente.</p>
+          <div class="d-flex gap-2">
+            <a href="{{ url_for('professions.create') }}" class="btn btn-wh">Nueva</a>
+            <a href="{{ url_for('professions.list_professions') }}" class="btn btn-outline-secondary">Ver todas</a>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="col-md-4">
+      <div class="card wh-card">
+        <div class="card-header wh-card-header"><i class="bi bi-people me-2"></i>Usuarios</div>
+        <div class="card-body">
+          <p>Gestionar cuentas de usuario: roles y estado.</p>
+          <a href="{{ url_for('admin.users') }}" class="btn btn-wh">Gestionar</a>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

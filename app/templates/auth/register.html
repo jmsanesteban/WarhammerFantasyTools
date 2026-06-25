@@ -1,0 +1,40 @@
+{% extends 'base.html' %}
+{% block title %}Registrarse — Profesiones WH{% endblock %}
+
+{% block content %}
+<div class="container mt-5">
+  <div class="row justify-content-center">
+    <div class="col-md-5">
+      <div class="card wh-card">
+        <div class="card-body p-4">
+          <h3 class="wh-heading text-center mb-4"><i class="bi bi-person-plus me-2"></i>Crear cuenta</h3>
+          <form method="POST">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <div class="mb-3">
+              <label class="form-label wh-label">Usuario <span class="text-danger">*</span></label>
+              <input type="text" name="username" class="form-control wh-input" required autofocus minlength="3">
+            </div>
+            <div class="mb-3">
+              <label class="form-label wh-label">Email <span class="text-danger">*</span></label>
+              <input type="email" name="email" class="form-control wh-input" required>
+            </div>
+            <div class="mb-3">
+              <label class="form-label wh-label">Contraseña <span class="text-danger">*</span></label>
+              <input type="password" name="password" class="form-control wh-input" required minlength="6">
+            </div>
+            <div class="mb-3">
+              <label class="form-label wh-label">Confirmar contraseña <span class="text-danger">*</span></label>
+              <input type="password" name="confirm_password" class="form-control wh-input" required>
+            </div>
+            <button type="submit" class="btn btn-wh w-100">Registrarse</button>
+          </form>
+          <hr class="wh-divider-sm">
+          <p class="text-center mb-0">
+            <small>¿Ya tienes cuenta? <a href="{{ url_for('auth.login') }}" class="wh-link">Inicia sesión</a></small>
+          </p>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

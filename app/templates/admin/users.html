@@ -1,0 +1,59 @@
+{% extends 'base.html' %}
+{% block title %}Usuarios — Admin WH{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+  <h2 class="wh-heading mb-4"><i class="bi bi-people me-2"></i>Gestión de Usuarios</h2>
+
+  <div class="table-responsive">
+    <table class="table wh-table">
+      <thead>
+        <tr>
+          <th>Usuario</th><th>Email</th><th>Rol</th><th>Estado</th><th>Registrado</th><th>Acciones</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for user in users %}
+        <tr>
+          <td><strong>{{ user.username }}</strong>{% if user.id == current_user.id %} <span class="badge bg-info">Tú</span>{% endif %}</td>
+          <td>{{ user.email }}</td>
+          <td>
+            <form method="POST" action="{{ url_for('admin.change_role', user_id=user.id) }}" class="d-flex align-items-center gap-1">
+              <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+              <select name="role" class="form-select form-select-sm wh-input" style="width:110px"
+                      onchange="this.form.submit()" {% if user.id == current_user.id %}disabled{% endif %}>
+                <option value="user" {% if user.role=='user' %}selected{% endif %}>Usuario</option>
+                <option value="admin" {% if user.role=='admin' %}selected{% endif %}>Admin</option>
+              </select>
+            </form>
+          </td>
+          <td>
+            <span class="badge {% if user.active %}bg-success{% else %}bg-danger{% endif %}">
+              {{ 'Activo' if user.active else 'Inactivo' }}
+            </span>
+          </td>
+          <td><small>{{ user.created_at.strftime('%d/%m/%Y') }}</small></td>
+          <td>
+            <form method="POST" action="{{ url_for('admin.toggle_user', user_id=user.id) }}" class="d-inline">
+              <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+              <button class="btn btn-sm {% if user.active %}btn-outline-warning{% else %}btn-outline-success{% endif %}"
+                      {% if user.id == current_user.id %}disabled{% endif %}
+                      title="{{ 'Desactivar' if user.active else 'Activar' }}">
+                <i class="bi {% if user.active %}bi-pause-circle{% else %}bi-play-circle{% endif %}"></i>
+              </button>
+            </form>
+            {% if user.id != current_user.id %}
+            <form method="POST" action="{{ url_for('admin.delete_user', user_id=user.id) }}" class="d-inline"
+                  onsubmit="return confirm('¿Eliminar al usuario {{ user.username }}?')">
+              <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+              <button class="btn btn-sm btn-outline-danger" title="Eliminar"><i class="bi bi-trash"></i></button>
+            </form>
+            {% endif %}
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

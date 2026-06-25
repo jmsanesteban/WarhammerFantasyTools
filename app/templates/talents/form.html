@@ -1,0 +1,35 @@
+{% extends 'base.html' %}
+{% block title %}{% if talent %}Editar {{ talent.name_es }}{% else %}Nuevo Talento{% endif %} — Profesiones WH{% endblock %}
+
+{% block content %}
+<div class="container mt-4" style="max-width:600px">
+  <h2 class="wh-heading mb-4">{% if talent %}Editar: {{ talent.name_es }}{% else %}Nuevo Talento{% endif %}</h2>
+  <form method="POST">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <div class="card wh-card">
+      <div class="card-body">
+        <div class="mb-3">
+          <label class="form-label wh-label">Nombre (ES) *</label>
+          <input type="text" name="name_es" class="form-control wh-input" required value="{{ talent.name_es if talent else '' }}">
+        </div>
+        <div class="mb-3">
+          <label class="form-label wh-label">Nombre (EN)</label>
+          <input type="text" name="name_en" class="form-control wh-input" value="{{ talent.name_en if talent and talent.name_en else '' }}">
+        </div>
+        <div class="mb-3">
+          <label class="form-label wh-label">Máximo de veces</label>
+          <input type="number" name="max_times" class="form-control wh-input" min="1" value="{{ talent.max_times if talent else 1 }}">
+        </div>
+        <div class="mb-3">
+          <label class="form-label wh-label">Descripción</label>
+          <textarea name="description" rows="3" class="form-control wh-input">{{ talent.description if talent and talent.description else '' }}</textarea>
+        </div>
+        <div class="d-flex gap-2">
+          <button type="submit" class="btn btn-wh"><i class="bi bi-floppy me-1"></i>Guardar</button>
+          <a href="{{ url_for('skills_talents.list_talents') }}" class="btn btn-outline-secondary">Cancelar</a>
+        </div>
+      </div>
+    </div>
+  </form>
+</div>
+{% endblock %}

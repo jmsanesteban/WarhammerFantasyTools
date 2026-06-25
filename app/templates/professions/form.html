@@ -1,0 +1,204 @@
+{% extends 'base.html' %}
+{% block title %}{% if prof %}Editar {{ prof.name }}{% else %}Nueva Profesión{% endif %} — Profesiones WH{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+  <h2 class="wh-heading mb-4">
+    <i class="bi bi-person-badge me-2"></i>
+    {% if prof %}Editar: {{ prof.name }}{% else %}Nueva Profesión{% endif %}
+  </h2>
+
+  <form method="POST" enctype="multipart/form-data">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+    <!-- Basic info -->
+    <div class="card wh-card mb-4">
+      <div class="card-header wh-card-header">Información básica</div>
+      <div class="card-body">
+        <div class="row g-3">
+          <div class="col-md-5">
+            <label class="form-label wh-label">Nombre (ES) *</label>
+            <input type="text" name="name" class="form-control wh-input" required
+                   value="{{ prof.name if prof else '' }}">
+          </div>
+          <div class="col-md-5">
+            <label class="form-label wh-label">Nombre (EN)</label>
+            <input type="text" name="name_en" class="form-control wh-input"
+                   value="{{ prof.name_en if prof and prof.name_en else '' }}">
+          </div>
+          <div class="col-md-2">
+            <label class="form-label wh-label">Tipo *</label>
+            <select name="type" class="form-select wh-input">
+              <option value="basic" {% if not prof or prof.type == 'basic' %}selected{% endif %}>Básica</option>
+              <option value="advanced" {% if prof and prof.type == 'advanced' %}selected{% endif %}>Avanzada</option>
+            </select>
+          </div>
+          <div class="col-12">
+            <label class="form-label wh-label">Descripción</label>
+            <textarea name="description" rows="3" class="form-control wh-input">{{ prof.description if prof and prof.description else '' }}</textarea>
+          </div>
+          <div class="col-md-4">
+            <label class="form-label wh-label">Imagen</label>
+            <input type="file" name="image" class="form-control wh-input" accept="image/*">
+            {% if prof and prof.image_path %}
+            <small class="text-muted">Imagen actual: {{ prof.image_path.split('/')[-1] }}</small>
+            {% endif %}
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Primary characteristics -->
+    <div class="card wh-card mb-4">
+      <div class="card-header wh-card-header">Perfil Principal (% — múltiplos de 5)</div>
+      <div class="card-body">
+        <div class="row g-2">
+          {% for field in ['ws','bs','s_char','t_char','ag','int_char','wp','fel'] %}
+            {% set labels = {'ws': ('HA','Habilidad de Armas'), 'bs': ('HP','Habilidad de Proyectiles'),
+                              's_char': ('F','Fuerza'), 't_char': ('R','Resistencia'),
+                              'ag': ('Ag','Agilidad'), 'int_char': ('I','Inteligencia'),
+                              'wp': ('V','Voluntad'), 'fel': ('Em','Empatía')} %}
+            <div class="col-6 col-md-3">
+              <label class="form-label wh-label" title="{{ labels[field][1] }}">{{ labels[field][0] }} — {{ labels[field][1] }}</label>
+              <input type="number" name="{{ field }}" class="form-control wh-input text-center"
+                     step="5" min="0" max="100"
+                     value="{{ prof|attr(field) if prof and prof|attr(field) is not none else '' }}"
+                     placeholder="—">
+            </div>
+          {% endfor %}
+        </div>
+      </div>
+    </div>
+
+    <!-- Secondary characteristics -->
+    <div class="card wh-card mb-4">
+      <div class="card-header wh-card-header">Perfil Secundario (unidades)</div>
+      <div class="card-body">
+        <div class="row g-2">
+          {% for field in ['attacks','wounds','strength_bonus','toughness_bonus','movement','magic','insanity_points','fate_points'] %}
+            {% set labels = {'attacks': ('A','Ataques'), 'wounds': ('H','Heridas'),
+                              'strength_bonus': ('BF','Bonus Fuerza'), 'toughness_bonus': ('BR','Bonus Resistencia'),
+                              'movement': ('M','Movimiento'), 'magic': ('Mag','Magia'),
+                              'insanity_points': ('PL','Puntos de Locura'), 'fate_points': ('PD','Puntos de Destino')} %}
+            <div class="col-6 col-md-3">
+              <label class="form-label wh-label" title="{{ labels[field][1] }}">{{ labels[field][0] }} — {{ labels[field][1] }}</label>
+              <input type="number" name="{{ field }}" class="form-control wh-input text-center"
+                     min="0"
+                     value="{{ prof|attr(field) if prof and prof|attr(field) is not none else '' }}"
+                     placeholder="—">
+            </div>
+          {% endfor %}
+        </div>
+      </div>
+    </div>
+
+    <!-- Skills -->
+    <div class="card wh-card mb-4">
+      <div class="card-header wh-card-header d-flex justify-content-between">
+        <span><i class="bi bi-book me-2"></i>Habilidades</span>
+        <small class="text-muted">Grupo de elección: mismo número = el jugador elige una</small>
+      </div>
+      <div class="card-body">
+        <div class="row g-1" style="max-height:300px; overflow-y:auto;">
+          {% for skill in skills %}
+          {% set selected = prof and prof.profession_skills | selectattr('skill_id','eq', skill.id) | list %}
+          {% set sel = selected[0] if selected else none %}
+          <div class="col-md-4 col-lg-3 d-flex align-items-center gap-1">
+            <input type="checkbox" name="skill_{{ skill.id }}" id="sk_{{ skill.id }}"
+                   class="form-check-input mt-0" {% if sel %}checked{% endif %}>
+            <label class="form-check-label wh-label flex-grow-1" for="sk_{{ skill.id }}">{{ skill.name_es }}</label>
+            <input type="number" name="skill_group_{{ skill.id }}" class="form-control form-control-sm wh-input"
+                   style="width:52px" min="1" placeholder="Gr."
+                   value="{{ sel.choice_group if sel and sel.choice_group else '' }}"
+                   title="Grupo de elección">
+          </div>
+          {% endfor %}
+        </div>
+        {% if not skills %}
+        <p class="text-muted small">No hay habilidades en la base de datos.
+          <a href="{{ url_for('skills_talents.create_skill') }}" class="wh-link">Crea una primero</a>.
+        </p>
+        {% endif %}
+      </div>
+    </div>
+
+    <!-- Talents -->
+    <div class="card wh-card mb-4">
+      <div class="card-header wh-card-header"><i class="bi bi-star me-2"></i>Talentos</div>
+      <div class="card-body">
+        <div class="row g-1" style="max-height:250px; overflow-y:auto;">
+          {% for talent in talents %}
+          {% set selected = prof and prof.profession_talents | selectattr('talent_id','eq', talent.id) | list %}
+          {% set sel = selected[0] if selected else none %}
+          <div class="col-md-4 col-lg-3 d-flex align-items-center gap-1">
+            <input type="checkbox" name="talent_{{ talent.id }}" id="tl_{{ talent.id }}"
+                   class="form-check-input mt-0" {% if sel %}checked{% endif %}>
+            <label class="form-check-label wh-label flex-grow-1" for="tl_{{ talent.id }}">{{ talent.name_es }}</label>
+            <input type="number" name="talent_group_{{ talent.id }}" class="form-control form-control-sm wh-input"
+                   style="width:52px" min="1" placeholder="Gr."
+                   value="{{ sel.choice_group if sel and sel.choice_group else '' }}"
+                   title="Grupo de elección">
+          </div>
+          {% endfor %}
+        </div>
+      </div>
+    </div>
+
+    <!-- Trappings -->
+    <div class="card wh-card mb-4">
+      <div class="card-header wh-card-header"><i class="bi bi-bag me-2"></i>Enseres</div>
+      <div class="card-body">
+        <label class="form-label wh-label">Lista separada por comas</label>
+        <textarea name="trappings" rows="3" class="form-control wh-input"
+                  placeholder="Espada, Escudo, Armadura de malla…">{% if prof %}{{ prof.trappings | map(attribute='name') | join(', ') }}{% endif %}</textarea>
+      </div>
+    </div>
+
+    <!-- Career exits -->
+    <div class="card wh-card mb-4">
+      <div class="card-header wh-card-header"><i class="bi bi-arrow-up-circle me-2"></i>Salidas (Career Exits)</div>
+      <div class="card-body">
+        <div class="row g-1" style="max-height:250px; overflow-y:auto;">
+          {% set all_professions = [] %}
+          {% for skill in skills %}{% endfor %}
+          {# We need all professions here - passed via template context or queried #}
+          {% if exits_list is defined %}
+            {% for p in exits_list %}
+            <div class="col-md-4 col-lg-3">
+              <div class="form-check">
+                <input type="checkbox" name="exits" value="{{ p.id }}" class="form-check-input"
+                       id="exit_{{ p.id }}"
+                       {% if prof and p in prof.exits %}checked{% endif %}>
+                <label class="form-check-label wh-label" for="exit_{{ p.id }}">{{ p.name }}</label>
+              </div>
+            </div>
+            {% endfor %}
+          {% else %}
+          <p class="text-muted small">Las salidas se configuran desde la vista de edición completa.</p>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+
+    <div class="d-flex gap-2">
+      <button type="submit" class="btn btn-wh"><i class="bi bi-floppy me-1"></i>Guardar</button>
+      <a href="{{ url_for('professions.list_professions') }}" class="btn btn-outline-secondary">Cancelar</a>
+    </div>
+  </form>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+// Auto-disable group input when skill checkbox is unchecked
+document.querySelectorAll('input[type=checkbox]').forEach(cb => {
+  const match = cb.name.match(/^(skill|talent)_(\d+)$/);
+  if (!match) return;
+  const groupInput = document.querySelector(`input[name="${match[1]}_group_${match[2]}"]`);
+  if (!groupInput) return;
+  const toggle = () => { groupInput.disabled = !cb.checked; };
+  cb.addEventListener('change', toggle);
+  toggle();
+});
+</script>
+{% endblock %}
