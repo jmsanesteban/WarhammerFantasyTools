@@ -1,0 +1,187 @@
+{% extends 'base.html' %}
+{% block title %}Diccionario de sinónimos — Admin WH{% endblock %}
+
+{% block content %}
+<div class="container mt-4" style="max-width:900px">
+  <div class="d-flex justify-content-between align-items-center mb-3">
+    <h2 class="wh-heading mb-0">
+      <i class="bi bi-translate me-2"></i>Diccionario de sinónimos
+      <span class="text-muted fs-6 ms-2">({{ synonyms|length }})</span>
+    </h2>
+  </div>
+
+  <p class="text-muted small mb-4">
+    Mapa de traducción para la importación de PDFs. El <strong>término original</strong> es la forma
+    que aparece en el OCR o en Google Translate; el <strong>término correcto</strong> es el nombre
+    oficial en español de WFRP2 tal como figura en el catálogo de habilidades y talentos.<br>
+    Las entradas marcadas como <strong>prefijo</strong> también reemplazan variantes con especialización,
+    por ejemplo «conocimiento académico (Genealogía)» → «sabiduría académica (Genealogía)».
+  </p>
+
+  {# ── Search ── #}
+  <form method="GET" class="d-flex gap-2 mb-4">
+    <input type="text" name="q" class="form-control wh-input" style="max-width:320px"
+           placeholder="Buscar sinónimo…" value="{{ search }}" autocomplete="off">
+    <button class="btn btn-wh" type="submit"><i class="bi bi-search"></i></button>
+    {% if search %}
+    <a href="{{ url_for('admin.synonyms') }}" class="btn btn-outline-secondary" title="Limpiar">
+      <i class="bi bi-x-lg"></i>
+    </a>
+    {% endif %}
+  </form>
+
+  {# ── Table ── #}
+  {% if synonyms %}
+  <div class="table-responsive mb-4">
+    <table class="table wh-table table-hover align-middle">
+      <thead>
+        <tr>
+          <th>Término original <small class="text-muted fw-normal">(en el PDF)</small></th>
+          <th>→</th>
+          <th>Término correcto <small class="text-muted fw-normal">(WFRP2 ES)</small></th>
+          <th>Prefijo</th>
+          <th>Notas</th>
+          <th class="text-end">Acciones</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for syn in synonyms %}
+        <tr id="row-{{ syn.id }}">
+          <td class="wh-syn-source">{{ syn.source }}</td>
+          <td class="text-muted">→</td>
+          <td class="wh-syn-target">{{ syn.target }}</td>
+          <td>
+            {% if syn.is_prefix %}
+            <span class="badge bg-info text-dark">sí</span>
+            {% else %}
+            <span class="text-muted small">—</span>
+            {% endif %}
+          </td>
+          <td class="text-muted small">{{ syn.notes or '—' }}</td>
+          <td class="text-end">
+            {# Edit button — opens inline form #}
+            <button class="btn btn-outline-warning btn-sm" title="Editar"
+                    onclick="openEdit({{ syn.id }}, {{ syn.source|tojson }}, {{ syn.target|tojson }}, {{ syn.is_prefix|tojson }}, {{ (syn.notes or '')|tojson }})">
+              <i class="bi bi-pencil"></i>
+            </button>
+            {# Delete #}
+            <form method="POST" action="{{ url_for('admin.synonym_delete', syn_id=syn.id) }}"
+                  class="d-inline" onsubmit="return confirm('¿Eliminar «{{ syn.source }}»?')">
+              <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+              <button class="btn btn-outline-danger btn-sm" title="Eliminar">
+                <i class="bi bi-trash"></i>
+              </button>
+            </form>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <div class="alert wh-alert mb-4">
+    {% if search %}
+    No se encontraron sinónimos que coincidan con «{{ search }}».
+    <a href="{{ url_for('admin.synonyms') }}" class="wh-link">Ver todos</a>
+    {% else %}
+    No hay sinónimos definidos todavía.
+    {% endif %}
+  </div>
+  {% endif %}
+
+  {# ── Add new ── #}
+  <div class="card wh-card">
+    <div class="card-header wh-card-header">
+      <i class="bi bi-plus-circle me-2"></i>Añadir sinónimo
+    </div>
+    <div class="card-body">
+      <form method="POST" action="{{ url_for('admin.synonym_create') }}">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <div class="row g-3 align-items-end">
+          <div class="col-md-4">
+            <label class="form-label wh-label">Término original *</label>
+            <input type="text" name="source" class="form-control wh-input" required
+                   placeholder="ej. encanto">
+            <small class="text-muted">Se guarda en minúsculas.</small>
+          </div>
+          <div class="col-md-4">
+            <label class="form-label wh-label">Término correcto *</label>
+            <input type="text" name="target" class="form-control wh-input" required
+                   placeholder="ej. carisma">
+          </div>
+          <div class="col-md-1 text-center">
+            <label class="form-label wh-label d-block mb-2">Prefijo</label>
+            <input type="checkbox" name="is_prefix" class="form-check-input" style="width:1.2em;height:1.2em">
+          </div>
+          <div class="col-md-3">
+            <label class="form-label wh-label">Notas</label>
+            <input type="text" name="notes" class="form-control wh-input"
+                   placeholder="opcional">
+          </div>
+        </div>
+        <button type="submit" class="btn btn-wh btn-sm mt-3">
+          <i class="bi bi-plus-circle me-1"></i>Añadir
+        </button>
+      </form>
+    </div>
+  </div>
+</div>
+
+{# ── Inline edit modal ── #}
+<div class="modal fade" id="editModal" tabindex="-1">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content wh-card">
+      <div class="modal-header wh-card-header border-0">
+        <h5 class="modal-title wh-label mb-0">Editar sinónimo</h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+      </div>
+      <form id="editForm" method="POST">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <div class="modal-body">
+          <div class="mb-3">
+            <label class="form-label wh-label">Término original *</label>
+            <input type="text" id="editSource" name="source" class="form-control wh-input" required>
+          </div>
+          <div class="mb-3">
+            <label class="form-label wh-label">Término correcto *</label>
+            <input type="text" id="editTarget" name="target" class="form-control wh-input" required>
+          </div>
+          <div class="mb-3 d-flex align-items-center gap-3">
+            <label class="form-label wh-label mb-0">Prefijo</label>
+            <input type="checkbox" id="editPrefix" name="is_prefix" class="form-check-input"
+                   style="width:1.2em;height:1.2em">
+          </div>
+          <div class="mb-3">
+            <label class="form-label wh-label">Notas</label>
+            <input type="text" id="editNotes" name="notes" class="form-control wh-input">
+          </div>
+        </div>
+        <div class="modal-footer border-0">
+          <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
+          <button type="submit" class="btn btn-wh">Guardar cambios</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<style>
+.wh-table { color: var(--wh-text); border-color: #3a2e18; }
+.wh-table thead th { border-color: #5c4a1e; color: #c9a84c; font-size:.8rem; text-transform:uppercase; letter-spacing:.05em; }
+.wh-table tbody tr { border-color: #2a2010; }
+.wh-table tbody tr:hover { background: rgba(200,168,80,.06); }
+.wh-syn-source { color: #f0b060; font-family: monospace; font-size: .85rem; }
+.wh-syn-target { color: #9cec9c; font-family: monospace; font-size: .85rem; }
+</style>
+
+<script>
+function openEdit(id, source, target, isPrefix, notes) {
+  document.getElementById('editSource').value = source;
+  document.getElementById('editTarget').value = target;
+  document.getElementById('editPrefix').checked = isPrefix;
+  document.getElementById('editNotes').value  = notes;
+  document.getElementById('editForm').action  = '/admin/synonyms/' + id + '/edit';
+  new bootstrap.Modal(document.getElementById('editModal')).show();
+}
+</script>
+{% endblock %}

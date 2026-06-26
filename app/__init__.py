@@ -35,7 +35,7 @@ def create_app(config_name='default'):
     app.register_blueprint(admin_bp, url_prefix='/admin')
 
     # Import models so Flask-Migrate detects them
-    from app.models import user, profession, skill, talent, character  # noqa: F401
+    from app.models import user, profession, skill, talent, character, synonym  # noqa: F401
 
     _register_cli_commands(app)
     _register_error_handlers(app)
@@ -73,6 +73,16 @@ def _register_cli_commands(app):
                     conn.execute(text('ALTER TABLE skills ADD COLUMN talentos_asociados VARCHAR(500) NULL'))
                     click.echo('  Added skills.talentos_asociados')
             click.echo('Database tables created/verified.')
+            # Seed default synonyms on first run
+            from app.models.synonym import Synonym, DEFAULT_SYNONYMS
+            if Synonym.query.count() == 0:
+                for source, target, is_prefix, notes in DEFAULT_SYNONYMS:
+                    db.session.add(Synonym(
+                        source=source, target=target,
+                        is_prefix=is_prefix, notes=notes or None,
+                    ))
+                db.session.commit()
+                click.echo(f'  Seeded {len(DEFAULT_SYNONYMS)} default synonyms.')
 
     @app.cli.command('create-admin')
     def create_admin_cmd():

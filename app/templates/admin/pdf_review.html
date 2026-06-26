@@ -352,19 +352,17 @@
   const TYPE_LABEL    = { skills: 'habilidad', talents: 'talento' };
   const SECTION_LABEL = { skills: 'Habilidades', talents: 'Talentos' };
 
-  /* ── Known GTranslate → WFRP2 ES synonyms (prefix-aware) ── */
-  const ES_SYNONYMS = {
-    'conocimiento académico': 'sabiduría académica',
-    'conocimiento común':     'sabiduría popular',
-    'encanto':                'carisma',
-    'chisme':                 'cotilleo',
-    'curación':               'curar',
-    'ocultación':             'esconderse',
-    'lectura/escritura':      'leer/escribir',
-    'leer / escribir':        'leer/escribir',
-  };
+  /* ── Synonyms loaded from DB ── */
+  const _RAW_SYNONYMS = {{ synonyms_data | tojson }};
+  const SYN_EXACT  = {};   // source (lower) → target
+  const SYN_PREFIX = {};   // source (lower) → target  (also matches "source (x)")
+  _RAW_SYNONYMS.forEach(function(s) {
+    var src = s.source.toLowerCase();
+    if (s.is_prefix) SYN_PREFIX[src] = s.target;
+    else             SYN_EXACT[src]  = s.target;
+  });
 
-  /* Known stat abbreviations — used to strip trailing "(Int)" etc. */
+  /* ── Stat abbreviations — strip trailing "(Int)" etc. ── */
   const STAT_ABBREVS = new Set([
     'HA','HP','F','R','AG','I','V','EM',
     'A','H','BF','BR','M','MAG','PL','PD',
@@ -378,14 +376,32 @@
     }).trim();
   }
 
-  function applySynonym(text) {
-    var lower = text.toLowerCase().trim();
-    if (ES_SYNONYMS[lower]) return ES_SYNONYMS[lower];
-    for (var key in ES_SYNONYMS) {
-      if (lower.startsWith(key + ' (') || lower.startsWith(key + '('))
-        return ES_SYNONYMS[key] + lower.slice(key.length);
+  /**
+   * Apply synonym normalization AND strip stat suffix.
+   * Returns the corrected/clean chip text (ready to save).
+   */
+  function applyReplacement(text) {
+    var stripped = stripStatSuffix(text.trim());
+    var lower    = stripped.toLowerCase();
+
+    // Exact synonym
+    if (SYN_EXACT[lower] !== undefined) return SYN_EXACT[lower];
+
+    // Prefix synonym (longest key first)
+    var prefixKeys = Object.keys(SYN_PREFIX).sort(function(a,b){ return b.length - a.length; });
+    for (var i = 0; i < prefixKeys.length; i++) {
+      var key = prefixKeys[i];
+      if (lower.startsWith(key + ' (') || lower.startsWith(key + '(')) {
+        return SYN_PREFIX[key] + stripped.slice(key.length);
+      }
     }
-    return lower;
+
+    return stripped;   // at minimum strip the stat suffix
+  }
+
+  /** Like applyReplacement but used only for _isMatch — doesn't mutate, just normalises. */
+  function applySynonym(text) {
+    return applyReplacement(text);
   }
 
   /* ── ChipField ── */
@@ -404,8 +420,14 @@
     this.chips     = [];
     this.accepted  = new Set();   // chip texts manually confirmed by the user
 
-    var raw = (this.hidden.value || '').trim();
-    if (raw) this.chips = raw.split(',').map(s => s.trim()).filter(Boolean);
+    var type = this.type;
+    var raw  = (this.hidden.value || '').trim();
+    if (raw) {
+      this.chips = raw.split(',').map(function(s) {
+        var t = s.trim();
+        return (type !== 'trappings') ? applyReplacement(t) : t;
+      }).filter(Boolean);
+    }
 
     this._render();
     this._bindInput();
@@ -552,7 +574,7 @@
   };
 
   ChipField.prototype.addChip = function (text) {
-    text = text.trim();
+    text = this.type !== 'trappings' ? applyReplacement(text.trim()) : text.trim();
     if (text && !this.chips.includes(text)) {
       this.chips.push(text);
       this._render();

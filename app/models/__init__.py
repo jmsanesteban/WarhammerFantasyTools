@@ -7,6 +7,7 @@ from app.models.profession import (
 from app.models.skill import Skill
 from app.models.talent import Talent
 from app.models.character import Character, CharacterProfession, CharacterSkill, CharacterTalent
+from app.models.synonym import Synonym
 
 __all__ = [
     'User',
@@ -14,4 +15,5 @@ __all__ = [
     'career_exits_table',
     'Skill', 'Talent',
     'Character', 'CharacterProfession', 'CharacterSkill', 'CharacterTalent',
+    'Synonym',
 ]

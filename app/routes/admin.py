@@ -15,6 +15,7 @@ from app.models.user import User
 from app.models.profession import Profession, ProfessionSkill, ProfessionTalent, ProfessionTrapping
 from app.models.skill import Skill
 from app.models.talent import Talent
+from app.models.synonym import Synonym, DEFAULT_SYNONYMS
 from app.utils import admin_required, allowed_file
 from app.services.pdf_processor import process_pdf
 
@@ -227,12 +228,24 @@ def pdf_result(job_id):
 
     professions = _validate_pdf_professions(result.get('professions', []), all_skills, all_talents)
 
+    # Pass synonyms to JS so chips can be auto-replaced
+    synonyms_data = [
+        {'source': s.source, 'target': s.target, 'is_prefix': s.is_prefix}
+        for s in Synonym.query.order_by(Synonym.source).all()
+    ]
+    if not synonyms_data:
+        synonyms_data = [
+            {'source': src, 'target': tgt, 'is_prefix': pfx}
+            for src, tgt, pfx, _ in DEFAULT_SYNONYMS
+        ]
+
     return render_template(
         'admin/pdf_review.html',
         pages=result.get('pages', []),
         professions=professions,
         skills_data=skills_data,
         talents_data=talents_data,
+        synonyms_data=synonyms_data,
         db_empty=len(all_skills) == 0 and len(all_talents) == 0,
     )
 
@@ -334,45 +347,26 @@ def _apply_prof_relations(prof: 'Profession') -> None:
 
 
 # ---------------------------------------------------------------------------
-# Known translation discrepancies: Google-Translate ES → official WFRP2 ES
-# Prefix entries apply when a specialization follows, e.g.
-# "conocimiento académico (genealogía)" → "sabiduría académica (genealogía)".
+# Synonym helpers — DB-backed, with hardcoded fallback
 # ---------------------------------------------------------------------------
-_ES_SYNONYMS = {
-    # prefix-matching entries (order matters: longest first to avoid partial hits)
-    'conocimiento académico':     'sabiduría académica',
-    'conocimiento común':         'sabiduría popular',
-    # exact entries
-    'lectura/escritura':          'leer/escribir',
-    'leer / escribir':            'leer/escribir',
-    'encanto':                    'carisma',
-    'chisme':                     'cotilleo',
-    'curación':                   'curar',
-    'cuidado de animales':        'criar animales',
-    'adiestramiento animal':      'adiestrar animales',
-    'ocultación':                 'esconderse',
-    'sangre fría':                'sangre fría',
-    'franqueza':                  'contundente',
-    'blather':                    'disparatar',
-}
-
-# EN synonyms (alternate EN → official EN name in DB)
-_EN_SYNONYMS = {
-    'academic knowledge':         'academic knowledge',
-    'common knowledge':           'common knowledge',
-    'read/write':                 'read/write',
-    'gossip':                     'gossip',
-    'heal':                       'heal',
-}
 
 # Stat characteristic abbreviations — used to strip trailing "(Int)", "(Ag)", etc.
 _STAT_ABBREVS = frozenset({
-    'HA', 'HP', 'F', 'R', 'AG', 'I', 'V', 'EM',          # Spanish primary
-    'A', 'H', 'BF', 'BR', 'M', 'MAG', 'PL', 'PD',         # Spanish secondary
-    'WS', 'BS', 'S', 'T', 'INT', 'WP', 'FEL',             # English primary
-    'W', 'SB', 'TB', 'IP', 'FP',                           # English secondary
+    'HA', 'HP', 'F', 'R', 'AG', 'I', 'V', 'EM',
+    'A', 'H', 'BF', 'BR', 'M', 'MAG', 'PL', 'PD',
+    'WS', 'BS', 'S', 'T', 'INT', 'WP', 'FEL',
+    'W', 'SB', 'TB', 'IP', 'FP',
 })
 _RE_STAT_SUFFIX = re.compile(r'\s*\(([A-Za-z]{1,4})\)\s*$')
+
+# EN synonyms for matching English PDF terms against DB name_en
+_EN_SYNONYMS = {
+    'academic knowledge': 'academic knowledge',
+    'common knowledge':   'common knowledge',
+    'read/write':         'read/write',
+    'gossip':             'gossip',
+    'heal':               'heal',
+}
 
 
 def _strip_stat_suffix(text: str) -> str:
@@ -383,35 +377,68 @@ def _strip_stat_suffix(text: str) -> str:
     return text.strip()
 
 
-def _normalize_item(item: str, synonyms: dict) -> str:
+def _get_synonyms_dicts():
     """
-    Strip stat suffix, apply synonym table (exact + prefix match),
-    return lowercased token.
+    Load synonym dicts from DB.
+    Returns (exact_dict, prefix_dict) where keys are lower-case source terms.
+    Falls back to DEFAULT_SYNONYMS if the table is empty or unreachable.
+    """
+    try:
+        rows = Synonym.query.all()
+    except Exception:
+        rows = []
+
+    exact  = {}
+    prefix = {}
+    for s in rows:
+        key = s.source.lower()
+        if s.is_prefix:
+            prefix[key] = s.target
+        else:
+            exact[key] = s.target
+
+    if not exact and not prefix:
+        # Seed fallback from defaults (table not yet seeded)
+        for source, target, is_prefix, _ in DEFAULT_SYNONYMS:
+            if is_prefix:
+                prefix[source.lower()] = target
+            else:
+                exact[source.lower()] = target
+
+    return exact, prefix
+
+
+def _normalize_item(item: str, exact_syns: dict, prefix_syns: dict = None) -> str:
+    """
+    Strip stat suffix, apply synonym dicts (exact first, then prefix),
+    return lower-cased token.
     """
     stripped = _strip_stat_suffix(item)
     low = stripped.lower().strip()
 
-    # Exact synonym match
-    if low in synonyms:
-        return synonyms[low]
+    if low in exact_syns:
+        return exact_syns[low]
 
-    # Prefix match: "conocimiento académico (foo)" → "sabiduría académica (foo)"
-    for key, replacement in synonyms.items():
-        if low.startswith(key + ' (') or low.startswith(key + '('):
-            return replacement + low[len(key):]
+    if prefix_syns:
+        # Sort by length descending so longer keys win over shorter ones
+        for key in sorted(prefix_syns, key=len, reverse=True):
+            if low.startswith(key + ' (') or low.startswith(key + '('):
+                return prefix_syns[key] + stripped[len(key):]
 
     return low
 
 
-def _fuzzy_match(item: str, name_set: set, synonyms: dict, cutoff: float = 0.65) -> bool:
+def _fuzzy_match(item: str, name_set: set,
+                 exact_syns: dict, prefix_syns: dict = None,
+                 cutoff: float = 0.65) -> bool:
     """
     Multi-strategy matching.  Returns True on first hit.
-      1. Direct synonym hit
-      2. difflib fuzzy on full normalized name
-      3. Slash-component split (e.g. 'leer/escribir')
-      4. Base-name match — strip parenthetical specialization
+      1. Synonym normalization + direct hit
+      2. difflib fuzzy on normalised name
+      3. Slash-component split
+      4. Base-name (strip specialization parens)
     """
-    norm = _normalize_item(item, synonyms)
+    norm = _normalize_item(item, exact_syns, prefix_syns)
 
     if norm in name_set:
         return True
@@ -419,11 +446,11 @@ def _fuzzy_match(item: str, name_set: set, synonyms: dict, cutoff: float = 0.65)
         return True
 
     parts = [p.strip() for p in re.split(r'[/,]', norm) if p.strip()]
-    if len(parts) > 1:
-        if any(difflib.get_close_matches(p, name_set, n=1, cutoff=cutoff) for p in parts):
-            return True
+    if len(parts) > 1 and any(
+        difflib.get_close_matches(p, name_set, n=1, cutoff=cutoff) for p in parts
+    ):
+        return True
 
-    # Strategy 4: base name — "sabiduría popular (tres cualquiera)" → "sabiduría popular"
     base = re.sub(r'\s*\(.*$', '', norm).strip()
     if base and base != norm:
         if base in name_set:
@@ -434,12 +461,14 @@ def _fuzzy_match(item: str, name_set: set, synonyms: dict, cutoff: float = 0.65)
     return False
 
 
-def _fuzzy_find(item: str, name_map: dict, synonyms: dict, cutoff: float = 0.7):
+def _fuzzy_find(item: str, name_map: dict,
+                exact_syns: dict, prefix_syns: dict = None,
+                cutoff: float = 0.7):
     """
     Like _fuzzy_match but returns the matched DB object (or None).
-    name_map: {lowercased_name: db_object}
+    name_map: {lower-cased name: db_object}
     """
-    norm = _normalize_item(item, synonyms)
+    norm = _normalize_item(item, exact_syns, prefix_syns)
 
     if norm in name_map:
         return name_map[norm]
@@ -454,7 +483,6 @@ def _fuzzy_find(item: str, name_map: dict, synonyms: dict, cutoff: float = 0.7):
         if hits:
             return name_map[hits[0]]
 
-    # Strategy 4: base name
     base = re.sub(r'\s*\(.*$', '', norm).strip()
     if base and base != norm:
         if base in name_map:
@@ -510,7 +538,11 @@ def _validate_pdf_professions(professions: list, all_skills, all_talents) -> lis
         is_en = bool(prof.get('skills_raw_en'))
         skills_to_check  = prof.get('skills_raw_en')  or prof.get('skills_raw', '')
         talents_to_check = prof.get('talents_raw_en') or prof.get('talents_raw', '')
-        syn = _EN_SYNONYMS if is_en else _ES_SYNONYMS
+
+        if is_en:
+            exact_syn, prefix_syn = _EN_SYNONYMS, {}
+        else:
+            exact_syn, prefix_syn = _get_synonyms_dicts()
 
         unmatched_skills = []
         if skill_names:
@@ -518,7 +550,7 @@ def _validate_pdf_professions(professions: list, all_skills, all_talents) -> lis
                 item = raw.strip()
                 if not item or len(item) > 80 or '.' in item:
                     continue
-                if not _fuzzy_match(item, skill_names, syn, cutoff=0.65):
+                if not _fuzzy_match(item, skill_names, exact_syn, prefix_syn, cutoff=0.65):
                     unmatched_skills.append(item)
 
         unmatched_talents = []
@@ -527,7 +559,7 @@ def _validate_pdf_professions(professions: list, all_skills, all_talents) -> lis
                 item = raw.strip()
                 if not item or len(item) > 80 or '.' in item:
                     continue
-                if not _fuzzy_match(item, talent_names, syn, cutoff=0.65):
+                if not _fuzzy_match(item, talent_names, exact_syn, prefix_syn, cutoff=0.65):
                     unmatched_talents.append(item)
 
         prof['unmatched_skills']  = unmatched_skills
@@ -541,35 +573,107 @@ def _validate_pdf_professions(professions: list, all_skills, all_talents) -> lis
 
 def _match_and_save_skills(prof, skills_raw: str, skills_raw_en: str = ''):
     all_skills = Skill.query.all()
-    skill_map = {s.name_es.lower(): s for s in all_skills}
+    skill_map  = {s.name_es.lower(): s for s in all_skills}
     skill_map.update({s.name_en.lower(): s for s in all_skills if s.name_en})
 
     source = skills_raw_en or skills_raw
-    syn = _EN_SYNONYMS if skills_raw_en else _ES_SYNONYMS
-    parts = [p.strip() for p in source.replace(' or ', ',').replace(' o ', ',').split(',')]
-    group = None
-    for raw_part in parts:
+    if skills_raw_en:
+        exact_syn, prefix_syn = _EN_SYNONYMS, {}
+    else:
+        exact_syn, prefix_syn = _get_synonyms_dicts()
+
+    for raw_part in source.replace(' or ', ',').replace(' o ', ',').split(','):
+        raw_part = raw_part.strip()
         if not raw_part or len(raw_part) > 80 or '.' in raw_part:
             continue
-        skill = _fuzzy_find(raw_part, skill_map, syn, cutoff=0.7)
+        skill = _fuzzy_find(raw_part, skill_map, exact_syn, prefix_syn, cutoff=0.7)
         if skill:
-            ps = ProfessionSkill(profession_id=prof.id, skill_id=skill.id, choice_group=group)
-            db.session.add(ps)
+            db.session.add(ProfessionSkill(profession_id=prof.id, skill_id=skill.id))
 
 
 def _match_and_save_talents(prof, talents_raw: str, talents_raw_en: str = ''):
     all_talents = Talent.query.all()
-    talent_map = {t.name_es.lower(): t for t in all_talents}
+    talent_map  = {t.name_es.lower(): t for t in all_talents}
     talent_map.update({t.name_en.lower(): t for t in all_talents if t.name_en})
 
     source = talents_raw_en or talents_raw
-    syn = _EN_SYNONYMS if talents_raw_en else _ES_SYNONYMS
-    parts = [p.strip() for p in source.replace(' or ', ',').replace(' o ', ',').split(',')]
-    group = None
-    for raw_part in parts:
+    if talents_raw_en:
+        exact_syn, prefix_syn = _EN_SYNONYMS, {}
+    else:
+        exact_syn, prefix_syn = _get_synonyms_dicts()
+
+    for raw_part in source.replace(' or ', ',').replace(' o ', ',').split(','):
+        raw_part = raw_part.strip()
         if not raw_part or len(raw_part) > 80 or '.' in raw_part:
             continue
-        talent = _fuzzy_find(raw_part, talent_map, syn, cutoff=0.7)
+        talent = _fuzzy_find(raw_part, talent_map, exact_syn, prefix_syn, cutoff=0.7)
         if talent:
-            pt = ProfessionTalent(profession_id=prof.id, talent_id=talent.id, choice_group=group)
-            db.session.add(pt)
+            db.session.add(ProfessionTalent(profession_id=prof.id, talent_id=talent.id))
+
+
+# ---------------------------------------------------------------------------
+# Synonym dictionary CRUD
+# ---------------------------------------------------------------------------
+
+@admin_bp.route('/synonyms')
+@login_required
+@admin_required
+def synonyms():
+    q = request.args.get('q', '').strip()
+    query = Synonym.query.order_by(Synonym.source)
+    if q:
+        like = f'%{q}%'
+        query = query.filter(
+            db.or_(Synonym.source.ilike(like), Synonym.target.ilike(like),
+                   Synonym.notes.ilike(like))
+        )
+    return render_template('admin/synonyms.html', synonyms=query.all(), search=q)
+
+
+@admin_bp.route('/synonyms/new', methods=['POST'])
+@login_required
+@admin_required
+def synonym_create():
+    source = request.form.get('source', '').strip().lower()
+    target = request.form.get('target', '').strip()
+    is_prefix = bool(request.form.get('is_prefix'))
+    notes  = request.form.get('notes', '').strip() or None
+
+    if not source or not target:
+        flash('El término original y el correcto son obligatorios.', 'danger')
+        return redirect(url_for('admin.synonyms'))
+
+    if Synonym.query.filter_by(source=source).first():
+        flash(f'Ya existe un sinónimo para «{source}».', 'warning')
+        return redirect(url_for('admin.synonyms'))
+
+    db.session.add(Synonym(source=source, target=target, is_prefix=is_prefix, notes=notes))
+    db.session.commit()
+    flash(f'Sinónimo «{source}» → «{target}» añadido.', 'success')
+    return redirect(url_for('admin.synonyms'))
+
+
+@admin_bp.route('/synonyms/<int:syn_id>/edit', methods=['POST'])
+@login_required
+@admin_required
+def synonym_edit(syn_id):
+    syn = db.get_or_404(Synonym, syn_id)
+    syn.source    = request.form.get('source', '').strip().lower()
+    syn.target    = request.form.get('target', '').strip()
+    syn.is_prefix = bool(request.form.get('is_prefix'))
+    syn.notes     = request.form.get('notes', '').strip() or None
+    db.session.commit()
+    flash('Sinónimo actualizado.', 'success')
+    return redirect(url_for('admin.synonyms'))
+
+
+@admin_bp.route('/synonyms/<int:syn_id>/delete', methods=['POST'])
+@login_required
+@admin_required
+def synonym_delete(syn_id):
+    syn = db.get_or_404(Synonym, syn_id)
+    source = syn.source
+    db.session.delete(syn)
+    db.session.commit()
+    flash(f'Sinónimo «{source}» eliminado.', 'success')
+    return redirect(url_for('admin.synonyms'))
