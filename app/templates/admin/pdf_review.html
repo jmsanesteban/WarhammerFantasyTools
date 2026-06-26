@@ -404,6 +404,41 @@
     return applyReplacement(text);
   }
 
+  /** Capitalize first letter after start, space, '(' or '/'. */
+  function toTitleCase(text) {
+    return text.replace(/(^|[\s(/])([a-záéíóúüñ])/gi, function(_, sep, c) {
+      return sep + c.toUpperCase();
+    });
+  }
+
+  /**
+   * After applyReplacement, look up the result in the DB list to get the
+   * correctly-cased name.  Falls back to toTitleCase if not found.
+   */
+  function getProperCase(text, dbList) {
+    if (!text) return text;
+    var lower = text.toLowerCase();
+
+    // Exact DB match
+    for (var i = 0; i < dbList.length; i++) {
+      if (dbList[i].es.toLowerCase() === lower) return dbList[i].es;
+    }
+
+    // Base-name match: "sabiduría académica (genealogía)" → "Sabiduría Académica" + " (Genealogía)"
+    var base = lower.replace(/\s*\(.*$/, '').trim();
+    if (base && base !== lower) {
+      for (var j = 0; j < dbList.length; j++) {
+        if (dbList[j].es.toLowerCase() === base) {
+          var rest = text.slice(base.length);   // e.g. " (Genealogía)"
+          return dbList[j].es + toTitleCase(rest);
+        }
+      }
+    }
+
+    // Fallback: title-case the whole text
+    return toTitleCase(text);
+  }
+
   /* ── ChipField ── */
   function ChipField(wrap) {
     this.wrap      = wrap;
@@ -420,12 +455,16 @@
     this.chips     = [];
     this.accepted  = new Set();   // chip texts manually confirmed by the user
 
-    var type = this.type;
-    var raw  = (this.hidden.value || '').trim();
+    var type   = this.type;
+    var dbList = type === 'skills' ? SKILLS_DB : (type === 'talents' ? TALENTS_DB : []);
+    var raw    = (this.hidden.value || '').trim();
     if (raw) {
       this.chips = raw.split(',').map(function(s) {
         var t = s.trim();
-        return (type !== 'trappings') ? applyReplacement(t) : t;
+        if (type !== 'trappings') {
+          t = getProperCase(applyReplacement(t), dbList);
+        }
+        return t;
       }).filter(Boolean);
     }
 
@@ -574,9 +613,12 @@
   };
 
   ChipField.prototype.addChip = function (text) {
-    text = this.type !== 'trappings' ? applyReplacement(text.trim()) : text.trim();
-    if (text && !this.chips.includes(text)) {
-      this.chips.push(text);
+    var t = text.trim();
+    if (this.type !== 'trappings') {
+      t = getProperCase(applyReplacement(t), this.dbList);
+    }
+    if (t && !this.chips.includes(t)) {
+      this.chips.push(t);
       this._render();
     }
   };

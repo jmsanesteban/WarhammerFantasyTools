@@ -72,6 +72,29 @@ def _register_cli_commands(app):
                 if 'talentos_asociados' not in skill_cols:
                     conn.execute(text('ALTER TABLE skills ADD COLUMN talentos_asociados VARCHAR(500) NULL'))
                     click.echo('  Added skills.talentos_asociados')
+            # profession_skills / profession_talents: add id PK + specialization
+            for tbl in ('profession_skills', 'profession_talents'):
+                tbl_cols = {c['name'] for c in inspector.get_columns(tbl)}
+                with db.engine.begin() as conn:
+                    if 'id' not in tbl_cols:
+                        try:
+                            conn.execute(text(f'ALTER TABLE {tbl} DROP PRIMARY KEY'))
+                            conn.execute(text(
+                                f'ALTER TABLE {tbl} '
+                                f'ADD COLUMN id INT NOT NULL AUTO_INCREMENT PRIMARY KEY FIRST'
+                            ))
+                            click.echo(f'  Migrated {tbl}: composite PK → id PK')
+                        except Exception as e:
+                            click.echo(f'  Warning ({tbl} PK migration): {e}')
+                    if 'specialization' not in tbl_cols:
+                        try:
+                            conn.execute(text(
+                                f'ALTER TABLE {tbl} ADD COLUMN specialization VARCHAR(150) NULL'
+                            ))
+                            click.echo(f'  Added {tbl}.specialization')
+                        except Exception as e:
+                            click.echo(f'  Warning ({tbl} specialization): {e}')
+
             click.echo('Database tables created/verified.')
             # Seed default synonyms on first run
             from app.models.synonym import Synonym, DEFAULT_SYNONYMS

@@ -571,6 +571,19 @@ def _validate_pdf_professions(professions: list, all_skills, all_talents) -> lis
     return professions
 
 
+_RE_SPECIALIZATION = re.compile(r'\s*\(([^)]+)\)\s*$')
+
+
+def _extract_specialization(chip_text: str) -> str | None:
+    """Return the specialization string from 'Base Name (Specialization)', or None."""
+    m = _RE_SPECIALIZATION.search(chip_text.strip())
+    if m:
+        inner = m.group(1).strip()
+        if inner.upper() not in _STAT_ABBREVS:
+            return inner
+    return None
+
+
 def _match_and_save_skills(prof, skills_raw: str, skills_raw_en: str = ''):
     all_skills = Skill.query.all()
     skill_map  = {s.name_es.lower(): s for s in all_skills}
@@ -582,13 +595,20 @@ def _match_and_save_skills(prof, skills_raw: str, skills_raw_en: str = ''):
     else:
         exact_syn, prefix_syn = _get_synonyms_dicts()
 
+    seen: set = set()
     for raw_part in source.replace(' or ', ',').replace(' o ', ',').split(','):
         raw_part = raw_part.strip()
         if not raw_part or len(raw_part) > 80 or '.' in raw_part:
             continue
         skill = _fuzzy_find(raw_part, skill_map, exact_syn, prefix_syn, cutoff=0.7)
         if skill:
-            db.session.add(ProfessionSkill(profession_id=prof.id, skill_id=skill.id))
+            spec = _extract_specialization(raw_part)
+            key  = (skill.id, spec)
+            if key not in seen:
+                seen.add(key)
+                db.session.add(ProfessionSkill(
+                    profession_id=prof.id, skill_id=skill.id, specialization=spec
+                ))
 
 
 def _match_and_save_talents(prof, talents_raw: str, talents_raw_en: str = ''):
@@ -602,13 +622,20 @@ def _match_and_save_talents(prof, talents_raw: str, talents_raw_en: str = ''):
     else:
         exact_syn, prefix_syn = _get_synonyms_dicts()
 
+    seen: set = set()
     for raw_part in source.replace(' or ', ',').replace(' o ', ',').split(','):
         raw_part = raw_part.strip()
         if not raw_part or len(raw_part) > 80 or '.' in raw_part:
             continue
         talent = _fuzzy_find(raw_part, talent_map, exact_syn, prefix_syn, cutoff=0.7)
         if talent:
-            db.session.add(ProfessionTalent(profession_id=prof.id, talent_id=talent.id))
+            spec = _extract_specialization(raw_part)
+            key  = (talent.id, spec)
+            if key not in seen:
+                seen.add(key)
+                db.session.add(ProfessionTalent(
+                    profession_id=prof.id, talent_id=talent.id, specialization=spec
+                ))
 
 
 # ---------------------------------------------------------------------------

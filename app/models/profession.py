@@ -11,24 +11,29 @@ career_exits_table = db.Table(
 
 
 class ProfessionSkill(db.Model):
-    """Association between a profession and a skill, with optional OR-group."""
+    """Association between a profession and a skill, with optional specialization and OR-group."""
     __tablename__ = 'profession_skills'
 
-    profession_id = db.Column(db.Integer, db.ForeignKey('professions.id', ondelete='CASCADE'), primary_key=True)
-    skill_id = db.Column(db.Integer, db.ForeignKey('skills.id', ondelete='CASCADE'), primary_key=True)
-    # Null = mandatory skill. Same integer = player picks one from the group.
-    choice_group = db.Column(db.Integer, nullable=True)
+    id             = db.Column(db.Integer, primary_key=True, autoincrement=True)
+    profession_id  = db.Column(db.Integer, db.ForeignKey('professions.id', ondelete='CASCADE'), nullable=False, index=True)
+    skill_id       = db.Column(db.Integer, db.ForeignKey('skills.id', ondelete='CASCADE'), nullable=False)
+    # Specialization: "Tileano", "dos cualquiera", etc.  Null = base skill (no specialization)
+    specialization = db.Column(db.String(150), nullable=True)
+    # Null = mandatory. Same integer = player picks one from the group.
+    choice_group   = db.Column(db.Integer, nullable=True)
 
     skill = db.relationship('Skill', lazy='joined')
 
 
 class ProfessionTalent(db.Model):
-    """Association between a profession and a talent, with optional OR-group."""
+    """Association between a profession and a talent, with optional specialization and OR-group."""
     __tablename__ = 'profession_talents'
 
-    profession_id = db.Column(db.Integer, db.ForeignKey('professions.id', ondelete='CASCADE'), primary_key=True)
-    talent_id = db.Column(db.Integer, db.ForeignKey('talents.id', ondelete='CASCADE'), primary_key=True)
-    choice_group = db.Column(db.Integer, nullable=True)
+    id             = db.Column(db.Integer, primary_key=True, autoincrement=True)
+    profession_id  = db.Column(db.Integer, db.ForeignKey('professions.id', ondelete='CASCADE'), nullable=False, index=True)
+    talent_id      = db.Column(db.Integer, db.ForeignKey('talents.id', ondelete='CASCADE'), nullable=False)
+    specialization = db.Column(db.String(150), nullable=True)
+    choice_group   = db.Column(db.Integer, nullable=True)
 
     talent = db.relationship('Talent', lazy='joined')
 
@@ -157,19 +162,17 @@ class Profession(db.Model):
     }
 
     def get_skills_by_group(self):
-        """Return skills grouped: {None: [mandatory], 1: [opt_a, opt_b], ...}"""
+        """Return ProfessionSkill rows grouped: {None: [ps, ...], 1: [ps, ps], ...}"""
         groups = {}
         for ps in self.profession_skills:
-            key = ps.choice_group
-            groups.setdefault(key, []).append(ps.skill)
+            groups.setdefault(ps.choice_group, []).append(ps)
         return groups
 
     def get_talents_by_group(self):
-        """Return talents grouped: {None: [mandatory], 1: [opt_a, opt_b], ...}"""
+        """Return ProfessionTalent rows grouped: {None: [pt, ...], 1: [pt, pt], ...}"""
         groups = {}
         for pt in self.profession_talents:
-            key = pt.choice_group
-            groups.setdefault(key, []).append(pt.talent)
+            groups.setdefault(pt.choice_group, []).append(pt)
         return groups
 
     def __repr__(self):

@@ -133,21 +133,39 @@ def _save_skills_talents(prof: Profession):
     """Parse skill/talent selections from form and persist association rows."""
     form = request.form
 
-    # Skills: field names like 'skill_<skill_id>' and 'skill_group_<skill_id>'
-    skill_ids = [int(k.split('_')[1]) for k in form if k.startswith('skill_') and not k.startswith('skill_group_')]
+    # Skills: 'skill_<id>' checkboxes (exclude 'skill_group_*' and 'skill_spec_*')
+    skill_ids = [
+        int(k[len('skill_'):])
+        for k in form
+        if k.startswith('skill_') and not k.startswith('skill_group_') and not k.startswith('skill_spec_')
+    ]
     for skill_id in skill_ids:
         group_val = form.get(f'skill_group_{skill_id}', '').strip()
         choice_group = int(group_val) if group_val.isdigit() else None
-        ps = ProfessionSkill(profession_id=prof.id, skill_id=skill_id, choice_group=choice_group)
-        db.session.add(ps)
+        specs_raw = form.get(f'skill_spec_{skill_id}', '').strip()
+        specs = [s.strip() for s in specs_raw.split(',') if s.strip()] if specs_raw else [None]
+        for spec in specs:
+            db.session.add(ProfessionSkill(
+                profession_id=prof.id, skill_id=skill_id,
+                specialization=spec, choice_group=choice_group,
+            ))
 
-    # Talents
-    talent_ids = [int(k.split('_')[1]) for k in form if k.startswith('talent_') and not k.startswith('talent_group_')]
+    # Talents: 'talent_<id>' checkboxes (exclude 'talent_group_*' and 'talent_spec_*')
+    talent_ids = [
+        int(k[len('talent_'):])
+        for k in form
+        if k.startswith('talent_') and not k.startswith('talent_group_') and not k.startswith('talent_spec_')
+    ]
     for talent_id in talent_ids:
         group_val = form.get(f'talent_group_{talent_id}', '').strip()
         choice_group = int(group_val) if group_val.isdigit() else None
-        pt = ProfessionTalent(profession_id=prof.id, talent_id=talent_id, choice_group=choice_group)
-        db.session.add(pt)
+        specs_raw = form.get(f'talent_spec_{talent_id}', '').strip()
+        specs = [s.strip() for s in specs_raw.split(',') if s.strip()] if specs_raw else [None]
+        for spec in specs:
+            db.session.add(ProfessionTalent(
+                profession_id=prof.id, talent_id=talent_id,
+                specialization=spec, choice_group=choice_group,
+            ))
 
     # Exits (career exits)
     exit_ids = request.form.getlist('exits')

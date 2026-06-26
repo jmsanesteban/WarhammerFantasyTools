@@ -111,15 +111,19 @@
       <div class="card wh-card mb-3">
         <div class="card-header wh-card-header"><i class="bi bi-book me-2"></i>Habilidades</div>
         <div class="card-body">
-          {% for group_key, skill_list in skills_groups.items() %}
+          {% for group_key, ps_list in skills_groups.items() %}
             {% if group_key is none %}
-              {% for skill in skill_list %}
-              <a href="{{ url_for('skills_talents.skill_detail', skill_id=skill.id) }}" class="badge wh-badge-skill me-1 mb-1">{{ skill.name_es }}</a>
+              {% for ps in ps_list %}
+              <a href="{{ url_for('skills_talents.skill_detail', skill_id=ps.skill.id) }}" class="badge wh-badge-skill me-1 mb-1">
+                {{ ps.skill.name_es }}{% if ps.specialization %} ({{ ps.specialization }}){% endif %}
+              </a>
               {% endfor %}
             {% else %}
             <span class="wh-choice-group me-2 mb-1">
-              {% for skill in skill_list %}
-                <a href="{{ url_for('skills_talents.skill_detail', skill_id=skill.id) }}" class="badge wh-badge-skill-opt">{{ skill.name_es }}</a>
+              {% for ps in ps_list %}
+                <a href="{{ url_for('skills_talents.skill_detail', skill_id=ps.skill.id) }}" class="badge wh-badge-skill-opt">
+                  {{ ps.skill.name_es }}{% if ps.specialization %} ({{ ps.specialization }}){% endif %}
+                </a>
                 {% if not loop.last %} <span class="wh-or">o</span> {% endif %}
               {% endfor %}
             </span>
@@ -135,15 +139,19 @@
       <div class="card wh-card mb-3">
         <div class="card-header wh-card-header"><i class="bi bi-star me-2"></i>Talentos</div>
         <div class="card-body">
-          {% for group_key, talent_list in talent_groups.items() %}
+          {% for group_key, pt_list in talent_groups.items() %}
             {% if group_key is none %}
-              {% for talent in talent_list %}
-              <a href="{{ url_for('skills_talents.talent_detail', talent_id=talent.id) }}" class="badge wh-badge-talent me-1 mb-1">{{ talent.name_es }}</a>
+              {% for pt in pt_list %}
+              <a href="{{ url_for('skills_talents.talent_detail', talent_id=pt.talent.id) }}" class="badge wh-badge-talent me-1 mb-1">
+                {{ pt.talent.name_es }}{% if pt.specialization %} ({{ pt.specialization }}){% endif %}
+              </a>
               {% endfor %}
             {% else %}
             <span class="wh-choice-group me-2 mb-1">
-              {% for talent in talent_list %}
-                <a href="{{ url_for('skills_talents.talent_detail', talent_id=talent.id) }}" class="badge wh-badge-talent-opt">{{ talent.name_es }}</a>
+              {% for pt in pt_list %}
+                <a href="{{ url_for('skills_talents.talent_detail', talent_id=pt.talent.id) }}" class="badge wh-badge-talent-opt">
+                  {{ pt.talent.name_es }}{% if pt.specialization %} ({{ pt.specialization }}){% endif %}
+                </a>
                 {% if not loop.last %} <span class="wh-or">o</span> {% endif %}
               {% endfor %}
             </span>

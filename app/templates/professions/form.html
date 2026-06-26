@@ -3,10 +3,17 @@
 
 {% block content %}
 <div class="container mt-4">
-  <h2 class="wh-heading mb-4">
-    <i class="bi bi-person-badge me-2"></i>
-    {% if prof %}Editar: {{ prof.name }}{% else %}Nueva Profesión{% endif %}
-  </h2>
+  <div class="d-flex align-items-center justify-content-between mb-4">
+    <h2 class="wh-heading mb-0">
+      <i class="bi bi-person-badge me-2"></i>
+      {% if prof %}Editar: {{ prof.name }}{% else %}Nueva Profesión{% endif %}
+    </h2>
+    {% if not prof %}
+    <a href="{{ url_for('admin.pdf_upload') }}" class="btn btn-outline-warning btn-sm">
+      <i class="bi bi-file-earmark-pdf me-1"></i>Importar desde PDF
+    </a>
+    {% endif %}
+  </div>
 
   <form method="POST" enctype="multipart/form-data">
     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
@@ -96,21 +103,30 @@
     <div class="card wh-card mb-4">
       <div class="card-header wh-card-header d-flex justify-content-between">
         <span><i class="bi bi-book me-2"></i>Habilidades</span>
-        <small class="text-muted">Grupo de elección: mismo número = el jugador elige una</small>
+        <small class="text-muted">Gr. = grupo de elección (mismo núm. → el jugador elige una) · Esp. = especialización(es), separadas por coma</small>
       </div>
       <div class="card-body">
-        <div class="row g-1" style="max-height:300px; overflow-y:auto;">
+        <div class="row g-1" style="max-height:340px; overflow-y:auto;">
           {% for skill in skills %}
-          {% set selected = prof and prof.profession_skills | selectattr('skill_id','eq', skill.id) | list %}
-          {% set sel = selected[0] if selected else none %}
-          <div class="col-md-4 col-lg-3 d-flex align-items-center gap-1">
+          {% set ps_list = prof.profession_skills | selectattr('skill_id','eq', skill.id) | list if prof else [] %}
+          {% set sel = ps_list[0] if ps_list else none %}
+          {% set spec_val = ps_list | map(attribute='specialization') | select | join(', ') %}
+          <div class="col-12 col-md-6 col-lg-4 d-flex align-items-center gap-1 py-0">
             <input type="checkbox" name="skill_{{ skill.id }}" id="sk_{{ skill.id }}"
-                   class="form-check-input mt-0" {% if sel %}checked{% endif %}>
-            <label class="form-check-label wh-label flex-grow-1" for="sk_{{ skill.id }}">{{ skill.name_es }}</label>
-            <input type="number" name="skill_group_{{ skill.id }}" class="form-control form-control-sm wh-input"
-                   style="width:52px" min="1" placeholder="Gr."
+                   class="form-check-input wh-cb mt-0 flex-shrink-0"
+                   {% if ps_list %}checked{% endif %}>
+            <label class="form-check-label wh-label flex-grow-1" for="sk_{{ skill.id }}"
+                   style="font-size:.82rem; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap"
+                   title="{{ skill.name_es }}">{{ skill.name_es }}</label>
+            <input type="number" name="skill_group_{{ skill.id }}"
+                   class="form-control form-control-sm wh-input wh-num-input flex-shrink-0"
+                   min="1" placeholder="Gr."
                    value="{{ sel.choice_group if sel and sel.choice_group else '' }}"
                    title="Grupo de elección">
+            <input type="text" name="skill_spec_{{ skill.id }}"
+                   class="form-control form-control-sm wh-input wh-spec-input flex-shrink-0"
+                   placeholder="Esp." value="{{ spec_val }}"
+                   title="Especialización(es), p.ej. Tileano, Estaliano">
           </div>
           {% endfor %}
         </div>
@@ -124,20 +140,32 @@
 
     <!-- Talents -->
     <div class="card wh-card mb-4">
-      <div class="card-header wh-card-header"><i class="bi bi-star me-2"></i>Talentos</div>
+      <div class="card-header wh-card-header d-flex justify-content-between">
+        <span><i class="bi bi-star me-2"></i>Talentos</span>
+        <small class="text-muted">Gr. = grupo de elección · Esp. = especialización(es)</small>
+      </div>
       <div class="card-body">
-        <div class="row g-1" style="max-height:250px; overflow-y:auto;">
+        <div class="row g-1" style="max-height:280px; overflow-y:auto;">
           {% for talent in talents %}
-          {% set selected = prof and prof.profession_talents | selectattr('talent_id','eq', talent.id) | list %}
-          {% set sel = selected[0] if selected else none %}
-          <div class="col-md-4 col-lg-3 d-flex align-items-center gap-1">
+          {% set pt_list = prof.profession_talents | selectattr('talent_id','eq', talent.id) | list if prof else [] %}
+          {% set sel = pt_list[0] if pt_list else none %}
+          {% set spec_val = pt_list | map(attribute='specialization') | select | join(', ') %}
+          <div class="col-12 col-md-6 col-lg-4 d-flex align-items-center gap-1 py-0">
             <input type="checkbox" name="talent_{{ talent.id }}" id="tl_{{ talent.id }}"
-                   class="form-check-input mt-0" {% if sel %}checked{% endif %}>
-            <label class="form-check-label wh-label flex-grow-1" for="tl_{{ talent.id }}">{{ talent.name_es }}</label>
-            <input type="number" name="talent_group_{{ talent.id }}" class="form-control form-control-sm wh-input"
-                   style="width:52px" min="1" placeholder="Gr."
+                   class="form-check-input wh-cb mt-0 flex-shrink-0"
+                   {% if pt_list %}checked{% endif %}>
+            <label class="form-check-label wh-label flex-grow-1" for="tl_{{ talent.id }}"
+                   style="font-size:.82rem; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap"
+                   title="{{ talent.name_es }}">{{ talent.name_es }}</label>
+            <input type="number" name="talent_group_{{ talent.id }}"
+                   class="form-control form-control-sm wh-input wh-num-input flex-shrink-0"
+                   min="1" placeholder="Gr."
                    value="{{ sel.choice_group if sel and sel.choice_group else '' }}"
                    title="Grupo de elección">
+            <input type="text" name="talent_spec_{{ talent.id }}"
+                   class="form-control form-control-sm wh-input wh-spec-input flex-shrink-0"
+                   placeholder="Esp." value="{{ spec_val }}"
+                   title="Especialización(es)">
           </div>
           {% endfor %}
         </div>
@@ -188,15 +216,25 @@
 </div>
 {% endblock %}
 
+{% block extra_head %}
+<style>
+.wh-num-input  { width: 48px !important; text-align: center; padding: 2px 3px !important; font-size: .78rem !important; }
+.wh-spec-input { width: 90px !important; padding: 2px 4px !important; font-size: .78rem !important; }
+</style>
+{% endblock %}
+
 {% block extra_scripts %}
 <script>
-// Auto-disable group input when skill checkbox is unchecked
-document.querySelectorAll('input[type=checkbox]').forEach(cb => {
-  const match = cb.name.match(/^(skill|talent)_(\d+)$/);
-  if (!match) return;
-  const groupInput = document.querySelector(`input[name="${match[1]}_group_${match[2]}"]`);
-  if (!groupInput) return;
-  const toggle = () => { groupInput.disabled = !cb.checked; };
+// Disable group + spec inputs when the checkbox is unchecked
+document.querySelectorAll('input.wh-cb').forEach(cb => {
+  const m = cb.name.match(/^(skill|talent)_(\d+)$/);
+  if (!m) return;
+  const grp  = document.querySelector(`input[name="${m[1]}_group_${m[2]}"]`);
+  const spec = document.querySelector(`input[name="${m[1]}_spec_${m[2]}"]`);
+  const toggle = () => {
+    if (grp)  grp.disabled  = !cb.checked;
+    if (spec) spec.disabled = !cb.checked;
+  };
   cb.addEventListener('change', toggle);
   toggle();
 });
