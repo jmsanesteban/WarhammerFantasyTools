@@ -3,9 +3,10 @@ Pathfinder service: find career paths between two professions.
 
 Uses networkx directed graph built from profession exits (salidas).
 
-Characteristic accumulation rules (per user spec):
-  - Primary characteristics (%):  MAX across all professions in path
-  - Secondary characteristics:    SUM across all professions in path
+Characteristic accumulation rules (per WFRP2):
+  - Primary characteristics (%):   MAX across all professions in path (step of 5 %)
+  - Secondary characteristics:     MAX across all professions in path (step of 1 unit)
+  Both sets use the highest value any single profession in the path offers.
 """
 
 import logging
@@ -64,8 +65,8 @@ def compute_path_stats(path_ids: list, profession_map: dict) -> dict:
             'profession': Profession,
             'primary': {field: value_or_None},
             'secondary': {field: value_or_None},
-            'skills_by_group': {group_key: [Skill, ...]},
-            'talents_by_group': {group_key: [Talent, ...]},
+            'skills_by_group': {group_key: [ProfessionSkill, ...]},
+            'talents_by_group': {group_key: [ProfessionTalent, ...]},
             'trappings': [ProfessionTrapping, ...],
           },
           ...
@@ -74,8 +75,8 @@ def compute_path_stats(path_ids: list, profession_map: dict) -> dict:
           'primary': {field: int},
           'secondary': {field: int},
         },
-        'all_skills': {group_label: [Skill, ...]},  # deduplicated across path
-        'all_talents': {group_label: [Talent, ...]},
+        'all_skills': {group_label: [ProfessionSkill, ...]},  # deduplicated across path
+        'all_talents': {group_label: [ProfessionTalent, ...]},
         'all_trappings': [ProfessionTrapping, ...],
       }
     """
@@ -115,45 +116,47 @@ def compute_path_stats(path_ids: list, profession_map: dict) -> dict:
         for f in secondary_fields:
             val = getattr(prof, f) or 0
             step_secondary[f] = val
-            totals_secondary[f] += val
+            totals_secondary[f] = max(totals_secondary[f], val)
 
-        # Skills by group
+        # Skills by group (get_skills_by_group now returns ProfessionSkill objects)
         skills_by_group = prof.get_skills_by_group()
-        for group_key, skill_list in skills_by_group.items():
+        for group_key, ps_list in skills_by_group.items():
             if group_key is None:
-                # Mandatory – each skill as its own group
-                for sk in skill_list:
-                    if sk.id not in all_skill_ids:
-                        all_skill_ids.add(sk.id)
-                        label = f'm_{sk.id}'
-                        all_skill_groups[label] = [sk]
+                for ps in ps_list:
+                    uid = (ps.skill.id, ps.specialization)
+                    if uid not in all_skill_ids:
+                        all_skill_ids.add(uid)
+                        label = f'm_{ps.skill.id}_{ps.specialization or ""}'
+                        all_skill_groups[label] = [ps]
             else:
-                # OR-choice group
-                new_skills = [sk for sk in skill_list if sk.id not in all_skill_ids]
-                if new_skills:
+                new_ps = [ps for ps in ps_list
+                          if (ps.skill.id, ps.specialization) not in all_skill_ids]
+                if new_ps:
                     global_skill_group_counter += 1
                     label = f'g_{global_skill_group_counter}'
-                    all_skill_groups[label] = skill_list
-                    for sk in new_skills:
-                        all_skill_ids.add(sk.id)
+                    all_skill_groups[label] = ps_list
+                    for ps in new_ps:
+                        all_skill_ids.add((ps.skill.id, ps.specialization))
 
-        # Talents by group
+        # Talents by group (same change)
         talents_by_group = prof.get_talents_by_group()
-        for group_key, talent_list in talents_by_group.items():
+        for group_key, pt_list in talents_by_group.items():
             if group_key is None:
-                for tl in talent_list:
-                    if tl.id not in all_talent_ids:
-                        all_talent_ids.add(tl.id)
-                        label = f'm_{tl.id}'
-                        all_talent_groups[label] = [tl]
+                for pt in pt_list:
+                    uid = (pt.talent.id, pt.specialization)
+                    if uid not in all_talent_ids:
+                        all_talent_ids.add(uid)
+                        label = f'm_{pt.talent.id}_{pt.specialization or ""}'
+                        all_talent_groups[label] = [pt]
             else:
-                new_talents = [tl for tl in talent_list if tl.id not in all_talent_ids]
-                if new_talents:
+                new_pt = [pt for pt in pt_list
+                          if (pt.talent.id, pt.specialization) not in all_talent_ids]
+                if new_pt:
                     global_talent_group_counter += 1
                     label = f'g_{global_talent_group_counter}'
-                    all_talent_groups[label] = talent_list
-                    for tl in new_talents:
-                        all_talent_ids.add(tl.id)
+                    all_talent_groups[label] = pt_list
+                    for pt in new_pt:
+                        all_talent_ids.add((pt.talent.id, pt.specialization))
 
         # Trappings (deduplicate by name)
         step_trappings = []

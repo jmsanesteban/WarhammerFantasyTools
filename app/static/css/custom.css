@@ -1,21 +1,32 @@
 /* =============================================
    Warhammer Fantasy Roleplay — Custom Theme
+   Paleta: fondo carbón oscuro, texto pergamino claro, acentos dorado/ámbar
    ============================================= */
 
 :root {
-  --wh-bg: #0e0b07;
-  --wh-bg-card: #1c160d;
-  --wh-bg-card-alt: #231b0f;
-  --wh-gold: #c8a951;
-  --wh-gold-dark: #9a7d34;
-  --wh-gold-light: #e8d088;
-  --wh-red: #8b0000;
-  --wh-red-light: #c0392b;
-  --wh-text: #d4c4a0;
-  --wh-text-muted: #8c7a5c;
-  --wh-border: #3a2e1a;
-  --wh-border-gold: #5a4520;
-  --wh-parchment: #f5e6c8;
+  /* Backgrounds — carbón oscuro con matiz cálido */
+  --wh-bg:          #0d0b08;   /* página principal */
+  --wh-bg-card:     #1a1510;   /* tarjetas, filas de tabla */
+  --wh-bg-card-alt: #252018;   /* hover / filas alternas */
+
+  /* Dorado — acento principal */
+  --wh-gold:        #d4a830;   /* enlaces, badges */
+  --wh-gold-dark:   #9a7422;   /* bordes, gradientes oscuros */
+  --wh-gold-light:  #f2cc50;   /* encabezados, hover — alto contraste */
+
+  /* Rojo sangre */
+  --wh-red:         #7a1010;
+  --wh-red-light:   #c04030;
+
+  /* Texto — contraste WCAG AA o superior contra --wh-bg-card */
+  --wh-text:        #ede0c4;   /* ~13:1 sobre #1a1510 — pergamino claro */
+  --wh-text-muted:  #c0964a;   /* ~5.5:1 — ámbar cálido */
+
+  /* Bordes */
+  --wh-border:      #352a14;   /* separadores sutiles */
+  --wh-border-gold: #5e4418;   /* bordes de tarjeta / tabla */
+
+  --wh-parchment:   #f5e6c8;
 }
 
 /* ---- Base ---- */
@@ -40,7 +51,7 @@ a:hover { color: var(--wh-gold-light); }
 
 /* ---- Navbar ---- */
 .wh-navbar {
-  background: linear-gradient(180deg, #0a0703 0%, #1a130a 100%);
+  background: linear-gradient(180deg, #080604 0%, #151008 100%);
   border-bottom: 2px solid var(--wh-gold-dark);
   padding: 0.4rem 1rem;
 }
@@ -85,7 +96,7 @@ a:hover { color: var(--wh-gold-light); }
 .wh-card-sm:hover { border-color: var(--wh-gold-dark); }
 
 .wh-card-header {
-  background: linear-gradient(90deg, #2a1e0c 0%, #1c160d 100%);
+  background: linear-gradient(90deg, #2a1e0a 0%, #1a1510 100%);
   border-bottom: 1px solid var(--wh-border-gold);
   color: var(--wh-gold-light);
   font-family: 'Cinzel', serif;
@@ -95,41 +106,41 @@ a:hover { color: var(--wh-gold-light); }
 
 /* ---- Buttons ---- */
 .btn-wh {
-  background: linear-gradient(180deg, #9a7d34 0%, #6b5520 100%);
-  color: #1a0e05;
+  background: linear-gradient(180deg, #9a7422 0%, #6b5018 100%);
+  color: #0d0b08;
   border: 1px solid var(--wh-gold);
   font-family: 'Cinzel', serif;
   font-size: 0.85rem;
   letter-spacing: 0.5px;
-  font-weight: 600;
+  font-weight: 700;
   transition: all 0.2s;
 }
 
 .btn-wh:hover, .btn-wh:focus {
-  background: linear-gradient(180deg, #c8a951 0%, #9a7d34 100%);
-  color: #0a0703;
+  background: linear-gradient(180deg, #d4a830 0%, #9a7422 100%);
+  color: #080604;
   border-color: var(--wh-gold-light);
-  box-shadow: 0 0 8px rgba(200, 169, 81, 0.4);
+  box-shadow: 0 0 10px rgba(212, 168, 48, 0.45);
 }
 
 .btn-wh:active { transform: scale(0.97); }
 
 /* ---- Forms / Inputs ---- */
 .wh-input, .wh-input.form-control, .wh-input.form-select {
-  background: #140f07;
+  background: #120f08;
   border: 1px solid var(--wh-border-gold);
   color: var(--wh-text);
   border-radius: 3px;
 }
 
 .wh-input:focus {
-  background: #1e160a;
+  background: #1c1810;
   border-color: var(--wh-gold);
   color: var(--wh-text);
-  box-shadow: 0 0 0 2px rgba(200, 169, 81, 0.25);
+  box-shadow: 0 0 0 2px rgba(212, 168, 48, 0.3);
 }
 
-.wh-input::placeholder { color: var(--wh-text-muted); }
+.wh-input::placeholder { color: var(--wh-text-muted); opacity: 0.7; }
 
 .wh-label {
   color: var(--wh-gold-light);
@@ -142,19 +153,26 @@ a:hover { color: var(--wh-gold-light); }
 .wh-table {
   color: var(--wh-text);
   border-color: var(--wh-border-gold);
+  /* Neutralize Bootstrap 5's inset box-shadow hover trick (table-hover) */
+  --bs-table-hover-bg: transparent;
+  --bs-table-accent-bg: transparent;
 }
 
 .wh-table thead th {
-  background: #2a1e0c;
+  background: #261c08;
   color: var(--wh-gold-light);
   border-color: var(--wh-border-gold);
   font-family: 'Cinzel', serif;
   font-size: 0.8rem;
+  letter-spacing: 0.04em;
 }
 
 .wh-table tbody td {
   background: var(--wh-bg-card);
   border-color: var(--wh-border);
+  color: var(--wh-text);
+  /* Block Bootstrap's inset box-shadow overlay */
+  box-shadow: none !important;
 }
 
 .wh-table tbody tr:hover td {
@@ -168,7 +186,7 @@ a:hover { color: var(--wh-gold-light); }
 }
 
 .wh-stat-table th {
-  background: #2a1e0c;
+  background: #261c08;
   color: var(--wh-gold);
   font-family: 'Cinzel', serif;
   font-size: 0.75rem;
@@ -181,59 +199,59 @@ a:hover { color: var(--wh-gold-light); }
   background: var(--wh-bg-card);
   padding: 4px 6px;
   border-color: var(--wh-border);
-  color: var(--wh-text-muted);
+  color: var(--wh-text);
 }
 
 .wh-stat-positive {
-  color: #7fff7f !important;
+  color: #6ee87a !important;
   font-weight: 600;
 }
 
 /* ---- Badges ---- */
 .wh-badge-skill {
-  background: #1a3d1a;
-  border: 1px solid #2e6b2e;
-  color: #a0d9a0;
+  background: #0e2a10;
+  border: 1px solid #266628;
+  color: #8edaa0;
   font-size: 0.78rem;
   font-weight: normal;
 }
 
 .wh-badge-skill-opt {
-  background: #1a2e3d;
-  border: 1px solid #2e4e6b;
-  color: #a0c4d9;
+  background: #0e1e2e;
+  border: 1px solid #224466;
+  color: #7ab4d4;
   font-size: 0.78rem;
   font-weight: normal;
 }
 
 .wh-badge-talent {
-  background: #3d2e1a;
-  border: 1px solid #6b4e2e;
-  color: #d9b87a;
+  background: #2e1e08;
+  border: 1px solid #664a18;
+  color: #e0b86a;
   font-size: 0.78rem;
   font-weight: normal;
 }
 
 .wh-badge-talent-opt {
-  background: #3d1a2e;
-  border: 1px solid #6b2e4e;
-  color: #d97aa0;
+  background: #2e0e1e;
+  border: 1px solid #661842;
+  color: #e07aaa;
   font-size: 0.78rem;
   font-weight: normal;
 }
 
 .wh-badge-trapping {
-  background: #2e2e1a;
-  border: 1px solid #5c5c2e;
-  color: #c8c87a;
+  background: #242210;
+  border: 1px solid #524e20;
+  color: #d0cc6a;
   font-size: 0.78rem;
   font-weight: normal;
 }
 
 .wh-badge-prof {
-  background: #2e1a3d;
-  border: 1px solid #5c2e6b;
-  color: #b07ad9;
+  background: #1e0e2e;
+  border: 1px solid #4a2266;
+  color: #b07ae0;
   font-size: 0.78rem;
   font-weight: normal;
   text-decoration: none;
@@ -257,14 +275,14 @@ a:hover { color: var(--wh-gold-light); }
 }
 
 .wh-accordion-btn {
-  background: #2a1e0c;
+  background: #241a08;
   color: var(--wh-gold-light);
   font-family: 'Cinzel', serif;
   font-size: 0.9rem;
 }
 
 .wh-accordion-btn:not(.collapsed) {
-  background: #3a2e1a;
+  background: #302616;
   color: var(--wh-gold-light);
 }
 
@@ -299,10 +317,10 @@ a:hover { color: var(--wh-gold-light); }
 .wh-breadcrumb .breadcrumb-item + .breadcrumb-item::before { color: var(--wh-text-muted); }
 .wh-breadcrumb .breadcrumb-item.active { color: var(--wh-text-muted); }
 
-.wh-alert { background: #1c160d; border-color: var(--wh-gold-dark); color: var(--wh-text); }
+.wh-alert { background: #1a1510; border-color: var(--wh-gold-dark); color: var(--wh-text); }
 
 .wh-footer {
-  background: #0a0703;
+  background: #0a0806;
   border-top: 1px solid var(--wh-border-gold);
   margin-top: auto;
 }
@@ -316,7 +334,7 @@ a:hover { color: var(--wh-gold-light); }
 
 .wh-card-img-placeholder {
   height: 180px;
-  background: #1c160d;
+  background: #1a1510;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -333,7 +351,7 @@ a:hover { color: var(--wh-gold-light); }
 
 .wh-prof-image-placeholder {
   height: 220px;
-  background: #1c160d;
+  background: #1a1510;
   border: 1px solid var(--wh-border-gold);
   display: flex;
   align-items: center;
@@ -352,7 +370,7 @@ a:hover { color: var(--wh-gold-light); }
 
 .wh-prof-thumb-placeholder {
   height: 70px;
-  background: #1c160d;
+  background: #1a1510;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -378,10 +396,10 @@ a:hover { color: var(--wh-gold-light); }
 
 /* ---- Pre text (PDF pages) ---- */
 .wh-pre-text {
-  background: #0e0b07;
+  background: var(--wh-bg);
   border: 1px solid var(--wh-border);
-  color: var(--wh-text-muted);
-  font-size: 0.8rem;
+  color: var(--wh-text);
+  font-size: 0.82rem;
   padding: 0.75rem;
   white-space: pre-wrap;
   word-break: break-word;
@@ -391,7 +409,7 @@ a:hover { color: var(--wh-gold-light); }
 
 /* ---- Scrollbar ---- */
 ::-webkit-scrollbar { width: 8px; height: 8px; }
-::-webkit-scrollbar-track { background: #0e0b07; }
+::-webkit-scrollbar-track { background: var(--wh-bg); }
 ::-webkit-scrollbar-thumb { background: var(--wh-border-gold); border-radius: 4px; }
 ::-webkit-scrollbar-thumb:hover { background: var(--wh-gold-dark); }
 
@@ -415,16 +433,16 @@ a:hover { color: var(--wh-gold-light); }
 }
 .wh-item-entry:hover { background: var(--wh-bg-card-alt); }
 
-.wh-item-name  { font-family: 'Cinzel', serif; font-size: .95rem; }
-.wh-item-desc  { color: #cfc0a0; font-size: .9rem; line-height: 1.6; }
-.wh-item-meta  { font-size: .8rem; color: #b0985e; }
+.wh-item-name  { font-family: 'Cinzel', serif; font-size: .95rem; color: var(--wh-gold-light); }
+.wh-item-desc  { color: var(--wh-text); font-size: .9rem; line-height: 1.6; }
+.wh-item-meta  { font-size: .8rem; color: var(--wh-text-muted); }
 
 /* Type badges — WH-styled, no Bootstrap */
 .badge-wh-basic {
   display: inline-block;
-  background: #0f2e14;
-  border: 1px solid #2a6030;
-  color: #7fd490;
+  background: #0c2610;
+  border: 1px solid #245a28;
+  color: #7adc90;
   font-size: .73rem;
   font-weight: 600;
   padding: 2px 8px;
@@ -434,9 +452,9 @@ a:hover { color: var(--wh-gold-light); }
 }
 .badge-wh-advanced {
   display: inline-block;
-  background: #2e1e00;
-  border: 1px solid #6b4400;
-  color: #d4a030;
+  background: #281a00;
+  border: 1px solid #604000;
+  color: #d8a428;
   font-size: .73rem;
   font-weight: 600;
   padding: 2px 8px;
@@ -462,14 +480,16 @@ a:hover { color: var(--wh-gold-light); }
 .wh-filter-bar select.wh-input { padding: .2rem .6rem; font-size: .85rem; height: auto; }
 
 /* Search input highlight */
-mark { background: rgba(200,169,81,.25); color: var(--wh-gold-light); padding: 0 2px; border-radius: 2px; }
+mark { background: rgba(212, 168, 48, .28); color: var(--wh-gold-light); padding: 0 2px; border-radius: 2px; }
 
-/* ---- Bootstrap overrides for dark theme ---- */
+/* =============================================
+   Bootstrap overrides — adapt to dark WH theme
+   ============================================= */
 
-/* text-muted: Bootstrap's #6c757d has ~3:1 contrast on WH dark backgrounds — too low */
-.text-muted { color: #a08f72 !important; }
+/* text-muted */
+.text-muted { color: var(--wh-text-muted) !important; }
 
-/* btn-outline-secondary: Bootstrap gray is invisible on dark backgrounds */
+/* btn-outline-secondary */
 .btn-outline-secondary {
   color: var(--wh-text) !important;
   border-color: var(--wh-border-gold) !important;
@@ -484,14 +504,34 @@ mark { background: rgba(200,169,81,.25); color: var(--wh-gold-light); padding: 0
   border-color: var(--wh-gold-dark) !important;
 }
 
-/* dropdown-toggle caret inherits correct color from btn-outline-secondary above */
+/* btn-outline-warning / danger — visible on dark bg */
+.btn-outline-warning {
+  color: #e0a830 !important;
+  border-color: #8a6018 !important;
+}
+.btn-outline-warning:hover {
+  background-color: #2e1e06 !important;
+  color: var(--wh-gold-light) !important;
+  border-color: var(--wh-gold) !important;
+}
+.btn-outline-danger {
+  color: #e06060 !important;
+  border-color: #7a2020 !important;
+}
+.btn-outline-danger:hover {
+  background-color: #2a0808 !important;
+  color: #ff8080 !important;
+  border-color: #c04040 !important;
+}
+
+/* dropdown-toggle caret */
 .dropdown-toggle::after { border-top-color: inherit; }
 
 /* Dropdown menus */
 .dropdown-menu {
   background-color: var(--wh-bg-card);
   border: 1px solid var(--wh-border-gold);
-  box-shadow: 0 4px 12px rgba(0,0,0,0.6);
+  box-shadow: 0 4px 16px rgba(0,0,0,0.7);
   min-width: 10rem;
 }
 .dropdown-item {
@@ -506,7 +546,73 @@ mark { background: rgba(200,169,81,.25); color: var(--wh-gold-light); padding: 0
 }
 .dropdown-divider { border-color: var(--wh-border-gold); }
 
-/* ---- Responsive tweaks ---- */
+/* Bootstrap badges — replace Bootstrap colors with WH palette */
+.badge.bg-secondary {
+  background-color: #2e2410 !important;
+  color: var(--wh-text-muted) !important;
+  border: 1px solid var(--wh-border-gold);
+}
+.badge.bg-info {
+  background-color: #0e2010 !important;
+  color: #7acc80 !important;
+  border: 1px solid #266630;
+}
+.badge.bg-success {
+  background-color: #0a2010 !important;
+  color: #60c870 !important;
+  border: 1px solid #205830;
+}
+.badge.bg-warning {
+  background-color: #261808 !important;
+  color: #d4a030 !important;
+  border: 1px solid #604010;
+}
+.badge.bg-danger {
+  background-color: #200808 !important;
+  color: #d46060 !important;
+  border: 1px solid #602020;
+}
+/* text-dark for badges (e.g. bg-warning text-dark) */
+.badge.bg-warning.text-dark { color: #c89020 !important; }
+
+/* "sí" prefix badge in synonym dictionary */
+.wh-badge-prefix {
+  display: inline-block;
+  background: #0e2210;
+  border: 1px solid #2a6630;
+  color: #7ad888;
+  font-size: .78rem;
+  font-weight: 600;
+  padding: 2px 10px;
+  border-radius: 10px;
+}
+
+/* Alerts */
+.alert-warning { color: #e0c060; background-color: #221400; border-color: #604010; }
+.alert-danger   { color: #e08080; background-color: #200808; border-color: #602020; }
+.alert-info     { color: #80c8c8; background-color: #081818; border-color: #104040; }
+.alert-success  { color: #80cc80; background-color: #081408; border-color: #204020; }
+
+/* Form checks */
+.form-check-input { background-color: #120f08; border-color: var(--wh-border-gold); }
+.form-check-input:checked {
+  background-color: var(--wh-gold-dark);
+  border-color: var(--wh-gold);
+}
+.form-check-label { color: var(--wh-text); }
+
+/* Modal */
+.modal-content {
+  background: var(--wh-bg-card);
+  border: 1px solid var(--wh-border-gold);
+  color: var(--wh-text);
+  box-shadow: 0 8px 32px rgba(0,0,0,0.8);
+}
+.modal-header  { border-bottom-color: var(--wh-border-gold); }
+.modal-footer  { border-top-color: var(--wh-border-gold); }
+.btn-close { filter: invert(0.8) sepia(0.3) hue-rotate(20deg); }
+
+/* Responsive tweaks */
 @media (max-width: 768px) {
   .wh-stat-number { font-size: 1.8rem; }
   .wh-stat-table th, .wh-stat-table td { padding: 2px 3px; font-size: 0.7rem; min-width: 28px; }

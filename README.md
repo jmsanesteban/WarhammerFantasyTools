@@ -666,9 +666,9 @@ El sistema muestra hasta **5 rutas posibles**, ordenadas de menor a mayor númer
 Para cada ruta se muestra:
 
 - **Ruta:** secuencia de profesiones (Ej.: Soldado → Mercenario → Veterano).
-- **Totales acumulados:** características del perfil completo al finalizar el camino.
-  - Las características **primarias** (%) muestran el **valor máximo** de cualquier profesión del camino (no se suman).
-  - Las características **secundarias** (unidades) se **suman** a lo largo del camino.
+- **Totales acumulados:** el valor más alto que ofrece cualquier profesión del camino, para cada característica. Tanto las primarias como las secundarias funcionan igual: se muestra el **máximo**, no la suma.
+  - Las características **primarias** (HA, HP, F, R, Ag, I, V, Em) mejoran en pasos de 5 %.
+  - Las características **secundarias** (A, H, BF, BR, M, Mag, PL, PD) mejoran en pasos de 1 unidad.
 - **Detalle por paso:** despliega cada profesión del camino con sus características, habilidades, talentos y enseres necesarios.
 - **Resumen de habilidades/talentos:** listado completo de todo lo que se puede obtener durante el camino (incluyendo grupos de elección).
 
@@ -734,8 +734,10 @@ synonyms                   (diccionario para importación de PDFs)
 
 ### Regla de acumulación de características en el Buscador
 
-- **Perfil principal** (HA, HP, F, R, Ag, I, V, Em): Se muestra el **valor más alto** de cualquier profesión del camino. Una profesión con +20% en HA y otra con +10% resulta en +20% total (no +30%).
-- **Perfil secundario** (A, H, BF, BR, M, Mag, PL, PD): Se **suman** todas las mejoras a lo largo del camino.
+Todas las características (primarias y secundarias) se acumulan de la misma forma: se muestra el **valor más alto** que ofrece cualquier profesión individual del camino. No se suman.
+
+- **Perfil principal** (HA, HP, F, R, Ag, I, V, Em): mejoras en pasos de 5 %. Una profesión con +20 % en HA y otra con +10 % resulta en **+20 %** total (no +30 %).
+- **Perfil secundario** (A, H, BF, BR, M, Mag, PL, PD): mejoras en pasos de 1 unidad. Una profesión con +2 Ataques y otra con +1 resulta en **+2** total (no +3).
 
 ### Grupos de elección (choice_group)
 

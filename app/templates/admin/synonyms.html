@@ -33,7 +33,7 @@
   {# ── Table ── #}
   {% if synonyms %}
   <div class="table-responsive mb-4">
-    <table class="table wh-table table-hover align-middle">
+    <table class="table wh-table align-middle">
       <thead>
         <tr>
           <th>Término original <small class="text-muted fw-normal">(en el PDF)</small></th>
@@ -52,7 +52,7 @@
           <td class="wh-syn-target">{{ syn.target }}</td>
           <td>
             {% if syn.is_prefix %}
-            <span class="badge bg-info text-dark">sí</span>
+            <span class="wh-badge-prefix">sí</span>
             {% else %}
             <span class="text-muted small">—</span>
             {% endif %}
@@ -97,29 +97,34 @@
     <div class="card-body">
       <form method="POST" action="{{ url_for('admin.synonym_create') }}">
         <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-        <div class="row g-3 align-items-end">
+        <div class="row g-2 align-items-start">
           <div class="col-md-4">
-            <label class="form-label wh-label">Término original *</label>
+            <label class="form-label wh-label mb-1">Término original *</label>
             <input type="text" name="source" class="form-control wh-input" required
                    placeholder="ej. encanto">
-            <small class="text-muted">Se guarda en minúsculas.</small>
           </div>
           <div class="col-md-4">
-            <label class="form-label wh-label">Término correcto *</label>
+            <label class="form-label wh-label mb-1">Término correcto *</label>
             <input type="text" name="target" class="form-control wh-input" required
                    placeholder="ej. carisma">
           </div>
           <div class="col-md-1 text-center">
-            <label class="form-label wh-label d-block mb-2">Prefijo</label>
-            <input type="checkbox" name="is_prefix" class="form-check-input" style="width:1.2em;height:1.2em">
+            <label class="form-label wh-label mb-1 d-block">Prefijo</label>
+            <div class="d-flex justify-content-center align-items-center" style="height:38px">
+              <input type="checkbox" name="is_prefix" class="form-check-input"
+                     style="width:1.3em;height:1.3em;margin:0">
+            </div>
           </div>
           <div class="col-md-3">
-            <label class="form-label wh-label">Notas</label>
+            <label class="form-label wh-label mb-1">Notas</label>
             <input type="text" name="notes" class="form-control wh-input"
                    placeholder="opcional">
           </div>
         </div>
-        <button type="submit" class="btn btn-wh btn-sm mt-3">
+        <div class="mt-1 mb-2">
+          <small class="text-muted">El término original se guarda en minúsculas.</small>
+        </div>
+        <button type="submit" class="btn btn-wh btn-sm mt-1">
           <i class="bi bi-plus-circle me-1"></i>Añadir
         </button>
       </form>
@@ -166,12 +171,10 @@
 </div>
 
 <style>
-.wh-table { color: var(--wh-text); border-color: #3a2e18; }
-.wh-table thead th { border-color: #5c4a1e; color: #c9a84c; font-size:.8rem; text-transform:uppercase; letter-spacing:.05em; }
-.wh-table tbody tr { border-color: #2a2010; }
-.wh-table tbody tr:hover { background: rgba(200,168,80,.06); }
-.wh-syn-source { color: #f0b060; font-family: monospace; font-size: .85rem; }
-.wh-syn-target { color: #9cec9c; font-family: monospace; font-size: .85rem; }
+/* Synonym-specific overrides on top of global wh-table */
+.wh-table thead th { text-transform: uppercase; letter-spacing: .05em; }
+.wh-syn-source { color: var(--wh-gold);      font-family: monospace; font-size: .87rem; }
+.wh-syn-target { color: #88e090;              font-family: monospace; font-size: .87rem; }
 </style>
 
 <script>

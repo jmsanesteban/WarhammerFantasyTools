@@ -142,15 +142,19 @@
                 {% if step.skills_by_group %}
                 <div class="mb-1">
                   <small class="wh-label"><i class="bi bi-book me-1"></i>Habilidades:</small>
-                  {% for group_key, skill_list in step.skills_by_group.items() %}
+                  {% for group_key, ps_list in step.skills_by_group.items() %}
                     {% if group_key is none %}
-                      {% for skill in skill_list %}
-                      <span class="badge wh-badge-skill me-1">{{ skill.name_es }}</span>
+                      {% for ps in ps_list %}
+                      <span class="badge wh-badge-skill me-1">
+                        {{ ps.skill.name_es }}{% if ps.specialization %} ({{ ps.specialization }}){% endif %}
+                      </span>
                       {% endfor %}
                     {% else %}
                     <span class="wh-choice-group">
-                      {% for skill in skill_list %}
-                      <span class="badge wh-badge-skill-opt">{{ skill.name_es }}</span>
+                      {% for ps in ps_list %}
+                      <span class="badge wh-badge-skill-opt">
+                        {{ ps.skill.name_es }}{% if ps.specialization %} ({{ ps.specialization }}){% endif %}
+                      </span>
                       {% if not loop.last %}<span class="wh-or">o</span>{% endif %}
                       {% endfor %}
                     </span>
@@ -163,15 +167,19 @@
                 {% if step.talents_by_group %}
                 <div class="mb-1">
                   <small class="wh-label"><i class="bi bi-star me-1"></i>Talentos:</small>
-                  {% for group_key, talent_list in step.talents_by_group.items() %}
+                  {% for group_key, pt_list in step.talents_by_group.items() %}
                     {% if group_key is none %}
-                      {% for talent in talent_list %}
-                      <span class="badge wh-badge-talent me-1">{{ talent.name_es }}</span>
+                      {% for pt in pt_list %}
+                      <span class="badge wh-badge-talent me-1">
+                        {{ pt.talent.name_es }}{% if pt.specialization %} ({{ pt.specialization }}){% endif %}
+                      </span>
                       {% endfor %}
                     {% else %}
                     <span class="wh-choice-group">
-                      {% for talent in talent_list %}
-                      <span class="badge wh-badge-talent-opt">{{ talent.name_es }}</span>
+                      {% for pt in pt_list %}
+                      <span class="badge wh-badge-talent-opt">
+                        {{ pt.talent.name_es }}{% if pt.specialization %} ({{ pt.specialization }}){% endif %}
+                      </span>
                       {% if not loop.last %}<span class="wh-or">o</span>{% endif %}
                       {% endfor %}
                     </span>
@@ -202,13 +210,18 @@
             <div class="card wh-card">
               <div class="card-header wh-card-header"><i class="bi bi-book me-1"></i>Habilidades totales del camino</div>
               <div class="card-body">
-                {% for label, skill_list in result.stats.all_skills.items() %}
-                  {% if skill_list|length == 1 %}
-                  <span class="badge wh-badge-skill me-1 mb-1">{{ skill_list[0].name_es }}</span>
+                {% for label, ps_list in result.stats.all_skills.items() %}
+                  {% if ps_list|length == 1 %}
+                  {% set ps = ps_list[0] %}
+                  <span class="badge wh-badge-skill me-1 mb-1">
+                    {{ ps.skill.name_es }}{% if ps.specialization %} ({{ ps.specialization }}){% endif %}
+                  </span>
                   {% else %}
                   <span class="wh-choice-group me-2 mb-1">
-                    {% for skill in skill_list %}
-                    <span class="badge wh-badge-skill-opt">{{ skill.name_es }}</span>
+                    {% for ps in ps_list %}
+                    <span class="badge wh-badge-skill-opt">
+                      {{ ps.skill.name_es }}{% if ps.specialization %} ({{ ps.specialization }}){% endif %}
+                    </span>
                     {% if not loop.last %}<span class="wh-or">o</span>{% endif %}
                     {% endfor %}
                   </span>
@@ -223,13 +236,18 @@
             <div class="card wh-card">
               <div class="card-header wh-card-header"><i class="bi bi-star me-1"></i>Talentos totales del camino</div>
               <div class="card-body">
-                {% for label, talent_list in result.stats.all_talents.items() %}
-                  {% if talent_list|length == 1 %}
-                  <span class="badge wh-badge-talent me-1 mb-1">{{ talent_list[0].name_es }}</span>
+                {% for label, pt_list in result.stats.all_talents.items() %}
+                  {% if pt_list|length == 1 %}
+                  {% set pt = pt_list[0] %}
+                  <span class="badge wh-badge-talent me-1 mb-1">
+                    {{ pt.talent.name_es }}{% if pt.specialization %} ({{ pt.specialization }}){% endif %}
+                  </span>
                   {% else %}
                   <span class="wh-choice-group me-2 mb-1">
-                    {% for talent in talent_list %}
-                    <span class="badge wh-badge-talent-opt">{{ talent.name_es }}</span>
+                    {% for pt in pt_list %}
+                    <span class="badge wh-badge-talent-opt">
+                      {{ pt.talent.name_es }}{% if pt.specialization %} ({{ pt.specialization }}){% endif %}
+                    </span>
                     {% if not loop.last %}<span class="wh-or">o</span>{% endif %}
                     {% endfor %}
                   </span>

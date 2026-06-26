@@ -78,6 +78,19 @@ def _register_cli_commands(app):
                 with db.engine.begin() as conn:
                     if 'id' not in tbl_cols:
                         try:
+                            # MySQL blocks DROP PRIMARY KEY when the PK index is the only
+                            # index covering a FK column. Add an explicit index on profession_id
+                            # first so the FK constraint remains satisfied after PK removal.
+                            existing_indexes = {
+                                row[2] for row in conn.execute(
+                                    text(f'SHOW INDEX FROM {tbl}')
+                                ).fetchall()
+                            }
+                            if 'idx_prof_id' not in existing_indexes:
+                                conn.execute(text(
+                                    f'ALTER TABLE {tbl} '
+                                    f'ADD INDEX idx_prof_id (profession_id)'
+                                ))
                             conn.execute(text(f'ALTER TABLE {tbl} DROP PRIMARY KEY'))
                             conn.execute(text(
                                 f'ALTER TABLE {tbl} '
