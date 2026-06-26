@@ -11,6 +11,7 @@ Aplicación web para gestionar profesiones, habilidades, talentos y personajes d
 - [Instalación rápida con Docker](#instalación-rápida-con-docker)
 - [Instalación local para desarrollo](#instalación-local-para-desarrollo)
 - [Configuración](#configuración)
+- [Comandos de administración y mantenimiento](#comandos-de-administración-y-mantenimiento)
 - [Guía de operación — Administrador](#guía-de-operación--administrador)
 - [Guía de operación — Usuario](#guía-de-operación--usuario)
 - [Modelo de datos](#modelo-de-datos)
@@ -189,6 +190,277 @@ Todas las variables se definen en el fichero `.env` (copia de `.env.example`):
 
 ---
 
+## Comandos de administración y mantenimiento
+
+Los comandos de Docker funcionan igual en Windows y Linux. En Windows se ejecutan en **PowerShell** (o CMD); en Linux/macOS en cualquier terminal. Las únicas diferencias son las rutas de fichero y algunos comandos de utilidad del sistema operativo.
+
+> Los nombres de los contenedores son `profesiones_wh_app` (aplicación) y `profesiones_wh_db` (MySQL). Si los cambiaste en `docker-compose.yml`, ajusta los comandos en consecuencia.
+
+---
+
+### Ciclo de vida de los contenedores
+
+| Acción | Comando |
+|---|---|
+| Arrancar (sin reconstruir) | `docker-compose up -d` |
+| Arrancar con reconstrucción de imagen | `docker-compose up --build -d` |
+| Parar (sin borrar datos) | `docker-compose down` |
+| Parar y borrar volúmenes (⚠️ borra la BD) | `docker-compose down -v` |
+| Reiniciar solo la app | `docker-compose restart app` |
+| Reconstruir y reiniciar solo la app | `docker-compose up --build -d app` |
+| Ver estado de los contenedores | `docker-compose ps` |
+
+---
+
+### Logs
+
+#### Windows — PowerShell
+
+```powershell
+# Logs en tiempo real de toda la pila
+docker-compose logs -f
+
+# Solo la aplicación
+docker-compose logs -f app
+
+# Solo la base de datos
+docker-compose logs -f db
+
+# Últimas 100 líneas de la aplicación
+docker-compose logs --tail=100 app
+
+# Buscar errores en los logs de la app (requiere Select-String)
+docker-compose logs app 2>&1 | Select-String "ERROR", "Exception", "Traceback"
+```
+
+#### Linux / macOS
+
+```bash
+# Logs en tiempo real de toda la pila
+docker-compose logs -f
+
+# Solo la aplicación
+docker-compose logs -f app
+
+# Solo la base de datos
+docker-compose logs -f db
+
+# Últimas 100 líneas de la aplicación
+docker-compose logs --tail=100 app
+
+# Buscar errores en los logs de la app
+docker-compose logs app 2>&1 | grep -E "ERROR|Exception|Traceback"
+```
+
+---
+
+### Comandos Flask (init, admin, shell)
+
+Todos se ejecutan dentro del contenedor de la app con `docker exec`.
+
+#### Windows — PowerShell
+
+```powershell
+# Crear / migrar tablas de base de datos (ejecutar tras cada actualización del código)
+docker exec profesiones_wh_app flask init-db
+
+# Crear el usuario administrador (usa las variables ADMIN_* del .env)
+docker exec profesiones_wh_app flask create-admin
+
+# Abrir una shell interactiva de Python con el contexto de la app
+docker exec -it profesiones_wh_app flask shell
+
+# Abrir una shell Bash dentro del contenedor
+docker exec -it profesiones_wh_app bash
+```
+
+#### Linux / macOS
+
+```bash
+# Crear / migrar tablas de base de datos
+docker exec profesiones_wh_app flask init-db
+
+# Crear el usuario administrador
+docker exec profesiones_wh_app flask create-admin
+
+# Shell interactiva de Python con contexto de la app
+docker exec -it profesiones_wh_app flask shell
+
+# Shell Bash dentro del contenedor
+docker exec -it profesiones_wh_app bash
+```
+
+---
+
+### Acceso a la base de datos MySQL
+
+#### Windows — PowerShell
+
+```powershell
+# Abrir el cliente MySQL interactivo en el contenedor de BD
+# (te pedirá la contraseña definida en .env → MYSQL_PASSWORD)
+docker exec -it profesiones_wh_db mysql -u whuser -p profesiones_wh
+
+# Con contraseña directa (sin prompt; sustituye 'whpassword' por la real)
+docker exec -it profesiones_wh_db mysql -u whuser -pwhpassword profesiones_wh
+
+# Ejecutar una consulta SQL de una sola línea
+docker exec profesiones_wh_db mysql -u whuser -pwhpassword profesiones_wh -e "SELECT COUNT(*) FROM professions;"
+```
+
+#### Linux / macOS
+
+```bash
+# Abrir el cliente MySQL interactivo
+docker exec -it profesiones_wh_db mysql -u whuser -p profesiones_wh
+
+# Ejecutar una consulta SQL de una sola línea
+docker exec profesiones_wh_db mysql -u whuser -pwhpassword profesiones_wh -e "SELECT COUNT(*) FROM professions;"
+```
+
+---
+
+### Copias de seguridad de la base de datos
+
+#### Windows — PowerShell
+
+```powershell
+# Exportar la BD completa a un fichero SQL con fecha en el nombre
+$fecha = Get-Date -Format "yyyyMMdd_HHmm"
+docker exec profesiones_wh_db mysqldump -u whuser -pwhpassword profesiones_wh | Out-File -Encoding utf8 "backup_$fecha.sql"
+
+# Restaurar desde un fichero SQL
+Get-Content "backup_20240101_1200.sql" | docker exec -i profesiones_wh_db mysql -u whuser -pwhpassword profesiones_wh
+```
+
+#### Linux / macOS
+
+```bash
+# Exportar la BD completa a un fichero SQL con fecha en el nombre
+docker exec profesiones_wh_db mysqldump -u whuser -pwhpassword profesiones_wh > "backup_$(date +%Y%m%d_%H%M).sql"
+
+# Restaurar desde un fichero SQL
+docker exec -i profesiones_wh_db mysql -u whuser -pwhpassword profesiones_wh < backup_20240101_1200.sql
+```
+
+---
+
+### Gestión de ficheros subidos (PDFs e imágenes)
+
+Los uploads se almacenan en el volumen Docker `uploads`. Para acceder a ellos:
+
+#### Windows — PowerShell
+
+```powershell
+# Copiar todos los uploads a una carpeta local
+docker cp profesiones_wh_app:/app/uploads ./uploads_backup
+
+# Copiar una carpeta local de vuelta al contenedor
+docker cp ./uploads_backup/. profesiones_wh_app:/app/uploads/
+
+# Ver qué hay en la carpeta de uploads
+docker exec profesiones_wh_app ls -lh /app/uploads/
+```
+
+#### Linux / macOS
+
+```bash
+# Copiar todos los uploads a una carpeta local
+docker cp profesiones_wh_app:/app/uploads ./uploads_backup
+
+# Copiar una carpeta local de vuelta al contenedor
+docker cp ./uploads_backup/. profesiones_wh_app:/app/uploads/
+
+# Ver qué hay en la carpeta de uploads
+docker exec profesiones_wh_app ls -lh /app/uploads/
+```
+
+---
+
+### Actualizar la aplicación (nueva versión del código)
+
+#### Windows — PowerShell
+
+```powershell
+# 1. Obtener los cambios del repositorio
+git pull
+
+# 2. Reconstruir la imagen e iniciar
+docker-compose up --build -d
+
+# 3. Aplicar migraciones de base de datos si las hay
+docker exec profesiones_wh_app flask init-db
+```
+
+#### Linux / macOS
+
+```bash
+# 1. Obtener los cambios del repositorio
+git pull
+
+# 2. Reconstruir la imagen e iniciar
+docker-compose up --build -d
+
+# 3. Aplicar migraciones de base de datos si las hay
+docker exec profesiones_wh_app flask init-db
+```
+
+---
+
+### Diagnóstico rápido
+
+#### Windows — PowerShell
+
+```powershell
+# Estado general de los contenedores
+docker-compose ps
+
+# Uso de recursos (CPU, memoria, red) en tiempo real
+docker stats profesiones_wh_app profesiones_wh_db
+
+# Inspeccionar variables de entorno cargadas en el contenedor
+docker exec profesiones_wh_app env | Select-String "FLASK|MYSQL|ADMIN"
+
+# Ver el espacio ocupado por los volúmenes Docker
+docker system df
+
+# Limpiar imágenes y capas no utilizadas (libera espacio en disco)
+docker image prune -f
+```
+
+#### Linux / macOS
+
+```bash
+# Estado general de los contenedores
+docker-compose ps
+
+# Uso de recursos en tiempo real
+docker stats profesiones_wh_app profesiones_wh_db
+
+# Inspeccionar variables de entorno cargadas en el contenedor
+docker exec profesiones_wh_app env | grep -E "FLASK|MYSQL|ADMIN"
+
+# Ver el espacio ocupado por los volúmenes Docker
+docker system df
+
+# Limpiar imágenes y capas no utilizadas
+docker image prune -f
+```
+
+---
+
+### Referencia rápida de comandos Flask CLI
+
+| Comando | Descripción |
+|---|---|
+| `flask init-db` | Crea todas las tablas y aplica migraciones incrementales de columnas. Seguro de ejecutar múltiples veces. |
+| `flask create-admin` | Crea el usuario administrador definido en las variables `ADMIN_*` del `.env`. Si ya existe, no hace nada. |
+| `flask shell` | Abre una shell Python con la app cargada. Útil para consultas y depuración ad-hoc. |
+| `flask db migrate` | (Modo desarrollo) Genera una migración Alembic a partir de los cambios en los modelos. |
+| `flask db upgrade` | (Modo desarrollo) Aplica las migraciones Alembic pendientes. |
+
+---
+
 ## Guía de operación — Administrador
 
 ### Acceso al panel de administración
@@ -262,10 +534,15 @@ Ve a **Admin → Nueva Profesión** o al icono de edición de cualquier profesi�
 **Habilidades**
 - Marca la casilla de cada habilidad que otorgue la profesión.
 - El campo **"Gr."** (grupo) sirve para las elecciones opcionales: si dos habilidades tienen el mismo número de grupo, el jugador elige una de ellas. Déjalo vacío para habilidades obligatorias.
-- Ejemplo: _Juego_ y _Chismear_ con grupo `1` → el jugador elige una de las dos.
+- El campo **"Esp."** (especialización) permite indicar una o varias especializaciones de la habilidad, separadas por comas. Ejemplos:
+  - `Tileano` → guarda *Hablar Idioma (Tileano)*
+  - `Tileano, Estaliano` → guarda dos entradas: *Hablar Idioma (Tileano)* y *Hablar Idioma (Estaliano)*
+  - `dos cualquiera` → guarda *Hablar Idioma (dos cualquiera)*
+- Si "Esp." está vacío se guarda la habilidad base sin especialización.
 
 **Talentos**
 - Funciona igual que las habilidades. Usa el número de grupo para indicar elecciones tipo "Talento A o Talento B".
+- El campo "Esp." permite especializaciones del mismo modo que en habilidades.
 
 **Enseres**
 - Lista separada por comas de los objetos necesarios para la profesión.
@@ -429,8 +706,11 @@ users
        └─ character_talents
 
 professions
-  ├─ profession_skills    (habilidades con choice_group para elecciones OR)
-  ├─ profession_talents   (talentos con choice_group para elecciones OR)
+  ├─ profession_skills    (skill_id + specialization + choice_group)
+  │    Ejemplo: Hablar Idioma con specialization="Tileano" y otra fila
+  │    con specialization="Estaliano" permiten guardar sub-habilidades
+  │    múltiples de la misma habilidad base.
+  ├─ profession_talents   (talent_id + specialization + choice_group)
   ├─ profession_trappings (enseres requeridos)
   └─ career_exits         (salidas: relación auto-referencial many-to-many)
 
@@ -444,6 +724,12 @@ skills
 talents
   ├─ name_es, name_en
   └─ description
+
+synonyms                   (diccionario para importación de PDFs)
+  ├─ source  (término incorrecto/alternativo, en minúsculas)
+  ├─ target  (nombre oficial en WFRP2 ES)
+  ├─ is_prefix  (True = aplica también a "source (especialización)")
+  └─ notes
 ```
 
 ### Regla de acumulación de características en el Buscador
