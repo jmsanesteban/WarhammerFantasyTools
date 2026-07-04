@@ -1,4 +1,4 @@
-// Profesiones WH — main.js
+// Warhammer Fantasy Tools — main.js
 
 document.addEventListener('DOMContentLoaded', () => {
   // Auto-dismiss flash alerts after 5 seconds

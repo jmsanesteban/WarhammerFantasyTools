@@ -1,4 +1,4 @@
-# Gestor de Profesiones — Warhammer Fantasy Roleplay
+# Warhammer Fantasy Tools
 
 Aplicación web para gestionar profesiones, habilidades, talentos y personajes del juego de rol **Warhammer Fantasy Roleplay (2ª edición)**. Permite importar profesiones desde PDFs del libro de reglas (incluyendo páginas escaneadas en inglés o español), buscar rutas de progresión entre profesiones y crear personajes.
 
@@ -56,8 +56,8 @@ Aplicación web para gestionar profesiones, habilidades, talentos y personajes d
 
 ```bash
 # 1. Clona el repositorio
-git clone https://github.com/jmsanesteban/ProfesionesWH.git
-cd ProfesionesWH
+git clone https://github.com/jmsanesteban/WarhammerFantasyTools.git
+cd WarhammerFantasyTools
 
 # 2. Copia y edita el fichero de entorno
 cp .env.example .env
@@ -104,9 +104,9 @@ Para desarrollar sin Docker necesitas MySQL, Python 3.11+ y Tesseract instalados
 Crea la base de datos y el usuario:
 
 ```sql
-CREATE DATABASE profesiones_wh CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
-CREATE USER 'whuser'@'localhost' IDENTIFIED BY 'whpassword';
-GRANT ALL PRIVILEGES ON profesiones_wh.* TO 'whuser'@'localhost';
+CREATE DATABASE wft CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+CREATE USER 'wftuser'@'localhost' IDENTIFIED BY 'wftpassword';
+GRANT ALL PRIVILEGES ON wft.* TO 'wftuser'@'localhost';
 FLUSH PRIVILEGES;
 ```
 
@@ -141,7 +141,7 @@ cp .env.example .env
 Edita `.env` y cambia `DATABASE_URL` para apuntar a localhost:
 
 ```
-DATABASE_URL=mysql+pymysql://whuser:whpassword@localhost:3306/profesiones_wh
+DATABASE_URL=mysql+pymysql://wftuser:wftpassword@localhost:3306/wft
 FLASK_ENV=development
 ```
 
@@ -170,9 +170,9 @@ Todas las variables se definen en el fichero `.env` (copia de `.env.example`):
 |---|---|---|
 | `SECRET_KEY` | Clave secreta de Flask (CSRF, sesiones). **Cambia en producción.** | `change-this-...` |
 | `FLASK_ENV` | `development` activa el modo debug. En producción usa `production`. | `development` |
-| `MYSQL_DATABASE` | Nombre de la base de datos | `profesiones_wh` |
-| `MYSQL_USER` | Usuario de MySQL | `whuser` |
-| `MYSQL_PASSWORD` | Contraseña del usuario MySQL | `whpassword` |
+| `MYSQL_DATABASE` | Nombre de la base de datos | `wft` |
+| `MYSQL_USER` | Usuario de MySQL | `wftuser` |
+| `MYSQL_PASSWORD` | Contraseña del usuario MySQL | `wftpassword` |
 | `MYSQL_ROOT_PASSWORD` | Contraseña root de MySQL (solo Docker) | `rootpassword` |
 | `DATABASE_URL` | URL de conexión completa usada por Flask | `mysql+pymysql://...` |
 | `ADMIN_USERNAME` | Nombre del usuario administrador inicial | `admin` |
@@ -192,7 +192,7 @@ Todas las variables se definen en el fichero `.env` (copia de `.env.example`):
 
 Los comandos de Docker funcionan igual en Windows y Linux. En Windows se ejecutan en **PowerShell** (o CMD); en Linux/macOS en cualquier terminal. Las únicas diferencias son las rutas de fichero y algunos comandos de utilidad del sistema operativo.
 
-> Los nombres de los contenedores son `profesiones_wh_app` (aplicación) y `profesiones_wh_db` (MySQL). Si los cambiaste en `docker-compose.yml`, ajusta los comandos en consecuencia.
+> Los nombres de los contenedores son `wft_app` (aplicación) y `wft_db` (MySQL). Si los cambiaste en `docker-compose.yml`, ajusta los comandos en consecuencia.
 
 ---
 
@@ -261,32 +261,32 @@ Todos se ejecutan dentro del contenedor de la app con `docker exec`.
 ```powershell
 # Crear / migrar tablas de base de datos (ejecutar tras cada actualización del código)
 # También siembra permisos, plantillas y sinónimos por defecto (idempotente)
-docker exec profesiones_wh_app flask init-db
+docker exec wft_app flask init-db
 
 # Crear el usuario administrador (usa las variables ADMIN_* del .env)
-docker exec profesiones_wh_app flask create-admin
+docker exec wft_app flask create-admin
 
 # Abrir una shell interactiva de Python con el contexto de la app
-docker exec -it profesiones_wh_app flask shell
+docker exec -it wft_app flask shell
 
 # Abrir una shell Bash dentro del contenedor
-docker exec -it profesiones_wh_app bash
+docker exec -it wft_app bash
 ```
 
 #### Linux / macOS
 
 ```bash
 # Crear / migrar tablas de base de datos
-docker exec profesiones_wh_app flask init-db
+docker exec wft_app flask init-db
 
 # Crear el usuario administrador
-docker exec profesiones_wh_app flask create-admin
+docker exec wft_app flask create-admin
 
 # Shell interactiva de Python con contexto de la app
-docker exec -it profesiones_wh_app flask shell
+docker exec -it wft_app flask shell
 
 # Shell Bash dentro del contenedor
-docker exec -it profesiones_wh_app bash
+docker exec -it wft_app bash
 ```
 
 ---
@@ -298,23 +298,23 @@ docker exec -it profesiones_wh_app bash
 ```powershell
 # Abrir el cliente MySQL interactivo en el contenedor de BD
 # (te pedirá la contraseña definida en .env → MYSQL_PASSWORD)
-docker exec -it profesiones_wh_db mysql -u whuser -p profesiones_wh
+docker exec -it wft_db mysql -u wftuser -p wft
 
-# Con contraseña directa (sin prompt; sustituye 'whpassword' por la real)
-docker exec -it profesiones_wh_db mysql -u whuser -pwhpassword profesiones_wh
+# Con contraseña directa (sin prompt; sustituye 'wftpassword' por la real)
+docker exec -it wft_db mysql -u wftuser -pwftpassword wft
 
 # Ejecutar una consulta SQL de una sola línea
-docker exec profesiones_wh_db mysql -u whuser -pwhpassword profesiones_wh -e "SELECT COUNT(*) FROM professions;"
+docker exec wft_db mysql -u wftuser -pwftpassword wft -e "SELECT COUNT(*) FROM professions;"
 ```
 
 #### Linux / macOS
 
 ```bash
 # Abrir el cliente MySQL interactivo
-docker exec -it profesiones_wh_db mysql -u whuser -p profesiones_wh
+docker exec -it wft_db mysql -u wftuser -p wft
 
 # Ejecutar una consulta SQL de una sola línea
-docker exec profesiones_wh_db mysql -u whuser -pwhpassword profesiones_wh -e "SELECT COUNT(*) FROM professions;"
+docker exec wft_db mysql -u wftuser -pwftpassword wft -e "SELECT COUNT(*) FROM professions;"
 ```
 
 ---
@@ -326,20 +326,20 @@ docker exec profesiones_wh_db mysql -u whuser -pwhpassword profesiones_wh -e "SE
 ```powershell
 # Exportar la BD completa a un fichero SQL con fecha en el nombre
 $fecha = Get-Date -Format "yyyyMMdd_HHmm"
-docker exec profesiones_wh_db mysqldump -u whuser -pwhpassword profesiones_wh | Out-File -Encoding utf8 "backup_$fecha.sql"
+docker exec wft_db mysqldump -u wftuser -pwftpassword wft | Out-File -Encoding utf8 "backup_$fecha.sql"
 
 # Restaurar desde un fichero SQL
-Get-Content "backup_20240101_1200.sql" | docker exec -i profesiones_wh_db mysql -u whuser -pwhpassword profesiones_wh
+Get-Content "backup_20240101_1200.sql" | docker exec -i wft_db mysql -u wftuser -pwftpassword wft
 ```
 
 #### Linux / macOS
 
 ```bash
 # Exportar la BD completa a un fichero SQL con fecha en el nombre
-docker exec profesiones_wh_db mysqldump -u whuser -pwhpassword profesiones_wh > "backup_$(date +%Y%m%d_%H%M).sql"
+docker exec wft_db mysqldump -u wftuser -pwftpassword wft > "backup_$(date +%Y%m%d_%H%M).sql"
 
 # Restaurar desde un fichero SQL
-docker exec -i profesiones_wh_db mysql -u whuser -pwhpassword profesiones_wh < backup_20240101_1200.sql
+docker exec -i wft_db mysql -u wftuser -pwftpassword wft < backup_20240101_1200.sql
 ```
 
 ---
@@ -352,26 +352,26 @@ Los uploads se almacenan en el volumen Docker `uploads`. Para acceder a ellos:
 
 ```powershell
 # Copiar todos los uploads a una carpeta local
-docker cp profesiones_wh_app:/app/uploads ./uploads_backup
+docker cp wft_app:/app/uploads ./uploads_backup
 
 # Copiar una carpeta local de vuelta al contenedor
-docker cp ./uploads_backup/. profesiones_wh_app:/app/uploads/
+docker cp ./uploads_backup/. wft_app:/app/uploads/
 
 # Ver qué hay en la carpeta de uploads
-docker exec profesiones_wh_app ls -lh /app/uploads/
+docker exec wft_app ls -lh /app/uploads/
 ```
 
 #### Linux / macOS
 
 ```bash
 # Copiar todos los uploads a una carpeta local
-docker cp profesiones_wh_app:/app/uploads ./uploads_backup
+docker cp wft_app:/app/uploads ./uploads_backup
 
 # Copiar una carpeta local de vuelta al contenedor
-docker cp ./uploads_backup/. profesiones_wh_app:/app/uploads/
+docker cp ./uploads_backup/. wft_app:/app/uploads/
 
 # Ver qué hay en la carpeta de uploads
-docker exec profesiones_wh_app ls -lh /app/uploads/
+docker exec wft_app ls -lh /app/uploads/
 ```
 
 ---
@@ -388,7 +388,7 @@ git pull
 docker-compose up --build -d
 
 # 3. Aplicar migraciones de base de datos si las hay
-docker exec profesiones_wh_app flask init-db
+docker exec wft_app flask init-db
 ```
 
 #### Linux / macOS
@@ -401,7 +401,7 @@ git pull
 docker-compose up --build -d
 
 # 3. Aplicar migraciones de base de datos si las hay
-docker exec profesiones_wh_app flask init-db
+docker exec wft_app flask init-db
 ```
 
 ---
@@ -415,10 +415,10 @@ docker exec profesiones_wh_app flask init-db
 docker-compose ps
 
 # Uso de recursos (CPU, memoria, red) en tiempo real
-docker stats profesiones_wh_app profesiones_wh_db
+docker stats wft_app wft_db
 
 # Inspeccionar variables de entorno cargadas en el contenedor
-docker exec profesiones_wh_app env | Select-String "FLASK|MYSQL|ADMIN"
+docker exec wft_app env | Select-String "FLASK|MYSQL|ADMIN"
 
 # Ver el espacio ocupado por los volúmenes Docker
 docker system df
@@ -434,10 +434,10 @@ docker image prune -f
 docker-compose ps
 
 # Uso de recursos en tiempo real
-docker stats profesiones_wh_app profesiones_wh_db
+docker stats wft_app wft_db
 
 # Inspeccionar variables de entorno cargadas en el contenedor
-docker exec profesiones_wh_app env | grep -E "FLASK|MYSQL|ADMIN"
+docker exec wft_app env | grep -E "FLASK|MYSQL|ADMIN"
 
 # Ver el espacio ocupado por los volúmenes Docker
 docker system df
@@ -817,7 +817,7 @@ Los permisos efectivos de un usuario son la unión de los que vienen de su plant
 ## Estructura del proyecto
 
 ```
-ProfesionesWH/
+WarhammerFantasyTools/
 ├── .env.example            # Plantilla de variables de entorno
 ├── .gitignore
 ├── docker-compose.yml      # Orquestación: app + MySQL

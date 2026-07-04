@@ -1,17 +1,17 @@
 services:
   db:
     image: mysql:8.0
-    container_name: profesiones_wh_db
+    container_name: wft_db
     restart: unless-stopped
     environment:
       MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-rootpassword}
-      MYSQL_DATABASE: ${MYSQL_DATABASE:-profesiones_wh}
-      MYSQL_USER: ${MYSQL_USER:-whuser}
-      MYSQL_PASSWORD: ${MYSQL_PASSWORD:-whpassword}
+      MYSQL_DATABASE: ${MYSQL_DATABASE:-wft}
+      MYSQL_USER: ${MYSQL_USER:-wftuser}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD:-wftpassword}
     volumes:
       - mysql_data:/var/lib/mysql
     networks:
-      - wh_network
+      - wft_network
     healthcheck:
       test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p${MYSQL_ROOT_PASSWORD:-rootpassword}"]
       interval: 10s
@@ -21,13 +21,13 @@ services:
 
   app:
     build: .
-    container_name: profesiones_wh_app
+    container_name: wft_app
     restart: unless-stopped
     env_file:
       - .env
     environment:
       - FLASK_APP=run.py
-      - DATABASE_URL=mysql+pymysql://${MYSQL_USER:-whuser}:${MYSQL_PASSWORD:-whpassword}@db:3306/${MYSQL_DATABASE:-profesiones_wh}
+      - DATABASE_URL=mysql+pymysql://${MYSQL_USER:-wftuser}:${MYSQL_PASSWORD:-wftpassword}@db:3306/${MYSQL_DATABASE:-wft}
     volumes:
       - ./uploads:/app/uploads
     ports:
@@ -36,10 +36,10 @@ services:
       db:
         condition: service_healthy
     networks:
-      - wh_network
+      - wft_network
 
 networks:
-  wh_network:
+  wft_network:
     driver: bridge
 
 volumes:
