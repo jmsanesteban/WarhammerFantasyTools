@@ -59,3 +59,6 @@ htmlcov/
 
 # Docker
 *.override.yml
+
+# Local infra config (real IPs/hosts - never commit)
+scripts/config.ps1
