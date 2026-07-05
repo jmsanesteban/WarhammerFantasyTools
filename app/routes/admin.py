@@ -7,6 +7,7 @@ import tempfile
 import threading
 import time
 import uuid
+from markupsafe import Markup
 from flask import (Blueprint, render_template, redirect, url_for,
                    flash, request, current_app, jsonify, send_file)
 from flask_login import login_required, current_user
@@ -170,7 +171,7 @@ def user_new():
             user.set_password(password)
             db.session.add(user)
             db.session.commit()
-            flash(f'Usuario creado. Contraseña temporal: <strong>{password}</strong>', 'success')
+            flash(Markup('Usuario creado. Contraseña temporal: <strong>{}</strong>').format(password), 'success')
             return redirect(url_for('admin.users'))
 
     return render_template('admin/user_new.html')
@@ -185,7 +186,8 @@ def user_reset_password(user_id):
     user.set_password(password)
     user.must_change_password = True
     db.session.commit()
-    flash(f'Contraseña de <strong>{user.username}</strong> restablecida: <strong>{password}</strong>', 'success')
+    flash(Markup('Contraseña de <strong>{}</strong> restablecida: <strong>{}</strong>')
+          .format(user.username, password), 'success')
     return redirect(url_for('admin.users'))
 
 
