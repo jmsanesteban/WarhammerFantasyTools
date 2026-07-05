@@ -12,6 +12,7 @@ Aplicación web para gestionar profesiones, habilidades, talentos y personajes d
 - [Instalación local para desarrollo](#instalación-local-para-desarrollo)
 - [Configuración](#configuración)
 - [Comandos de administración y mantenimiento](#comandos-de-administración-y-mantenimiento)
+- [Tests automatizados](#tests-automatizados)
 - [Guía de operación — Administrador](#guía-de-operación--administrador)
 - [Guía de operación — Usuario](#guía-de-operación--usuario)
 - [Modelo de datos](#modelo-de-datos)
@@ -460,6 +461,52 @@ docker image prune -f
 | `flask shell` | Abre una shell Python con la app cargada. Útil para consultas y depuración ad-hoc. |
 | `flask db migrate` | (Modo desarrollo) Genera una migración Alembic a partir de los cambios en los modelos. |
 | `flask db upgrade` | (Modo desarrollo) Aplica las migraciones Alembic pendientes. |
+
+---
+
+## Tests automatizados
+
+Suite de tests unitarios y de integración con **pytest**, ejecutada contra una base de datos **SQLite en memoria** (no hace falta un servidor MySQL para correrla) y el test client de Flask. Cubre permisos, autenticación, profesiones, habilidades/talentos, personajes WFRP, contactos (incluida la parte de administración), el buscador de caminos, y — con especial atención, por ser el área con más incidencias reales en producción — todo el pipeline de importación de PDF.
+
+### Ejecutar los tests
+
+```bash
+# Instalar dependencias de test (además de las de requirements.txt)
+pip install -r requirements-dev.txt
+
+# Ejecutar toda la suite
+pytest
+
+# Con detalle por test
+pytest -v
+
+# Solo un fichero
+pytest tests/test_pdf_import.py -v
+
+# Con cobertura
+pytest --cov=app --cov-report=term-missing
+```
+
+### Estructura
+
+| Fichero | Cubre |
+|---|---|
+| `tests/conftest.py` | Fixtures compartidas: app Flask en modo `testing`, sesión de BD, cliente de test, factories de modelos (`make_user`, `make_profession`, `make_skill`, `make_talent`, `make_character`, `make_contact*`) y helper de login |
+| `tests/test_permissions.py` | `User.has_perm()` / `effective_perm_codes()` (bypass de admin, permisos directos, plantillas) y los decoradores `require_permission` / `admin_required` |
+| `tests/test_auth.py` | Login, registro, logout, redirección a `next`, usuarios inactivos |
+| `tests/test_professions.py` | CRUD de profesiones, permisos, características primarias/secundarias, habilidades/talentos/enseres/salidas asociados |
+| `tests/test_skills_talents.py` | CRUD de habilidades y talentos, búsqueda/filtros, importación/exportación en texto plano |
+| `tests/test_characters.py` | CRUD de personajes WFRP, aislamiento por propietario, historial de profesiones ordenado |
+| `tests/test_contacts.py` | Vista de usuario de Contactos: visibilidad, notas (privadas/globales), vínculos de "persona" propios |
+| `tests/test_admin_contacts.py` | Administración de Contactos: definición de campos EAV, gestión de vínculos, listado/alta/baja de contactos, importación/exportación Excel |
+| `tests/test_pdf_import.py` | Pipeline de importación de PDF: emparejamiento de habilidades/talentos, auto-vinculación de accesos/salidas, detección de duplicados/casi-duplicados, persistencia del caché de trabajos en disco (con expiración a las 48h), y el endpoint de guardado (modos crear/actualizar/omitir + el guardián anti-duplicados). Incluye tests de regresión explícitos para los 3 bugs reales corregidos: pérdida de chips confirmados al guardar, caché no persistente entre reinicios, y accesos/salidas no auto-vinculados |
+| `tests/test_pathfinder.py` | Construcción del grafo de carreras, búsqueda de rutas (más cortas primero, límite de resultados, ausencia de ruta), y acumulación de estadísticas (máximo por característica, deduplicación de habilidades/talentos/enseres a lo largo de la ruta) |
+
+### Notas de diseño
+
+- Cada test corre con una base de datos SQLite en memoria completamente aislada (`db.create_all()` / `drop_all()` por test), así que no hay estado compartido entre tests.
+- CSRF está desactivado en `TestingConfig` para simplificar los POSTs de test; los tests que necesitan verificar el comportamiento de CSRF lo reactivan explícitamente.
+- `PDF_CACHE_DIR` se redirige a un directorio temporal del sistema durante los tests (ver `tests/conftest.py`), para no escribir en la ruta de producción (`/app/pdf_cache`).
 
 ---
 

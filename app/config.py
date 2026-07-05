@@ -29,8 +29,24 @@ class ProductionConfig(Config):
     WTF_CSRF_SSL_STRICT = False
 
 
+class TestingConfig(Config):
+    """Used by the test suite (see tests/conftest.py). SQLite in-memory -
+    no MySQL server needed to run tests. CSRF is off by default so tests can
+    POST forms without wiring a token everywhere; tests that specifically
+    exercise CSRF behavior turn it back on via app.config override."""
+    TESTING = True
+    DEBUG = True
+    SQLALCHEMY_DATABASE_URI = 'sqlite:///:memory:'
+    WTF_CSRF_ENABLED = False
+    SECRET_KEY = 'testing-secret-key'
+    ADMIN_USERNAME = 'admin'
+    ADMIN_EMAIL = 'admin@example.com'
+    ADMIN_PASSWORD = 'testpassword123'
+
+
 config_by_name = {
     'development': DevelopmentConfig,
     'production': ProductionConfig,
+    'testing': TestingConfig,
     'default': DevelopmentConfig,
 }
