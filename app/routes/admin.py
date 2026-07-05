@@ -880,6 +880,13 @@ def _validate_pdf_professions(professions: list, all_skills, all_talents) -> lis
     # Load ES synonyms once — used for both name correction and chip validation
     es_exact, es_prefix = _get_synonyms_dicts()
 
+    # Name → object maps for canonicalizing skills_raw/talents_raw below —
+    # same shape _match_and_save_skills/_match_and_save_talents build at save time.
+    skill_map  = {s.name_es.lower(): s for s in all_skills}
+    skill_map.update({s.name_en.lower(): s for s in all_skills if s.name_en})
+    talent_map = {t.name_es.lower(): t for t in all_talents}
+    talent_map.update({t.name_en.lower(): t for t in all_talents if t.name_en})
+
     # All existing profession names, loaded once, used for exact + fuzzy duplicate checks below.
     all_prof_rows = Profession.query.with_entities(Profession.id, Profession.name).all()
     prof_name_map = {p.name.lower(): (p.id, p.name) for p in all_prof_rows}
@@ -903,6 +910,19 @@ def _validate_pdf_professions(professions: list, all_skills, all_talents) -> lis
         # "Campeón"), but for the OTHER career names listed as accesos/salidas.
         prof['exits_raw']   = _normalize_career_list(prof.get('exits_raw', ''),   es_exact, es_prefix)
         prof['entries_raw'] = _normalize_career_list(prof.get('entries_raw', ''), es_exact, es_prefix)
+
+        # ── Canonicalize skill/talent chips to the exact catalog name ───────
+        # A profession may only ever reference skills/talents already in the
+        # catalog (an "A o B" choice group is still built from two existing
+        # entries, never free text). Using _fuzzy_find here — the exact same
+        # matcher _match_and_save_skills/_match_and_save_talents use at save
+        # time — means a near-miss like "preparar veneno" is rewritten to the
+        # real "Preparar venenos" chip *before* the admin ever sees it, instead
+        # of silently linking to the right skill behind a misleading label
+        # (or, worse, tempting the admin to create a stray near-duplicate
+        # catalog entry via "crea la habilidad/talento primero").
+        prof['skills_raw']  = _canonicalize_catalog_list(prof.get('skills_raw', ''),  skill_map,  es_exact, es_prefix)
+        prof['talents_raw'] = _canonicalize_catalog_list(prof.get('talents_raw', ''), talent_map, es_exact, es_prefix)
 
         # ── Duplicate detection ────────────────────────────────────────────
         existing = Profession.query.filter(
@@ -995,6 +1015,49 @@ def _extract_specialization(chip_text: str) -> str | None:
         if inner.upper() not in _STAT_ABBREVS:
             return inner
     return None
+
+
+_RE_ALTERNATIVE = re.compile(r'(\s+(?:o|or)\s+)', re.IGNORECASE)
+
+
+def _canonicalize_one_item(item: str, name_map: dict, exact_syn: dict, prefix_syn: dict) -> str:
+    """Rewrite a single chip's base name to the catalog's exact name_es when
+    it fuzzy-matches an existing skill/talent (same matcher/cutoff as
+    _match_and_save_skills/_match_and_save_talents), keeping any
+    '(specialization)' suffix intact. Leaves genuinely unmatched text as-is."""
+    spec = _extract_specialization(item)
+    base = item[:item.rfind('(')].strip() if spec else item
+    match = _fuzzy_find(base, name_map, exact_syn, prefix_syn, cutoff=0.7)
+    if not match:
+        return item
+    return f'{match.name_es} ({spec})' if spec else match.name_es
+
+
+def _canonicalize_catalog_list(raw: str, name_map: dict, exact_syn: dict, prefix_syn: dict) -> str:
+    """
+    Rewrite each comma-separated skill/talent chip to its exact catalog name
+    wherever it fuzzy-matches an existing entry, so the PDF review UI always
+    shows (and the admin edits) the same name that will actually be linked at
+    save time — never a near-miss sitting next to the real catalog entry.
+    'A o B' / 'A or B' alternatives are canonicalized on each side.
+    """
+    if not raw:
+        return raw
+    parts = []
+    for item in raw.split(','):
+        item = item.strip()
+        if not item:
+            continue
+        alt = _RE_ALTERNATIVE.split(item, maxsplit=1)
+        if len(alt) == 3:
+            left, sep, right = alt
+            parts.append(
+                _canonicalize_one_item(left.strip(), name_map, exact_syn, prefix_syn) + sep +
+                _canonicalize_one_item(right.strip(), name_map, exact_syn, prefix_syn)
+            )
+        else:
+            parts.append(_canonicalize_one_item(item, name_map, exact_syn, prefix_syn))
+    return ', '.join(parts)
 
 
 def _match_and_save_skills(prof, skills_raw: str, skills_raw_en: str = ''):

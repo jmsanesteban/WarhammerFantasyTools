@@ -76,6 +76,38 @@ def test_edit_skill(db, client, admin_user, login_as, make_skill):
     assert skill.is_advanced is True
 
 
+# ── Skill/talent name-collision guard (a profession may only ever reference
+# catalog entries - a stray near-duplicate like 'Preparar veneno' next to
+# the real 'Preparar venenos' is exactly how that invariant breaks) ────────
+
+def test_create_skill_blocks_exact_duplicate(db, client, admin_user, login_as, make_skill):
+    make_skill(name_es='Percepción')
+    login_as(client, admin_user, 'adminpass123')
+    resp = client.post('/habilidades/nueva', data={'name_es': 'Percepción'}, follow_redirects=True)
+    assert resp.status_code == 200
+    assert Skill.query.filter_by(name_es='Percepción').count() == 1
+    assert 'ya existe'.encode('utf-8') in resp.data.lower()
+
+
+def test_create_skill_warns_on_near_duplicate_but_still_creates(db, client, admin_user, login_as, make_skill):
+    make_skill(name_es='Preparar venenos')
+    login_as(client, admin_user, 'adminpass123')
+    resp = client.post('/habilidades/nueva', data={'name_es': 'Preparar veneno'}, follow_redirects=True)
+    assert resp.status_code == 200
+    assert Skill.query.filter_by(name_es='Preparar veneno').first() is not None
+    assert 'aviso'.encode('utf-8') in resp.data.lower()
+
+
+def test_edit_skill_blocks_rename_into_existing_duplicate(db, client, admin_user, login_as, make_skill):
+    make_skill(name_es='Percepción')
+    other = make_skill(name_es='Callejeo')
+    login_as(client, admin_user, 'adminpass123')
+    resp = client.post(f'/habilidades/{other.id}/editar', data={'name_es': 'Percepción'}, follow_redirects=True)
+    assert resp.status_code == 200
+    db.session.refresh(other)
+    assert other.name_es == 'Callejeo'
+
+
 def test_delete_skill_requires_permission(client, regular_user, login_as, make_skill):
     skill = make_skill(name_es='Percepción')
     login_as(client, regular_user, 'userpass123')
@@ -146,6 +178,18 @@ def test_import_skills_rejects_unsupported_extension(client, admin_user, login_a
     assert 'no soportado'.encode('utf-8') in resp.data.lower() or b'Formato no soportado' in resp.data
 
 
+def test_import_skills_flags_near_duplicate_but_still_creates(db, client, admin_user, login_as, make_skill):
+    make_skill(name_es='Preparar venenos')
+    login_as(client, admin_user, 'adminpass123')
+    text = 'Nombre: Preparar veneno\n'
+    data = {'file': (io.BytesIO(text.encode('utf-8')), 'skills.txt'), 'mode': 'skip'}
+    resp = client.post('/habilidades/importar', data=data,
+                       content_type='multipart/form-data', follow_redirects=True)
+    assert resp.status_code == 200
+    assert Skill.query.filter_by(name_es='Preparar veneno').first() is not None
+    assert 'aviso'.encode('utf-8') in resp.data.lower()
+
+
 def test_export_skills_text(client, admin_user, login_as, make_skill):
     make_skill(name_es='Percepción')
     login_as(client, admin_user, 'adminpass123')
@@ -196,6 +240,34 @@ def test_create_talent_with_permission(db, client, admin_user, login_as):
     assert Talent.query.filter_by(name_es='Ambidiestro').first() is not None
 
 
+def test_create_talent_blocks_exact_duplicate(db, client, admin_user, login_as, make_talent):
+    make_talent(name_es='Ambidiestro')
+    login_as(client, admin_user, 'adminpass123')
+    resp = client.post('/talentos/nuevo', data={'name_es': 'Ambidiestro'}, follow_redirects=True)
+    assert resp.status_code == 200
+    assert Talent.query.filter_by(name_es='Ambidiestro').count() == 1
+    assert 'ya existe'.encode('utf-8') in resp.data.lower()
+
+
+def test_create_talent_warns_on_near_duplicate_but_still_creates(db, client, admin_user, login_as, make_talent):
+    make_talent(name_es='Especialista en armas')
+    login_as(client, admin_user, 'adminpass123')
+    resp = client.post('/talentos/nuevo', data={'name_es': 'Especialistas en armas'}, follow_redirects=True)
+    assert resp.status_code == 200
+    assert Talent.query.filter_by(name_es='Especialistas en armas').first() is not None
+    assert 'aviso'.encode('utf-8') in resp.data.lower()
+
+
+def test_edit_talent_blocks_rename_into_existing_duplicate(db, client, admin_user, login_as, make_talent):
+    make_talent(name_es='Ambidiestro')
+    other = make_talent(name_es='Certero')
+    login_as(client, admin_user, 'adminpass123')
+    resp = client.post(f'/talentos/{other.id}/editar', data={'name_es': 'Ambidiestro'}, follow_redirects=True)
+    assert resp.status_code == 200
+    db.session.refresh(other)
+    assert other.name_es == 'Certero'
+
+
 def test_delete_talent(db, client, admin_user, login_as, make_talent):
     talent = make_talent(name_es='Ambidiestro')
     talent_id = talent.id
@@ -213,6 +285,18 @@ def test_import_talents_from_text_creates_new(db, client, admin_user, login_as):
                        content_type='multipart/form-data', follow_redirects=True)
     assert resp.status_code == 200
     assert Talent.query.filter_by(name_es='Ambidiestro').first() is not None
+
+
+def test_import_talents_flags_near_duplicate_but_still_creates(db, client, admin_user, login_as, make_talent):
+    make_talent(name_es='Especialista en armas')
+    login_as(client, admin_user, 'adminpass123')
+    text = 'Nombre: Especialistas en armas\n'
+    data = {'file': (io.BytesIO(text.encode('utf-8')), 'talents.txt'), 'mode': 'skip'}
+    resp = client.post('/talentos/importar', data=data,
+                       content_type='multipart/form-data', follow_redirects=True)
+    assert resp.status_code == 200
+    assert Talent.query.filter_by(name_es='Especialistas en armas').first() is not None
+    assert 'aviso'.encode('utf-8') in resp.data.lower()
 
 
 def test_export_talents_text(client, admin_user, login_as, make_talent):

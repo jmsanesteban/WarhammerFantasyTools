@@ -208,7 +208,76 @@ def test_parse_sections_appends_stray_items_after_a_real_trappings_section():
     assert sections['trappings_raw'] == 'Espada'
 
 
-# ── Synonym correction for career names in exits/entries lists ─────────────
+# ── Canonicalizing skill/talent chips to the exact catalog name ────────────
+# A profession may only ever reference skills/talents already in the catalog
+# (an "A o B" choice group is still built from two existing entries, never
+# free text) - the review UI must show the real catalog name, not a near-miss
+# like "preparar veneno" sitting next to the real "Preparar venenos".
+
+def test_validate_pdf_professions_canonicalizes_near_miss_skill_name(db, make_skill):
+    from app.models.skill import Skill
+    make_skill(name_es='Preparar venenos')
+    professions = [{'name': 'Asesino', 'type': 'advanced', 'skills_raw': 'preparar veneno'}]
+
+    result = admin_routes._validate_pdf_professions(professions, Skill.query.all(), [])
+    assert result[0]['skills_raw'] == 'Preparar venenos'
+
+
+def test_validate_pdf_professions_canonicalizes_near_miss_talent_name(db, make_talent):
+    from app.models.talent import Talent
+    make_talent(name_es='Especialista en armas')
+    professions = [{'name': 'Asesino', 'type': 'advanced', 'talents_raw': 'especialistas en armas'}]
+
+    result = admin_routes._validate_pdf_professions(professions, [], Talent.query.all())
+    assert result[0]['talents_raw'] == 'Especialista en armas'
+
+
+def test_validate_pdf_professions_keeps_specialization_suffix_when_canonicalizing(db, make_skill):
+    from app.models.skill import Skill
+    make_skill(name_es='Oficio')
+    professions = [{'name': 'Artesano', 'type': 'basic', 'skills_raw': 'oficios (Herrero)'}]
+
+    result = admin_routes._validate_pdf_professions(professions, Skill.query.all(), [])
+    assert result[0]['skills_raw'] == 'Oficio (Herrero)'
+
+
+def test_validate_pdf_professions_canonicalizes_each_side_of_an_alternative(db, make_skill):
+    from app.models.skill import Skill
+    make_skill(name_es='Percepción')
+    make_skill(name_es='Callejeo')
+    professions = [{'name': 'Explorador', 'type': 'basic', 'skills_raw': 'percepcion o callejeos'}]
+
+    result = admin_routes._validate_pdf_professions(professions, Skill.query.all(), [])
+    assert result[0]['skills_raw'] == 'Percepción o Callejeo'
+
+
+def test_validate_pdf_professions_leaves_genuinely_unmatched_skill_text_as_is(db, make_skill):
+    from app.models.skill import Skill
+    make_skill(name_es='Percepción')
+    professions = [{'name': 'Explorador', 'type': 'basic', 'skills_raw': 'Habilidad Totalmente Inventada'}]
+
+    result = admin_routes._validate_pdf_professions(professions, Skill.query.all(), [])
+    assert result[0]['skills_raw'] == 'Habilidad Totalmente Inventada'
+
+
+def test_pdf_save_links_skill_by_canonical_name_shown_in_review(db, client, admin_user, login_as, make_skill):
+    """End-to-end: the chip the admin sees and saves ('Preparar venenos', already
+    canonicalized by the review page) must link to the real existing skill,
+    never create a second near-duplicate entry."""
+    skill = make_skill(name_es='Preparar venenos')
+    login_as(client, admin_user, 'adminpass123')
+
+    resp = client.post('/admin/pdf/guardar', data={
+        'name': 'Asesino', 'type': 'advanced', 'skills_raw': 'Preparar venenos',
+    }, follow_redirects=True)
+    assert resp.status_code == 200
+
+    from app.models.skill import Skill
+    assert Skill.query.count() == 1
+    prof = Profession.query.filter_by(name='Asesino').first()
+    saved_ids = {ps.skill_id for ps in ProfessionSkill.query.filter_by(profession_id=prof.id).all()}
+    assert saved_ids == {skill.id}
+
 
 def test_normalize_career_list_corrects_gtranslate_name_mismatch(db):
     _seed_default_synonyms(db)
