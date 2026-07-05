@@ -28,6 +28,7 @@ Aplicación web para gestionar profesiones, habilidades, talentos y personajes d
 | **Buscador de caminos** | Encuentra hasta 5 rutas entre dos profesiones mostrando características acumuladas, habilidades y enseres necesarios en cada paso; todos los pasos de una ruta pueden verse simultáneamente |
 | **Habilidades y Talentos** | Catálogo completo con buscador avanzado (nombre / todos los campos); importación y exportación en texto, CSV y Excel; filtros por tipo (Básica / Avanzada) y por característica asociada; cada entrada muestra qué profesiones la otorgan |
 | **Personajes** | Crea personajes asignándoles una carrera profesional con múltiples profesiones en orden |
+| **Contactos** | Agenda de contactos con campos personalizables (EAV), notas, vínculos con "personas" propias de cada usuario, visibilidad por contacto/campo, e importación/exportación Excel |
 | **Sistema de permisos** | Control granular por función: plantillas de permisos reutilizables + asignaciones directas por usuario; los administradores tienen acceso total |
 
 ---
@@ -40,7 +41,7 @@ Aplicación web para gestionar profesiones, habilidades, talentos y personajes d
 - **Traducción:** deep-translator (Google Translate) · langdetect
 - **Pathfinding:** networkx (BFS)
 - **Frontend:** Bootstrap 5 · Cinzel / Crimson Text (Google Fonts)
-- **Importación/Exportación:** openpyxl (Excel), csv estándar, formato texto propio
+- **Importación/Exportación:** openpyxl (Excel), pandas (importación Excel de Contactos), csv estándar, formato texto propio
 - **Infraestructura:** Docker · Docker Compose · Gunicorn
 
 ---
@@ -655,8 +656,8 @@ Plantillas incluidas por defecto:
 
 | Plantilla | Permisos incluidos |
 |---|---|
-| **Lector** | Ver profesiones · Ver habilidades · Buscador de caminos · Ver personajes |
-| **Editor** | Todo lo anterior + Editar profesiones · Importar PDF · Editar habilidades · Editar personajes |
+| **Lector** | Ver profesiones · Ver habilidades · Buscador de caminos · Ver personajes · Ver contactos |
+| **Editor** | Todo lo anterior + Editar profesiones · Importar PDF · Editar habilidades · Editar personajes · Editar/importar contactos |
 | **Gestor** | Todo lo anterior + Gestionar usuarios (asignar plantillas y permisos a otros) |
 
 Puedes crear, editar y eliminar plantillas desde esa pantalla. Al eliminar una plantilla, los usuarios que la tenían asignada pierden los permisos que venían de ella (los permisos directos se mantienen).
@@ -673,9 +674,12 @@ Puedes crear, editar y eliminar plantillas desde esa pantalla. Al eliminar una p
 | `pathfinder.use` | Buscar rutas entre profesiones |
 | `characters.view` | Consultar personajes propios |
 | `characters.edit` | Crear y editar personajes propios |
+| `contacts.view` | Consultar listado y ficha de contactos |
+| `contacts.edit` | Editar notas y relaciones de personas con contactos |
+| `contacts.import` | Importar/exportar contactos desde Excel |
 | `users.manage` | Asignar plantillas y permisos a otros usuarios (no puede convertir en admin) |
 
-> **Nota:** Los administradores (`role = admin`) tienen acceso completo a todas las funciones independientemente de los permisos asignados. El permiso `users.manage` permite a un usuario normal gestionar permisos de otros, pero no puede cambiar roles ni crear administradores.
+> **Nota:** Los administradores (`role = admin`) tienen acceso completo a todas las funciones independientemente de los permisos asignados. El permiso `users.manage` permite a un usuario normal gestionar permisos de otros, pero no puede cambiar roles ni crear administradores. Al igual que `characters.*`, los códigos `contacts.*` están catalogados y disponibles para plantillas, pero las rutas de Contactos autorizan con `login_required` + comprobaciones de propiedad/rol (no con `require_permission`) — mismo patrón ya existente en el resto de la app.
 
 ---
 
@@ -744,20 +748,60 @@ Desde la ficha del personaje puedes ver las estadísticas de cada profesión en 
 
 ---
 
+### Gestionar Contactos
+
+Ve a **Contactos** en el menú principal.
+
+- El listado muestra los contactos visibles (los administradores ven también los ocultos), con buscador por valor de cualquier campo.
+- La ficha de un contacto muestra sus campos, sección de **vínculos** ("Mis vínculos" para un usuario normal — solo puede editar la relación con vínculos que el administrador ya le haya asignado, no crear vínculos nuevos) y **notas** (privadas o globales, editables por su autor o un admin).
+- Los administradores gestionan desde **Admin → Contactos**: campos personalizados (crear, renombrar, reordenar por arrastre, ocultar), vínculos (`ContactPersona`, crear/editar/asignar a un usuario), listado completo de contactos (mostrar/ocultar, eliminar) e importación/exportación Excel.
+- La importación Excel es completamente dinámica: cualquier columna del archivo que no coincida con un campo existente crea uno nuevo automáticamente; las columnas `nombre`/`apellidos` se usan como clave opcional para actualizar contactos existentes en lugar de duplicarlos.
+
+---
+
 ## Modelo de datos
 
 ```
 users
   ├─ template_id → permission_templates   (plantilla de permisos asignada)
   ├─ user_permissions (M2M)               (permisos directos adicionales)
-  └─ characters
-       └─ character_professions  (lista ordenada de profesiones del personaje)
-       └─ character_skills
-       └─ character_talents
+  ├─ must_change_password                 (heredado de ContactosWH, no aplicado aún en el login)
+  ├─ created_by_id → users.id             (lineage: quién creó la cuenta, opcional)
+  ├─ characters
+  │    └─ character_professions  (lista ordenada de profesiones del personaje)
+  │    └─ character_skills
+  │    └─ character_talents
+  └─ contact_personas              (vínculos de Contactos asignados a este usuario)
 
-permissions                               (9 códigos de permiso disponibles)
+permissions                               (12 códigos de permiso disponibles)
 permission_templates                      (conjuntos reutilizables de permisos)
 template_permissions (M2M)                (permisos que incluye cada plantilla)
+
+field_definitions                 (definición dinámica de campos de Contactos, tipo EAV)
+  ├─ name, display_name, is_visible, field_order
+
+contacts
+  ├─ is_visible                    (los no-admin solo ven contactos visibles)
+  ├─ created_by_id → users.id
+  ├─ contact_values                (field_id + value — el dato EAV real)
+  ├─ persona_links → contact_persona_links
+  └─ notes → contact_notes
+
+contact_personas                  (antes "Character" en ContactosWH; renombrado para
+  ├─ name                          no colisionar con el Character/WFRP de esta app)
+  ├─ user_id → users.id (nullable, personas sin asignar)
+  ├─ is_active
+  └─ persona_links → contact_persona_links
+
+contact_persona_links              (M2M contact_personas ↔ contacts, antes "CharacterContact")
+  ├─ persona_id, contact_id
+  └─ relationship_note             (texto libre; antes "relationship", renombrado para
+                                     no chocar con db.relationship de SQLAlchemy)
+
+contact_notes
+  ├─ contact_id, author_id → users.id
+  ├─ content
+  └─ is_global                     (False = solo visible para el autor y administradores)
 
 professions
   ├─ profession_skills    (skill_id + specialization + choice_group)
@@ -839,34 +883,49 @@ WarhammerFantasyTools/
     │   ├── profession.py   # Profesión, ProfessionSkill, ProfessionTalent, Trapping
     │   ├── skill.py        # Habilidad
     │   ├── talent.py       # Talento
-    │   ├── character.py    # Personaje y su carrera profesional
-    │   └── synonym.py      # Diccionario de sinónimos para importación PDF
+    │   ├── character.py    # Personaje WFRP y su carrera profesional
+    │   ├── synonym.py      # Diccionario de sinónimos para importación PDF
+    │   ├── contact.py           # FieldDefinition, Contact, ContactValue (EAV)
+    │   ├── contact_persona.py   # ContactPersona, ContactPersonaLink (vínculos)
+    │   └── contact_note.py      # ContactNote
     ├── routes/
     │   ├── auth.py         # Login, registro, logout
     │   ├── main.py         # Página de inicio, errores, servicio de uploads
     │   ├── professions.py  # CRUD de profesiones (edición requiere professions.edit)
     │   ├── skills_talents.py  # CRUD de habilidades y talentos (edición requiere skills.edit)
     │   ├── pathfinder.py   # Buscador de caminos
-    │   ├── characters.py   # Gestión de personajes
-    │   └── admin.py        # Panel admin, usuarios, permisos, plantillas, PDF
+    │   ├── characters.py   # Gestión de personajes WFRP
+    │   ├── contacts.py     # Vistas de usuario de Contactos (listado, ficha, notas, vínculos propios)
+    │   └── admin.py        # Panel admin: usuarios, permisos, plantillas, PDF, Contactos (campos/personas/import-export)
     ├── services/
     │   ├── pdf_processor.py      # OCR, traducción y parsing de PDFs
     │   ├── translation_service.py # Detección de idioma y traducción
     │   ├── import_service.py     # Importación/exportación de habilidades y talentos
-    │   └── pathfinder_service.py  # Construcción del grafo y BFS
+    │   ├── pathfinder_service.py  # Construcción del grafo y BFS
+    │   └── contact_import_service.py  # Importación/exportación Excel de Contactos (EAV, pandas)
     ├── templates/
     │   ├── base.html             # Layout base con nav adaptativo
     │   ├── admin/
     │   │   ├── dashboard.html
     │   │   ├── users.html                # Lista de usuarios con plantilla y acciones
+    │   │   ├── user_new.html             # Alta de usuario con contraseña temporal
     │   │   ├── user_edit.html            # Edición de permisos por usuario
     │   │   ├── permission_templates.html # Lista de plantillas de permisos
     │   │   ├── template_edit.html        # Crear/editar plantilla
     │   │   ├── synonyms.html
     │   │   ├── pdf_upload.html
-    │   │   └── pdf_review.html
+    │   │   ├── pdf_review.html
+    │   │   ├── contact_fields.html       # Gestión de campos EAV (drag-reorder)
+    │   │   ├── contact_personas.html     # Listado de vínculos
+    │   │   ├── contact_persona_form.html
+    │   │   ├── contacts.html             # Listado/administración de contactos
+    │   │   ├── contacts_import.html
+    │   │   └── contacts_export.html
+    │   ├── contacts/
+    │   │   ├── index.html         # Listado de contactos (respeta visibilidad)
+    │   │   └── detail.html        # Ficha: campos, vínculos, notas
     │   └── ...                   # Resto de plantillas por módulo
     └── static/
         ├── css/custom.css        # Tema oscuro medieval WH
-        └── js/main.js            # Scripts del cliente
+        └── js/main.js            # Scripts del cliente (incluye drag-reorder y toggles de Contactos)
 ```

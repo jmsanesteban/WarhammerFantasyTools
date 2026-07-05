@@ -1,0 +1,33 @@
+{% extends 'base.html' %}
+{% block title %}Exportar Contactos — Warhammer Fantasy Tools{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+  <div class="d-flex justify-content-between align-items-center mb-3">
+    <h2 class="wh-heading mb-0"><i class="bi bi-download me-2"></i>Exportar Contactos</h2>
+    <a href="{{ url_for('admin.contacts') }}" class="btn btn-outline-secondary btn-sm">
+      <i class="bi bi-arrow-left me-1"></i>Volver
+    </a>
+  </div>
+
+  <div class="card wh-card" style="max-width:560px">
+    <div class="card-body">
+      <p class="text-muted">Se exportarán todos los contactos ({{ contacts|length }}) salvo que indiques una selección concreta.</p>
+      <form method="POST">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <div class="mb-3">
+          <label class="wh-label d-block">IDs de contacto (opcional, separados por coma)</label>
+          <input type="text" name="contact_ids" class="form-control wh-input" placeholder="ej. 1,2,5">
+        </div>
+        <div class="mb-3">
+          <label class="d-flex align-items-center gap-2" style="cursor:pointer">
+            <input type="checkbox" name="visible_fields_only" class="form-check-input" checked>
+            Solo campos visibles
+          </label>
+        </div>
+        <button type="submit" class="btn btn-wh">Exportar a Excel</button>
+      </form>
+    </div>
+  </div>
+</div>
+{% endblock %}

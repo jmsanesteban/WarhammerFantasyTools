@@ -24,6 +24,7 @@ def create_app(config_name='default'):
     from app.routes.skills_talents import skills_talents_bp
     from app.routes.pathfinder import pathfinder_bp
     from app.routes.characters import characters_bp
+    from app.routes.contacts import contacts_bp
     from app.routes.admin import admin_bp
 
     app.register_blueprint(auth_bp, url_prefix='/auth')
@@ -32,15 +33,30 @@ def create_app(config_name='default'):
     app.register_blueprint(skills_talents_bp)
     app.register_blueprint(pathfinder_bp, url_prefix='/buscador')
     app.register_blueprint(characters_bp, url_prefix='/personajes')
+    app.register_blueprint(contacts_bp, url_prefix='/contactos')
     app.register_blueprint(admin_bp, url_prefix='/admin')
 
     # Import models so Flask-Migrate detects them
-    from app.models import user, permission, profession, skill, talent, character, synonym  # noqa: F401
+    from app.models import (  # noqa: F401
+        user, permission, profession, skill, talent, character, synonym,
+        contact, contact_persona, contact_note,
+    )
 
     _register_cli_commands(app)
     _register_error_handlers(app)
+    _register_security_headers(app)
 
     return app
+
+
+def _register_security_headers(app):
+    @app.after_request
+    def _set_security_headers(response):
+        response.headers['X-Frame-Options'] = 'SAMEORIGIN'
+        response.headers['X-Content-Type-Options'] = 'nosniff'
+        response.headers['X-XSS-Protection'] = '1; mode=block'
+        response.headers['Referrer-Policy'] = 'strict-origin-when-cross-origin'
+        return response
 
 
 def _register_error_handlers(app):
@@ -117,6 +133,18 @@ def _register_cli_commands(app):
                         'REFERENCES permission_templates(id) ON DELETE SET NULL'
                     ))
                     click.echo('  Added users.template_id')
+                if 'must_change_password' not in user_cols:
+                    conn.execute(text(
+                        'ALTER TABLE users ADD COLUMN must_change_password '
+                        'BOOLEAN NOT NULL DEFAULT FALSE'
+                    ))
+                    click.echo('  Added users.must_change_password')
+                if 'created_by_id' not in user_cols:
+                    conn.execute(text(
+                        'ALTER TABLE users ADD COLUMN created_by_id INT NULL '
+                        'REFERENCES users(id) ON DELETE SET NULL'
+                    ))
+                    click.echo('  Added users.created_by_id')
 
             click.echo('Database tables created/verified.')
 

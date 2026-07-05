@@ -1,0 +1,68 @@
+{% extends 'base.html' %}
+{% block title %}Vínculos — Warhammer Fantasy Tools{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+  <div class="d-flex justify-content-between align-items-center mb-3">
+    <div>
+      <h2 class="wh-heading mb-0"><i class="bi bi-link-45deg me-2"></i>Vínculos</h2>
+      <small class="text-muted">Cada vínculo pertenece a un usuario y se usa para registrar relaciones con contactos.</small>
+    </div>
+    <a href="{{ url_for('admin.contact_persona_create') }}" class="btn btn-wh btn-sm">
+      <i class="bi bi-plus-circle me-1"></i>Nuevo vínculo
+    </a>
+  </div>
+
+  {% if personas %}
+  <div class="table-responsive">
+    <table class="table wh-table align-middle">
+      <thead>
+        <tr>
+          <th>Nombre</th>
+          <th>Usuario</th>
+          <th style="width:7rem">Contactos</th>
+          <th style="width:7rem">Estado</th>
+          <th style="width:9rem">Acciones</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for persona in personas %}
+        <tr>
+          <td><strong>{{ persona.name }}</strong></td>
+          <td class="text-muted small">
+            {% if persona.user %}
+            {{ persona.user.username }}
+            {% if not persona.user.active %}<span class="badge bg-secondary" style="font-size:.65rem">Inactivo</span>{% endif %}
+            {% else %}
+            <span class="text-muted">— Sin asignar —</span>
+            {% endif %}
+          </td>
+          <td class="text-muted small">{{ persona.persona_links.count() }}</td>
+          <td>
+            <span class="badge {% if persona.is_active %}bg-success{% else %}bg-secondary{% endif %}">
+              {{ 'Activo' if persona.is_active else 'Inactivo' }}
+            </span>
+          </td>
+          <td>
+            <a href="{{ url_for('admin.contact_persona_edit', persona_id=persona.id) }}"
+               class="btn btn-outline-secondary btn-sm">Editar</a>
+            <form method="POST" action="{{ url_for('admin.contact_persona_delete', persona_id=persona.id) }}"
+                  class="d-inline"
+                  onsubmit="return confirm('¿Eliminar el vínculo «{{ persona.name }}»?\nSe borrarán todas sus relaciones con contactos.')">
+              <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+              <button type="submit" class="btn btn-outline-danger btn-sm"><i class="bi bi-trash"></i></button>
+            </form>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <div class="alert wh-alert">
+    Sin vínculos todavía.
+    <a href="{{ url_for('admin.contact_persona_create') }}" class="wh-link">Crea el primero</a> y asígnalo a un usuario.
+  </div>
+  {% endif %}
+</div>
+{% endblock %}

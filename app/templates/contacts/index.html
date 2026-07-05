@@ -1,0 +1,102 @@
+{% extends 'base.html' %}
+{% block title %}Contactos — Warhammer Fantasy Tools{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+  <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+    <h2 class="wh-heading mb-0"><i class="bi bi-person-lines-fill me-2"></i>Contactos</h2>
+    {% if current_user.is_admin %}
+    <a href="{{ url_for('admin.contacts_import') }}" class="btn btn-outline-secondary btn-sm">
+      <i class="bi bi-upload me-1"></i>Importar Excel
+    </a>
+    {% endif %}
+  </div>
+
+  <form method="GET" class="mb-4">
+    <div class="d-flex gap-2">
+      <input type="text" name="q" class="form-control wh-input" placeholder="Buscar contactos…"
+             value="{{ search }}" autocomplete="off">
+      <button class="btn btn-wh px-3" type="submit"><i class="bi bi-search"></i></button>
+      {% if search %}
+      <a href="{{ url_for('contacts.index') }}" class="btn btn-outline-secondary" title="Limpiar búsqueda">
+        <i class="bi bi-x-lg"></i>
+      </a>
+      {% endif %}
+    </div>
+  </form>
+
+  {% if not fields %}
+  <div class="alert wh-alert">
+    Aún no hay campos configurados.
+    {% if current_user.is_admin %}
+    <a href="{{ url_for('admin.contact_fields') }}" class="wh-link">Configura los campos</a>
+    o <a href="{{ url_for('admin.contacts_import') }}" class="wh-link">importa un Excel</a> para empezar.
+    {% else %}
+    El administrador aún no ha configurado los campos.
+    {% endif %}
+  </div>
+  {% elif not contacts %}
+  <div class="alert wh-alert">
+    {% if search %}No se encontraron contactos para «{{ search }}».
+    <a href="{{ url_for('contacts.index') }}" class="wh-link">Limpiar búsqueda</a>
+    {% else %}Aún no hay contactos registrados.{% endif %}
+  </div>
+  {% else %}
+  <div class="table-responsive">
+    <table class="table wh-table align-middle">
+      <thead>
+        <tr>
+          <th style="width:3rem">#</th>
+          {% for field in fields[:6] %}
+          <th>{{ field.display_name }}</th>
+          {% endfor %}
+          <th style="width:5rem"></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for contact in contacts %}
+        <tr>
+          <td class="text-muted small">{{ contact.id }}</td>
+          {% for field in fields[:6] %}
+          <td>{{ contact.get_value(field.id) or '—' }}</td>
+          {% endfor %}
+          <td>
+            <a href="{{ url_for('contacts.detail', contact_id=contact.id) }}"
+               class="btn btn-outline-secondary btn-sm">Ver</a>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+  {% if pagination.pages > 1 %}
+  <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
+    <small class="text-muted">
+      {{ pagination.total }} contacto{{ 's' if pagination.total != 1 }}
+      · Página {{ pagination.page }} de {{ pagination.pages }}
+    </small>
+    <nav>
+      <ul class="pagination pagination-sm mb-0">
+        <li class="page-item {% if not pagination.has_prev %}disabled{% endif %}">
+          <a class="page-link" href="{{ url_for('contacts.index', page=pagination.prev_num, q=search) }}">‹</a>
+        </li>
+        {% for p in pagination.iter_pages(left_edge=1, right_edge=1, left_current=2, right_current=2) %}
+        {% if p %}
+        <li class="page-item {% if p == pagination.page %}active{% endif %}">
+          <a class="page-link" href="{{ url_for('contacts.index', page=p, q=search) }}">{{ p }}</a>
+        </li>
+        {% else %}
+        <li class="page-item disabled"><span class="page-link">…</span></li>
+        {% endif %}
+        {% endfor %}
+        <li class="page-item {% if not pagination.has_next %}disabled{% endif %}">
+          <a class="page-link" href="{{ url_for('contacts.index', page=pagination.next_num, q=search) }}">›</a>
+        </li>
+      </ul>
+    </nav>
+  </div>
+  {% endif %}
+  {% endif %}
+</div>
+{% endblock %}
