@@ -180,7 +180,7 @@ Todas las variables se definen en el fichero `.env` (copia de `.env.example`):
 | `ADMIN_EMAIL` | Email del administrador inicial | `admin@example.com` |
 | `ADMIN_PASSWORD` | Contraseña del administrador inicial | `changeme123` |
 | `UPLOAD_FOLDER` | Ruta donde se guardan PDFs e imágenes subidas | `/app/uploads` |
-| `MAX_CONTENT_LENGTH` | Tamaño máximo de fichero en bytes | `52428800` (50 MB) |
+| `MAX_CONTENT_LENGTH` | Tamaño máximo de fichero en bytes | `104857600` (100 MB) |
 
 > **Importante:** En producción genera una `SECRET_KEY` larga y aleatoria:
 > ```python
@@ -474,6 +474,8 @@ Inicia sesión con las credenciales de administrador y accede desde el menú **A
 Esta es la forma principal de cargar datos masivos desde el libro de reglas.
 
 > **Importante:** Antes de importar un PDF, asegúrate de tener el catálogo de habilidades y talentos cargado. El sistema valida automáticamente las habilidades y talentos extraídos contra la base de datos.
+
+> **Límite de tamaño:** 100 MB por archivo (`MAX_CONTENT_LENGTH`). Si subes un PDF más grande, la pantalla muestra un error indicando el tamaño real del archivo y el límite — no hace falta comprimir "por si acaso", el mensaje es explícito.
 
 1. Ve a **Admin → Subir PDF**.
 2. Selecciona el archivo PDF y pulsa **Procesar PDF**.
