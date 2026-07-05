@@ -14,6 +14,8 @@ class User(UserMixin, db.Model):
     active        = db.Column(db.Boolean,     default=True, nullable=False)
     created_at    = db.Column(db.DateTime,    default=datetime.utcnow)
     template_id   = db.Column(db.Integer, db.ForeignKey('permission_templates.id'), nullable=True)
+    must_change_password = db.Column(db.Boolean, default=False, nullable=False)
+    created_by_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=True)
 
     # Relationships
     characters = db.relationship('Character', backref='owner', lazy='dynamic')
@@ -23,6 +25,8 @@ class User(UserMixin, db.Model):
         secondary='user_permissions',
         lazy='select',
     )
+    created_by = db.relationship('User', remote_side=[id], foreign_keys=[created_by_id],
+                                  backref='created_users')
 
     # ── Properties ───────────────────────────────────────────────────────────
 

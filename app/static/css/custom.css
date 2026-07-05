@@ -612,6 +612,28 @@ mark { background: rgba(212, 168, 48, .28); color: var(--wh-gold-light); padding
 .modal-footer  { border-top-color: var(--wh-border-gold); }
 .btn-close { filter: invert(0.8) sepia(0.3) hue-rotate(20deg); }
 
+/* Pagination */
+.page-link {
+  background-color: var(--wh-bg-card);
+  border-color: var(--wh-border-gold);
+  color: var(--wh-text);
+}
+.page-link:hover {
+  background-color: var(--wh-bg-card-alt);
+  border-color: var(--wh-gold-dark);
+  color: var(--wh-gold-light);
+}
+.page-item.active .page-link {
+  background-color: var(--wh-gold-dark);
+  border-color: var(--wh-gold);
+  color: #0d0b08;
+}
+.page-item.disabled .page-link {
+  background-color: var(--wh-bg-card);
+  border-color: var(--wh-border);
+  color: var(--wh-text-muted);
+}
+
 /* Responsive tweaks */
 @media (max-width: 768px) {
   .wh-stat-number { font-size: 1.8rem; }

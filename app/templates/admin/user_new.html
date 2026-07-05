@@ -1,0 +1,55 @@
+{% extends 'base.html' %}
+{% block title %}Nuevo usuario — Warhammer Fantasy Tools{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+  <div class="d-flex justify-content-between align-items-center mb-3">
+    <h2 class="wh-heading mb-0"><i class="bi bi-person-plus me-2"></i>Nuevo usuario</h2>
+    <a href="{{ url_for('admin.users') }}" class="btn btn-outline-secondary btn-sm">
+      <i class="bi bi-arrow-left me-1"></i>Volver
+    </a>
+  </div>
+
+  <div class="card wh-card" style="max-width:480px">
+    <div class="card-body">
+      <form method="POST">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+        <div class="mb-3">
+          <label class="wh-label d-block">Nombre de usuario</label>
+          <input type="text" name="username" class="form-control wh-input" required maxlength="80">
+        </div>
+
+        <div class="mb-3">
+          <label class="wh-label d-block">Email</label>
+          <input type="email" name="email" class="form-control wh-input" required maxlength="120">
+        </div>
+
+        <div class="mb-3">
+          <label class="wh-label d-block">Rol</label>
+          <select name="role" class="form-select wh-input">
+            <option value="user" selected>Usuario</option>
+            <option value="admin">Administrador</option>
+          </select>
+        </div>
+
+        <div class="mb-3">
+          <label class="d-flex align-items-center gap-2" style="cursor:pointer">
+            <input type="checkbox" name="active" class="form-check-input" checked>
+            Cuenta activa
+          </label>
+        </div>
+
+        <p class="text-muted small">
+          Se generará una contraseña temporal aleatoria, que se mostrará una sola vez tras crear el usuario.
+        </p>
+
+        <div class="d-flex gap-2 mt-4">
+          <button type="submit" class="btn btn-wh">Crear usuario</button>
+          <a href="{{ url_for('admin.users') }}" class="btn btn-outline-secondary">Cancelar</a>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+{% endblock %}

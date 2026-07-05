@@ -42,6 +42,17 @@
         </div>
       </div>
     </div>
+    <div class="col-md-2">
+      <div class="card wh-card text-center">
+        <div class="card-body">
+          <div class="wh-stat-number">{{ stats.total_contacts }}</div>
+          <small>Contactos</small>
+          <div class="mt-1">
+            <span class="badge bg-success">{{ stats.visible_contacts }} visibles</span>
+          </div>
+        </div>
+      </div>
+    </div>
   </div>
 
   {% if stats.skills == 0 or stats.talents == 0 %}
@@ -107,6 +118,18 @@
         <div class="card-body">
           <p>Gestionar cuentas de usuario: roles y estado.</p>
           <a href="{{ url_for('admin.users') }}" class="btn btn-wh">Gestionar</a>
+        </div>
+      </div>
+    </div>
+    <div class="col-md-4">
+      <div class="card wh-card">
+        <div class="card-header wh-card-header"><i class="bi bi-person-lines-fill me-2"></i>Contactos</div>
+        <div class="card-body">
+          <p>Gestionar contactos, campos, vínculos e importación/exportación Excel.</p>
+          <div class="d-flex gap-2">
+            <a href="{{ url_for('admin.contacts') }}" class="btn btn-wh">Gestionar</a>
+            <a href="{{ url_for('admin.contact_fields') }}" class="btn btn-outline-secondary">Campos</a>
+          </div>
         </div>
       </div>
     </div>

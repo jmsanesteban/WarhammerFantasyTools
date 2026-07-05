@@ -61,6 +61,9 @@ ALL_PERMISSIONS = [
     ('pathfinder.use',     'Buscador de caminos',    'Buscar rutas entre profesiones',                          'pathfinder'),
     ('characters.view',    'Ver personajes',         'Consultar personajes propios',                            'characters'),
     ('characters.edit',    'Editar personajes',      'Crear y editar personajes propios',                       'characters'),
+    ('contacts.view',      'Ver contactos',          'Consultar listado y ficha de contactos',                  'contacts'),
+    ('contacts.edit',      'Editar contactos',       'Editar notas y relaciones de personas con contactos',     'contacts'),
+    ('contacts.import',    'Importar contactos',     'Importar/exportar contactos desde Excel',                 'contacts'),
     ('users.manage',       'Gestionar usuarios',     'Asignar plantillas y permisos a otros usuarios (no convertir en admin)', 'admin'),
 ]
 
@@ -70,21 +73,23 @@ DEFAULT_TEMPLATES = [
     (
         'Lector',
         'Acceso de solo consulta a todas las secciones públicas',
-        ['professions.view', 'skills.view', 'pathfinder.use', 'characters.view'],
+        ['professions.view', 'skills.view', 'pathfinder.use', 'characters.view', 'contacts.view'],
     ),
     (
         'Editor',
         'Consulta y edición de contenido del juego',
         ['professions.view', 'professions.edit', 'professions.import',
          'skills.view', 'skills.edit', 'pathfinder.use',
-         'characters.view', 'characters.edit'],
+         'characters.view', 'characters.edit',
+         'contacts.view', 'contacts.edit', 'contacts.import'],
     ),
     (
         'Gestor',
         'Editor con capacidad de gestionar permisos de otros usuarios',
         ['professions.view', 'professions.edit', 'professions.import',
          'skills.view', 'skills.edit', 'pathfinder.use',
-         'characters.view', 'characters.edit', 'users.manage'],
+         'characters.view', 'characters.edit',
+         'contacts.view', 'contacts.edit', 'contacts.import', 'users.manage'],
     ),
 ]
 

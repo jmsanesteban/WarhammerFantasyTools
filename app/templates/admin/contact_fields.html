@@ -1,0 +1,103 @@
+{% extends 'base.html' %}
+{% block title %}Campos de Contactos — Warhammer Fantasy Tools{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+  <div class="d-flex justify-content-between align-items-start mb-3 flex-wrap gap-2">
+    <div>
+      <h2 class="wh-heading mb-0"><i class="bi bi-ui-checks-grid me-2"></i>Campos de Contactos</h2>
+      <small class="text-muted">Arrastra las filas para reordenar. Activa o desactiva la visibilidad de cada campo.</small>
+    </div>
+    <button type="button" class="btn btn-wh btn-sm" onclick="toggleCreateFieldForm()">
+      <i class="bi bi-plus-circle me-1"></i>Nuevo campo
+    </button>
+  </div>
+
+  <div id="createFieldPanel" class="card wh-card mb-3" style="display:none">
+    <div class="card-body">
+      <form method="POST" action="{{ url_for('admin.contact_field_new') }}" class="d-flex gap-2 align-items-end flex-wrap">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <div class="flex-grow-1" style="min-width:220px">
+          <label class="wh-label d-block">Nombre visible</label>
+          <input type="text" name="display_name" class="form-control wh-input" id="newFieldInput"
+                 placeholder="ej. Lugar de trabajo" required maxlength="128">
+        </div>
+        <button type="submit" class="btn btn-wh btn-sm">Crear</button>
+        <button type="button" class="btn btn-outline-secondary btn-sm" onclick="toggleCreateFieldForm()">Cancelar</button>
+      </form>
+    </div>
+  </div>
+
+  {% if fields %}
+  <div class="table-responsive">
+    <table class="table wh-table align-middle" id="fieldsTable">
+      <thead>
+        <tr>
+          <th style="width:2.5rem"></th>
+          <th>Nombre interno</th>
+          <th>Nombre visible</th>
+          <th style="width:7rem">Visibilidad</th>
+          <th style="width:10rem">Estado</th>
+        </tr>
+      </thead>
+      <tbody id="fieldsTbody" data-reorder-url="{{ url_for('admin.contact_fields_reorder') }}">
+        {% for field in fields %}
+        <tr data-id="{{ field.id }}" class="draggable-row">
+          <td class="drag-handle" style="cursor:grab" title="Arrastrar para reordenar">
+            <i class="bi bi-grip-vertical"></i>
+          </td>
+          <td class="text-muted small">{{ field.name }}</td>
+          <td>
+            <form method="POST" action="{{ url_for('admin.contact_field_rename', field_id=field.id) }}"
+                  class="d-flex gap-1">
+              <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+              <input type="text" name="display_name" value="{{ field.display_name }}"
+                     class="form-control form-control-sm wh-input">
+              <button type="submit" class="btn btn-outline-secondary btn-sm"><i class="bi bi-check-lg"></i></button>
+            </form>
+          </td>
+          <td>
+            <button class="btn btn-sm {% if field.is_visible %}btn-outline-secondary{% else %}btn-outline-warning{% endif %} field-toggle-btn"
+                    data-id="{{ field.id }}"
+                    data-url="{{ url_for('admin.contact_field_toggle', field_id=field.id) }}"
+                    onclick="toggleFieldVisibility(this)">
+              <i class="bi {% if field.is_visible %}bi-eye{% else %}bi-eye-slash{% endif %}"></i>
+            </button>
+          </td>
+          <td class="text-nowrap">
+            <span class="badge {% if field.is_visible %}bg-success{% else %}bg-secondary{% endif %} visibility-badge-{{ field.id }}">
+              {{ 'Visible' if field.is_visible else 'Oculto' }}
+            </span>
+            <form method="POST" action="{{ url_for('admin.contact_field_delete', field_id=field.id) }}"
+                  class="d-inline ms-2"
+                  onsubmit="return confirm('¿Eliminar el campo «{{ field.display_name }}»?\nSe borrarán todos sus valores en los contactos.')">
+              <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+              <button type="submit" class="btn btn-outline-danger btn-sm" title="Eliminar campo">
+                <i class="bi bi-trash"></i>
+              </button>
+            </form>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <div class="alert wh-alert">
+    Sin campos definidos. Crea uno manualmente o
+    <a href="{{ url_for('admin.contacts_import') }}" class="wh-link">importa un Excel</a> para generarlos automáticamente.
+  </div>
+  {% endif %}
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+function toggleCreateFieldForm() {
+  const panel = document.getElementById('createFieldPanel');
+  const visible = panel.style.display !== 'none';
+  panel.style.display = visible ? 'none' : 'block';
+  if (!visible) document.getElementById('newFieldInput').focus();
+}
+</script>
+{% endblock %}
