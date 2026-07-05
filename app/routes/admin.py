@@ -857,18 +857,18 @@ def _extract_specialization(chip_text: str) -> str | None:
 
 
 def _match_and_save_skills(prof, skills_raw: str, skills_raw_en: str = ''):
+    # skills_raw_en is intentionally unused here: it holds the ORIGINAL PDF-extracted
+    # English text and is never updated by the review page's chip editor, which only
+    # syncs skills_raw (Spanish). Matching against it instead of the user-confirmed
+    # chips silently discarded whatever the admin edited/accepted in the review UI.
     all_skills = Skill.query.all()
     skill_map  = {s.name_es.lower(): s for s in all_skills}
     skill_map.update({s.name_en.lower(): s for s in all_skills if s.name_en})
 
-    source = skills_raw_en or skills_raw
-    if skills_raw_en:
-        exact_syn, prefix_syn = _EN_SYNONYMS, {}
-    else:
-        exact_syn, prefix_syn = _get_synonyms_dicts()
+    exact_syn, prefix_syn = _get_synonyms_dicts()
 
     seen: set = set()
-    for raw_part in source.replace(' or ', ',').replace(' o ', ',').split(','):
+    for raw_part in skills_raw.replace(' or ', ',').replace(' o ', ',').split(','):
         raw_part = raw_part.strip()
         if not raw_part or len(raw_part) > 80 or '.' in raw_part:
             continue
@@ -884,18 +884,16 @@ def _match_and_save_skills(prof, skills_raw: str, skills_raw_en: str = ''):
 
 
 def _match_and_save_talents(prof, talents_raw: str, talents_raw_en: str = ''):
+    # talents_raw_en is intentionally unused - see the matching comment in
+    # _match_and_save_skills above.
     all_talents = Talent.query.all()
     talent_map  = {t.name_es.lower(): t for t in all_talents}
     talent_map.update({t.name_en.lower(): t for t in all_talents if t.name_en})
 
-    source = talents_raw_en or talents_raw
-    if talents_raw_en:
-        exact_syn, prefix_syn = _EN_SYNONYMS, {}
-    else:
-        exact_syn, prefix_syn = _get_synonyms_dicts()
+    exact_syn, prefix_syn = _get_synonyms_dicts()
 
     seen: set = set()
-    for raw_part in source.replace(' or ', ',').replace(' o ', ',').split(','):
+    for raw_part in talents_raw.replace(' or ', ',').replace(' o ', ',').split(','):
         raw_part = raw_part.strip()
         if not raw_part or len(raw_part) > 80 or '.' in raw_part:
             continue
