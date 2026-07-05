@@ -22,14 +22,68 @@
   </div>
   {% endif %}
 
+  {# ── Triage summary: which of this book's professions are new vs. already in the DB ── #}
+  {% if professions %}
+  <div class="card wh-card mb-4">
+    <div class="card-header wh-card-header">
+      <i class="bi bi-list-check me-2"></i>Resumen — {{ professions|length }} profesión(es) detectada(s)
+    </div>
+    <div class="table-responsive">
+      <table class="table wh-table align-middle mb-0">
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>Nombre</th>
+            <th>Estado</th>
+            <th>Detalle</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for prof_data in professions %}
+          <tr>
+            <td class="text-muted small">{{ loop.index }}</td>
+            <td>{{ prof_data.name or '(sin nombre)' }}</td>
+            <td>
+              {% if prof_data.dup_status == 'exact' %}
+              <span class="badge bg-danger">Ya existe</span>
+              {% elif prof_data.dup_status == 'possible' %}
+              <span class="badge bg-warning text-dark">Posible colisión</span>
+              {% else %}
+              <span class="badge bg-success">Nueva</span>
+              {% endif %}
+            </td>
+            <td class="small text-muted">
+              {% if prof_data.dup_status == 'exact' %}
+              Coincide exactamente con la profesión #{{ prof_data.existing_prof.id }} ya guardada.
+              {% elif prof_data.dup_status == 'possible' %}
+              Nombre similar a: {{ prof_data.possible_duplicates | map(attribute='name') | join(', ') }}
+              {% else %}
+              No hay ninguna profesión con nombre igual o similar en la BD.
+              {% endif %}
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+  {% endif %}
+
   {% if professions %}
     {% for prof_data in professions %}
     <div class="card wh-card mb-4">
       <div class="card-header wh-card-header d-flex justify-content-between">
         <span>{{ loop.index }}. {{ prof_data.name or '(sin nombre)' }}</span>
 
-        <span class="badge {% if prof_data.type == 'basic' %}bg-success{% else %}bg-warning text-dark{% endif %}">
-          {{ 'Básica' if prof_data.type == 'basic' else 'Avanzada' }}
+        <span>
+          {% if prof_data.dup_status == 'possible' %}
+          <span class="badge bg-warning text-dark" title="Nombre similar a: {{ prof_data.possible_duplicates | map(attribute='name') | join(', ') }}">
+            <i class="bi bi-exclamation-triangle me-1"></i>Posible colisión
+          </span>
+          {% endif %}
+          <span class="badge {% if prof_data.type == 'basic' %}bg-success{% else %}bg-warning text-dark{% endif %}">
+            {{ 'Básica' if prof_data.type == 'basic' else 'Avanzada' }}
+          </span>
         </span>
       </div>
       <div class="card-body">

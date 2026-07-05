@@ -561,6 +561,25 @@ def pdf_save():
             flash(f'Profesión "{prof.name}" actualizada desde el PDF.', 'success')
             return redirect(url_for('professions.edit', prof_id=prof.id))
 
+    # ── Safety net against silent duplicates ────────────────────────────────
+    # The review page's "already exists" banner only reflects DB state at PDF
+    # PARSE time. If this form is being submitted without an existing_prof_id
+    # (no duplicate was known then), re-check right now before creating - a
+    # resumed/cached review session re-submitted after the profession was
+    # already saved once is exactly how this created real duplicates before.
+    if not existing_prof_id:
+        surprise_dup = Profession.query.filter(
+            db.func.lower(Profession.name) == name.lower()
+        ).first()
+        if surprise_dup:
+            flash(
+                f'Ya existe una profesión llamada "{surprise_dup.name}" — probablemente '
+                'guardada después de generarse esta revisión (p.ej. al retomar una sesión '
+                'ya guardada antes). No se ha creado un duplicado; revisa la existente.',
+                'warning',
+            )
+            return redirect(url_for('professions.edit', prof_id=surprise_dup.id))
+
     # ── Create mode (default) ──────────────────────────────────────────────
     prof = Profession(
         name=name,
@@ -601,11 +620,57 @@ def _apply_prof_relations(prof: 'Profession') -> None:
 
     exits_raw   = request.form.get('exits_raw', '').strip()
     entries_raw = request.form.get('entries_raw', '').strip()
-    if exits_raw or entries_raw:
-        note = ''
-        if exits_raw:   note += f'\n[SALIDAS PENDIENTES DE VINCULAR]: {exits_raw}'
-        if entries_raw: note += f'\n[ACCESOS PENDIENTES DE VINCULAR]: {entries_raw}'
-        prof.description = (prof.description or '') + note
+
+    pending_notes = []
+
+    if exits_raw:
+        matched, unmatched = _fuzzy_link_professions(exits_raw)
+        for target in matched:
+            if target.id != prof.id and target not in prof.exits:
+                prof.exits.append(target)
+        if unmatched:
+            pending_notes.append(f'[SALIDAS PENDIENTES DE VINCULAR]: {", ".join(unmatched)}')
+
+    if entries_raw:
+        # Entries aren't a stored field (they're derived from other professions'
+        # exits) - so an entry name that matches an existing profession gets
+        # linked in the OTHER direction: that profession gains this one as an exit.
+        matched, unmatched = _fuzzy_link_professions(entries_raw)
+        for source in matched:
+            if source.id != prof.id and prof not in source.exits:
+                source.exits.append(prof)
+        if unmatched:
+            pending_notes.append(f'[ACCESOS PENDIENTES DE VINCULAR]: {", ".join(unmatched)}')
+
+    if pending_notes:
+        prof.description = (prof.description or '') + '\n' + '\n'.join(pending_notes)
+
+
+def _fuzzy_link_professions(raw_text: str, cutoff: float = 0.8):
+    """
+    Fuzzy-match each comma-separated profession name in raw_text against
+    professions already in the DB.
+    Returns (matched_profession_objects, unmatched_name_strings).
+    """
+    candidates = [c.strip() for c in raw_text.split(',') if c.strip()]
+    if not candidates:
+        return [], []
+
+    name_map = {p.name.lower(): p for p in Profession.query.all()}
+
+    matched, unmatched = [], []
+    for cand in candidates:
+        low = cand.lower()
+        prof_obj = name_map.get(low)
+        if not prof_obj:
+            hits = difflib.get_close_matches(low, name_map.keys(), n=1, cutoff=cutoff)
+            if hits:
+                prof_obj = name_map[hits[0]]
+        if prof_obj:
+            matched.append(prof_obj)
+        else:
+            unmatched.append(cand)
+    return matched, unmatched
 
 
 # ---------------------------------------------------------------------------
@@ -780,6 +845,10 @@ def _validate_pdf_professions(professions: list, all_skills, all_talents) -> lis
     # Load ES synonyms once — used for both name correction and chip validation
     es_exact, es_prefix = _get_synonyms_dicts()
 
+    # All existing profession names, loaded once, used for exact + fuzzy duplicate checks below.
+    all_prof_rows = Profession.query.with_entities(Profession.id, Profession.name).all()
+    prof_name_map = {p.name.lower(): (p.id, p.name) for p in all_prof_rows}
+
     for prof in professions:
         # ── Apply synonym to profession name ──────────────────────────────
         raw_name = prof.get('name', '')
@@ -810,6 +879,28 @@ def _validate_pdf_professions(professions: list, all_skills, all_talents) -> lis
             }
         else:
             prof['existing_prof'] = None
+
+        # ── Near-duplicate detection (fuzzy name match, informational only) ──
+        # Exact matches are already handled above via existing_prof; this only
+        # flags OTHER professions with a similar-but-not-identical name (e.g.
+        # OCR/translation variants), so the admin sees possible collisions
+        # before creating what might be an unintentional duplicate.
+        possible_duplicates = []
+        if not existing and prof.get('name'):
+            close = difflib.get_close_matches(
+                prof['name'].lower(), prof_name_map.keys(), n=3, cutoff=0.82,
+            )
+            for key in close:
+                pid, pname = prof_name_map[key]
+                possible_duplicates.append({'id': pid, 'name': pname})
+        prof['possible_duplicates'] = possible_duplicates
+
+        if existing:
+            prof['dup_status'] = 'exact'
+        elif possible_duplicates:
+            prof['dup_status'] = 'possible'
+        else:
+            prof['dup_status'] = 'new'
 
         # ── Unmatched validation ───────────────────────────────────────────
         is_en = bool(prof.get('skills_raw_en'))
@@ -843,7 +934,10 @@ def _validate_pdf_professions(professions: list, all_skills, all_talents) -> lis
         prof['unmatched_talents'] = unmatched_talents
         prof['is_en_source']      = is_en
         prof['no_exits']    = not prof.get('exits_raw', '').strip()
-        prof['no_entries']  = not prof.get('entries_raw', '').strip()
+        # Basic professions are commonly starting careers with no entry
+        # requirement - only flag missing entries for advanced professions,
+        # where it's much more likely to be a real extraction gap.
+        prof['no_entries']  = prof.get('type') != 'basic' and not prof.get('entries_raw', '').strip()
 
     return professions
 
