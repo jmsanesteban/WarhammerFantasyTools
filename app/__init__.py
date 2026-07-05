@@ -1,6 +1,7 @@
+import logging
 import os
 import click
-from flask import Flask, flash, redirect, url_for, request
+from flask import Flask, flash, redirect, url_for, request, jsonify
 from app.config import config_by_name
 from app.extensions import db, login_manager, bcrypt, migrate, csrf
 
@@ -61,11 +62,26 @@ def _register_security_headers(app):
 
 def _register_error_handlers(app):
     from werkzeug.exceptions import RequestEntityTooLarge
+    logger = logging.getLogger(__name__)
 
     @app.errorhandler(RequestEntityTooLarge)
     def handle_file_too_large(e):
-        max_mb = app.config.get('MAX_CONTENT_LENGTH', 52428800) // (1024 * 1024)
-        flash(f'El archivo supera el tamaño máximo permitido ({max_mb} MB).', 'danger')
+        max_mb = app.config.get('MAX_CONTENT_LENGTH', 104857600) // (1024 * 1024)
+        content_length = request.content_length
+        size_mb = f'{content_length / (1024 * 1024):.1f}' if content_length else '?'
+        message = f'El archivo ({size_mb} MB) supera el tamaño máximo permitido ({max_mb} MB).'
+        logger.warning(
+            'RequestEntityTooLarge on %s %s: content_length=%s max=%s',
+            request.method, request.path, content_length, app.config.get('MAX_CONTENT_LENGTH'),
+        )
+
+        # AJAX endpoints (e.g. the PDF uploader) expect JSON, not an HTML redirect -
+        # returning HTML here breaks their fetch/XHR response parsing and surfaces
+        # as a confusing generic "network error" client-side.
+        if request.path == '/admin/pdf' and request.method == 'POST':
+            return jsonify({'error': message}), 413
+
+        flash(message, 'danger')
         referrer = request.referrer
         if referrer and '/admin/pdf' in referrer:
             return redirect(url_for('admin.pdf_upload')), 302

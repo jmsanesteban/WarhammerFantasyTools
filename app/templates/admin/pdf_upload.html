@@ -233,13 +233,27 @@
     });
 
     xhr.addEventListener('load', function() {
-      if (xhr.status !== 200) {
-        showError('Error al subir el archivo (HTTP ' + xhr.status + ').');
+      // Any non-2xx: try to read a JSON {error: ...} body first (e.g. 413 file-too-large),
+      // fall back to showing the raw status + a response snippet for debugging.
+      if (xhr.status < 200 || xhr.status >= 300) {
+        let data;
+        try { data = JSON.parse(xhr.responseText); } catch (ex) { data = null; }
+        if (data && data.error) {
+          showError(data.error);
+        } else {
+          console.error('PDF upload failed', xhr.status, xhr.responseText);
+          const snippet = (xhr.responseText || '').slice(0, 200);
+          showError('Error al subir el archivo (HTTP ' + xhr.status + ').' +
+                    (snippet ? ' Detalle: ' + snippet : ''));
+        }
         return;
       }
       let data;
       try { data = JSON.parse(xhr.responseText); } catch(ex) {
-        showError('Respuesta inesperada del servidor.'); return;
+        console.error('PDF upload: non-JSON 2xx response', xhr.responseText);
+        showError('Respuesta inesperada del servidor (HTTP ' + xhr.status + ', no es JSON). ' +
+                  'Detalle: ' + (xhr.responseText || '').slice(0, 200));
+        return;
       }
       if (data.error) { showError(data.error); return; }
       setProgress(20, 'Archivo recibido. Iniciando procesamiento…');
@@ -247,7 +261,10 @@
     });
 
     xhr.addEventListener('error', function() {
-      showError('Error de red al subir el archivo.');
+      console.error('PDF upload: XHR network error (status=' + xhr.status + ')');
+      showError('Error de red al subir el archivo. Esto normalmente indica que el fichero ' +
+                'supera el límite del servidor o que se perdió la conexión a mitad de la subida. ' +
+                'Comprueba el tamaño del PDF y vuelve a intentarlo.');
     });
 
     xhr.open('POST', '/admin/pdf');
