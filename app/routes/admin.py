@@ -3,7 +3,6 @@ import json
 import logging
 import os
 import re
-import tempfile
 import threading
 import time
 import uuid
@@ -32,8 +31,14 @@ admin_bp = Blueprint('admin', __name__, template_folder='../templates')
 # Async PDF job management (file-based state, cross-worker safe)
 # ---------------------------------------------------------------------------
 
-_JOBS_DIR  = os.path.join(tempfile.gettempdir(), 'wh_pdf_jobs')
-_CACHE_DIR = os.path.join(tempfile.gettempdir(), 'wh_pdf_cache')
+# Lives on a dedicated volume (not tempfile.gettempdir()/tmp), so a completed
+# PDF review session survives a container restart/redeploy - not just a closed
+# browser tab. Deliberately NOT under UPLOAD_FOLDER: that folder is served
+# publicly (unauthenticated) via main.uploaded_file, and this cache holds
+# in-progress admin-only import data.
+_PDF_CACHE_ROOT = os.environ.get('PDF_CACHE_DIR', '/app/pdf_cache')
+_JOBS_DIR  = os.path.join(_PDF_CACHE_ROOT, 'jobs')
+_CACHE_DIR = os.path.join(_PDF_CACHE_ROOT, 'cache')
 os.makedirs(_JOBS_DIR,  exist_ok=True)
 os.makedirs(_CACHE_DIR, exist_ok=True)
 

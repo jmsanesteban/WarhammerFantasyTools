@@ -30,6 +30,7 @@ services:
       - DATABASE_URL=mysql+pymysql://${MYSQL_USER:-wftuser}:${MYSQL_PASSWORD:-wftpassword}@db:3306/${MYSQL_DATABASE:-wft}
     volumes:
       - ./uploads:/app/uploads
+      - pdf_cache:/app/pdf_cache
     ports:
       - "5000:5000"
     depends_on:
@@ -44,3 +45,4 @@ networks:
 
 volumes:
   mysql_data:
+  pdf_cache:
