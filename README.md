@@ -499,8 +499,9 @@ pytest --cov=app --cov-report=term-missing
 | `tests/test_characters.py` | CRUD de personajes WFRP, aislamiento por propietario, historial de profesiones ordenado |
 | `tests/test_contacts.py` | Vista de usuario de Contactos: visibilidad, notas (privadas/globales), vínculos de "persona" propios |
 | `tests/test_admin_contacts.py` | Administración de Contactos: definición de campos EAV, gestión de vínculos, listado/alta/baja de contactos, importación/exportación Excel |
-| `tests/test_pdf_import.py` | Pipeline de importación de PDF: emparejamiento de habilidades/talentos, auto-vinculación de accesos/salidas, detección de duplicados/casi-duplicados, persistencia del caché de trabajos en disco (con expiración a las 48h), y el endpoint de guardado (modos crear/actualizar/omitir + el guardián anti-duplicados). Incluye tests de regresión explícitos para los 3 bugs reales corregidos: pérdida de chips confirmados al guardar, caché no persistente entre reinicios, y accesos/salidas no auto-vinculados |
+| `tests/test_pdf_import.py` | Pipeline de importación de PDF: emparejamiento de habilidades/talentos, auto-vinculación de accesos/salidas, detección de duplicados/casi-duplicados, persistencia del caché de trabajos en disco (con expiración a las 48h), recuperación de enseres mal clasificados como talentos, corrección de nombres de carrera vía sinónimos, y el endpoint de guardado (modos crear/actualizar/omitir + el guardián anti-duplicados). Incluye tests de regresión explícitos para los bugs reales corregidos: pérdida de chips confirmados al guardar, caché no persistente entre reinicios, accesos/salidas no auto-vinculados, enseres perdidos dentro de talentos, y nombres de carrera no corregidos por el diccionario de sinónimos |
 | `tests/test_pathfinder.py` | Construcción del grafo de carreras, búsqueda de rutas (más cortas primero, límite de resultados, ausencia de ruta), y acumulación de estadísticas (máximo por característica, deduplicación de habilidades/talentos/enseres a lo largo de la ruta) |
+| `tests/test_talent_specializations.py` | Talentos con especializaciones predefinidas (p.ej. "Especialista en armas"): carga de `talent_specializations.json`, guardado en formato de entradas (JSON) con grupos de elección, y que los talentos sin especializaciones predefinidas siguen funcionando con el campo de texto libre de siempre |
 
 ### Notas de diseño
 
@@ -539,11 +540,15 @@ Esta es la forma principal de cargar datos masivos desde el libro de reglas.
 6. **Revisa y corrige** los datos de cada profesión. Presta especial atención a las características numéricas y los chips naranja.
 7. Pulsa **Guardar esta profesión** en cada tarjeta que quieras importar.
 
-> **Salidas y accesos:** el sistema intenta enlazarlos automáticamente comparando el texto extraído contra los nombres de profesiones ya existentes (coincidencia difusa, tolera pequeñas erratas). Un acceso vincula la profesión importada como salida de la profesión de origen (los accesos no se guardan como campo propio — se derivan de las salidas de otras profesiones). Solo lo que no encuentra ninguna coincidencia queda como texto "pendiente de vincular" en la descripción, para asignarlo a mano.
+> **Salidas y accesos:** el sistema intenta enlazarlos automáticamente comparando el texto extraído contra los nombres de profesiones ya existentes (coincidencia difusa, tolera pequeñas erratas), aplicando primero el diccionario de sinónimos por si el nombre de carrera traducido no coincide con el nombre oficial WFRP2 (ver más abajo). Un acceso vincula la profesión importada como salida de la profesión de origen (los accesos no se guardan como campo propio — se derivan de las salidas de otras profesiones). Solo lo que no encuentra ninguna coincidencia queda como texto "pendiente de vincular" en la descripción, para asignarlo a mano.
 
 > **Duplicados:** si al guardar resulta que ya existe una profesión con ese nombre exacto (por ejemplo, al retomar una revisión ya guardada antes), el sistema no crea un duplicado — te redirige a la profesión existente con un aviso.
 
 > **Caché de la revisión:** el resultado del procesamiento (OCR incluido) se guarda 48 horas en un volumen persistente, así que puedes cerrar la pestaña o perder la sesión sin perder el trabajo — usa **"Retomar"** desde la pantalla de subida de PDF. Esta caché sobrevive incluso a un reinicio/actualización del servidor.
+
+> **Enseres mal clasificados como talentos:** cuando el OCR/traducción no reconoce la cabecera "Enseres:" (encabezado muy deformado), su contenido solía quedarse enganchado al final de los talentos, sin forma de recuperarlo. El sistema ahora detecta objetos con pinta de enser (p.ej. "4 Cuchillos arrojadizos", "10 metros de cuerda") dentro del texto de talentos y los mueve automáticamente a Enseres. No es infalible con texto muy corrupto — revisa siempre los chips de talentos tras importar.
+
+> **Diccionario de sinónimos y nombres de carrera:** el diccionario (**Admin → Sinónimos**) corrige términos donde la traducción literal de GTranslate no coincide con el nombre oficial WFRP2 en español (p.ej. "conocimiento académico" → "sabiduría académica"). Ahora también se aplica a los nombres de otras profesiones listados en accesos/salidas (p.ej. la carrera inglesa "Champion" se traduce oficialmente como "Héroe", no "Campeón"). Se han añadido varias entradas de partida marcadas como "verificar" en sus notas — revísalas en **Admin → Sinónimos** y corrígelas si no coinciden con tu edición del libro.
 
 ---
 
@@ -601,6 +606,7 @@ El campo **"Gr."** (grupo de elección) funciona igual para habilidades simples 
 **Talentos**
 - Funciona igual que las habilidades simples. Usa el número de grupo para indicar elecciones tipo "Talento A o Talento B".
 - El campo "Esp." permite especializaciones del mismo modo.
+- **Talentos con especializaciones predefinidas** (por ahora, "Especialista en armas"): usan el mismo panel expandible con tags clicables que las habilidades tipo Sabiduría Académica (ver arriba) — cada clic añade una entrada (p.ej. *Especialista en armas (Parada)*), con su propio grupo de elección. Para añadir más talentos a esta lista, edita `app/data/talent_specializations.json` (misma estructura que `skill_specializations.json`, indexado por el nombre en español del talento).
 
 **Enseres**
 - Lista separada por comas de los objetos necesarios para la profesión.

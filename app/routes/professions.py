@@ -53,8 +53,9 @@ def create():
 
     all_profs = Profession.query.order_by(Profession.name).all()
     skill_specs = _load_skill_specs(skills)
+    talent_specs = _load_talent_specs(talents)
     return render_template('professions/form.html', prof=None, skills=skills, talents=talents,
-                           exits_list=all_profs, skill_specs=skill_specs)
+                           exits_list=all_profs, skill_specs=skill_specs, talent_specs=talent_specs)
 
 
 @professions_bp.route('/<int:prof_id>/editar', methods=['GET', 'POST'])
@@ -80,8 +81,9 @@ def edit(prof_id):
 
     all_profs = Profession.query.order_by(Profession.name).all()
     skill_specs = _load_skill_specs(skills)
+    talent_specs = _load_talent_specs(talents)
     return render_template('professions/form.html', prof=prof, skills=skills, talents=talents,
-                           exits_list=all_profs, skill_specs=skill_specs)
+                           exits_list=all_profs, skill_specs=skill_specs, talent_specs=talent_specs)
 
 
 @professions_bp.route('/<int:prof_id>/eliminar', methods=['POST'])
@@ -178,15 +180,31 @@ def _save_skills_talents(prof: Profession):
         if k.startswith('talent_') and not k.startswith('talent_group_') and not k.startswith('talent_spec_')
     ]
     for talent_id in talent_ids:
-        group_val = form.get(f'talent_group_{talent_id}', '').strip()
-        choice_group = int(group_val) if group_val.isdigit() else None
         specs_raw = form.get(f'talent_spec_{talent_id}', '').strip()
-        specs = [s.strip() for s in specs_raw.split(',') if s.strip()] if specs_raw else [None]
-        for spec in specs:
-            db.session.add(ProfessionTalent(
-                profession_id=prof.id, talent_id=talent_id,
-                specialization=spec, choice_group=choice_group,
-            ))
+        if specs_raw.startswith('['):
+            # JSON format: spec talent — each entry carries its own group
+            try:
+                entries = json.loads(specs_raw)
+            except Exception:
+                entries = []
+            for e in entries:
+                spec = (e.get('spec') or '').strip() or None
+                grp = e.get('group')
+                entry_group = int(grp) if grp else None
+                db.session.add(ProfessionTalent(
+                    profession_id=prof.id, talent_id=talent_id,
+                    specialization=spec, choice_group=entry_group,
+                ))
+        else:
+            # Plain text: comma-separated specs with a shared group
+            group_val = form.get(f'talent_group_{talent_id}', '').strip()
+            choice_group = int(group_val) if group_val.isdigit() else None
+            specs = [s.strip() for s in specs_raw.split(',') if s.strip()] if specs_raw else [None]
+            for spec in specs:
+                db.session.add(ProfessionTalent(
+                    profession_id=prof.id, talent_id=talent_id,
+                    specialization=spec, choice_group=choice_group,
+                ))
 
     # Exits (career exits)
     exit_ids = request.form.getlist('exits')
@@ -218,9 +236,9 @@ def _cleanup_pending_in_description(prof: Profession):
     prof.description = desc or None
 
 
-def _load_skill_specs(skills) -> dict:
-    """Return {skill_id: [{"nombre":…,"atributo":…,"descripcion":…}]} from data JSON."""
-    data_path = os.path.join(os.path.dirname(__file__), '..', 'data', 'skill_specializations.json')
+def _load_specializations(items, filename) -> dict:
+    """Return {item_id: [{"nombre":…,"atributo":…,"descripcion":…}]} from a data JSON file."""
+    data_path = os.path.join(os.path.dirname(__file__), '..', 'data', filename)
     try:
         with open(data_path, encoding='utf-8') as f:
             raw = json.load(f)
@@ -234,8 +252,16 @@ def _load_skill_specs(skills) -> dict:
         return s.rstrip('s')
 
     by_norm = {_norm(k): v for k, v in raw.items()}
-    return {skill.id: by_norm[_norm(skill.name_es)]
-            for skill in skills if _norm(skill.name_es) in by_norm}
+    return {item.id: by_norm[_norm(item.name_es)]
+            for item in items if _norm(item.name_es) in by_norm}
+
+
+def _load_skill_specs(skills) -> dict:
+    return _load_specializations(skills, 'skill_specializations.json')
+
+
+def _load_talent_specs(talents) -> dict:
+    return _load_specializations(talents, 'talent_specializations.json')
 
 
 def _save_trappings(prof: Profession):

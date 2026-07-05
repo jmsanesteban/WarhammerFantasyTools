@@ -250,6 +250,64 @@
           {% set pt_list = prof.profession_talents | selectattr('talent_id','eq', talent.id) | list if prof else [] %}
           {% set sel = pt_list[0] if pt_list else none %}
           {% set spec_val = pt_list | map(attribute='specialization') | select | join(', ') %}
+          {% if talent.id in talent_specs %}
+          {# ── Talent with predefined specializations — entry-list model (same pattern as spec skills) ── #}
+          {% set init_entries = [] %}
+          {% for pt in pt_list %}{% set _ = init_entries.append({'spec': pt.specialization, 'group': pt.choice_group}) %}{% endfor %}
+          <div class="col-12 item-row spec-skill-row" data-section="talents" data-id="{{ talent.id }}">
+            <div class="d-flex align-items-center gap-1 py-1 px-1 rounded spec-header">
+              <input type="checkbox" id="tl_{{ talent.id }}"
+                     class="form-check-input mt-0 flex-shrink-0 spec-indicator-cb"
+                     {% if pt_list %}checked{% endif %}>
+              <label class="wh-item-label flex-grow-1 spec-name-label"
+                     title="{{ talent.name_es }}">{{ talent.name_es }}</label>
+              <input type="hidden" name="talent_{{ talent.id }}" class="spec-master-hidden"
+                     {% if not pt_list %}disabled{% endif %}>
+              <input type="hidden" name="talent_spec_{{ talent.id }}" class="spec-entries-json"
+                     value='{{ init_entries | tojson }}'>
+              <span class="spec-count">{% if pt_list %}{{ pt_list|length }}{% endif %}</span>
+              <button type="button" class="wh-spec-expand-btn flex-shrink-0" title="Especializaciones">
+                <i class="bi bi-tag"></i>
+              </button>
+            </div>
+            <div class="spec-panel{% if pt_list %} open{% endif %}" id="spec-panel-tl-{{ talent.id }}">
+              <div class="spec-entries">
+                {% for pt in pt_list %}
+                <div class="spec-entry" data-spec="{{ pt.specialization or '' }}">
+                  <span class="spec-entry-lbl">{{ pt.specialization or '—' }}</span>
+                  <input type="number" class="form-control form-control-sm wh-input spec-entry-grp"
+                         min="1" placeholder="Gr." value="{{ pt.choice_group or '' }}"
+                         title="Grupo de elección">
+                  <button type="button" class="spec-entry-rm" title="Quitar">×</button>
+                </div>
+                {% endfor %}
+              </div>
+              <div class="spec-tags">
+                {% for entry in talent_specs[talent.id] %}
+                <button type="button" class="spec-tag"
+                        data-spec="{{ entry.nombre }}"
+                        {% if entry.descripcion is defined and entry.descripcion %}title="{{ entry.descripcion }}"{% endif %}>
+                  {{ entry.nombre }}{% if entry.atributo is defined and entry.atributo %}<span class="spec-attr"> ({{ entry.atributo }})</span>{% endif %}
+                </button>
+                {% endfor %}
+              </div>
+              <div class="spec-add-row">
+                <div class="spec-presets">
+                  <button type="button" class="spec-preset-btn" data-preset="Cualquiera">Cualquiera</button>
+                </div>
+                <input type="text" class="form-control form-control-sm wh-input spec-custom-inp"
+                       placeholder="Otra especialización…">
+                <input type="number" class="form-control form-control-sm wh-input spec-new-grp"
+                       min="1" placeholder="Gr." title="Grupo para la nueva entrada">
+                <button type="button" class="btn btn-sm btn-outline-secondary spec-add-btn">
+                  <i class="bi bi-plus-lg"></i>
+                </button>
+              </div>
+              <small class="text-muted spec-hint">Clic en un tag para añadir. Mismo Gr. = el jugador elige uno.</small>
+            </div>
+          </div>
+          {% else %}
+          {# ── Normal talent row ── #}
           <div class="col-12 col-md-6 col-lg-4 item-row d-flex align-items-center gap-1 py-1 px-1 rounded"
                data-section="talents" data-id="{{ talent.id }}">
             <input type="checkbox" name="talent_{{ talent.id }}" id="tl_{{ talent.id }}"
@@ -267,6 +325,7 @@
                    placeholder="Esp." value="{{ spec_val }}"
                    title="Especialización(es)">
           </div>
+          {% endif %}
           {% endfor %}
         </div>
       </div>
@@ -582,7 +641,7 @@ function initSpecSkills() {
       masterInp.disabled = !hasAny;
       indicCb.checked    = hasAny;
       countEl.textContent = hasAny ? entries.length : '';
-      applyGroupColors('skills');
+      applyGroupColors(row.dataset.section);
     }
 
     function makeEntry(spec, grpVal) {

@@ -42,4 +42,15 @@ DEFAULT_SYNONYMS = [
     ('sangre fría',            'sangre fría',          False, 'Identidad — reservado para coherencia interna'),
     ('blather',                'disparatar',           False, 'Inglés → español oficial WFRP2'),
     ('franqueza',              'contundente',          False, 'GTranslate aproximación de "Bluntness" / "Surehanded"'),
+    ('grupo de armas especializado',    'especialista en armas', True,
+     'GTranslate ES → WFRP2 ES para el talento "Specialist Weapon Group" (con prefijo para especializaciones, p.ej. "(Parada)")'),
+    ('grupo especializado en armas',    'especialista en armas', True,
+     'Variante de orden de palabras del mismo caso que "grupo de armas especializado"'),
+    # Career-name mismatches: GTranslate's literal translation of the English
+    # WFRP2 career name differs from the official Spanish rulebook name.
+    # Best-effort guesses inferred from a real import — verify against the
+    # book and correct via /admin/synonyms if wrong for your source PDF.
+    ('campeón',                'héroe',                False, 'Carrera inglesa "Champion" → nombre oficial "Héroe" (no "Campeón", que es la traducción literal de GTranslate) — verificar'),
+    ('pícaro',                 'bribón',                False, 'Carrera inglesa "Rogue" → nombre oficial "Bribón" (no "Pícaro") — verificar'),
+    ('objetivo',               'tirador',               False, 'Nombre de carrera mal traducido por GTranslate → "Tirador" — verificar'),
 ]

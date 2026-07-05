@@ -656,11 +656,14 @@ def _fuzzy_link_professions(raw_text: str, cutoff: float = 0.8):
     if not candidates:
         return [], []
 
+    exact_syn, prefix_syn = _get_synonyms_dicts()
     name_map = {p.name.lower(): p for p in Profession.query.all()}
 
     matched, unmatched = [], []
     for cand in candidates:
-        low = cand.lower()
+        # Correct GTranslate-vs-official-name mismatches before matching
+        # (e.g. "Campeón" -> "héroe"), same dictionary used for skill/talent names.
+        low = _normalize_item(cand, exact_syn, prefix_syn)
         prof_obj = name_map.get(low)
         if not prof_obj:
             hits = difflib.get_close_matches(low, name_map.keys(), n=1, cutoff=cutoff)
@@ -671,6 +674,38 @@ def _fuzzy_link_professions(raw_text: str, cutoff: float = 0.8):
         else:
             unmatched.append(cand)
     return matched, unmatched
+
+
+def _capitalize_first(s: str) -> str:
+    return s[:1].upper() + s[1:] if s else s
+
+
+def _normalize_career_list(raw: str, exact_syns: dict, prefix_syns: dict) -> str:
+    """
+    Apply the ES synonym dictionary to each comma-separated profession name
+    in an exits/entries list, correcting GTranslate-vs-official-name mismatches
+    (e.g. 'campeón' -> 'héroe') for display in the PDF review form.
+    """
+    if not raw:
+        return raw
+    corrected = []
+    for item in raw.split(','):
+        item = item.strip()
+        if not item:
+            continue
+        low = item.lower()
+        if low in exact_syns:
+            corrected.append(_capitalize_first(exact_syns[low]))
+            continue
+        replaced = False
+        for key in sorted(prefix_syns, key=len, reverse=True):
+            if low.startswith(key + ' (') or low.startswith(key + '('):
+                corrected.append(_capitalize_first(prefix_syns[key] + item[len(key):]))
+                replaced = True
+                break
+        if not replaced:
+            corrected.append(item)
+    return ', '.join(corrected)
 
 
 # ---------------------------------------------------------------------------
@@ -861,6 +896,13 @@ def _validate_pdf_professions(professions: list, all_skills, all_talents) -> lis
                     if lower.startswith(key + ' (') or lower.startswith(key + '('):
                         prof['name'] = es_prefix[key] + raw_name[len(key):]
                         break
+
+        # ── Apply synonym to career entries/exits lists ────────────────────
+        # Same GTranslate-vs-official-name gap as profession names above
+        # (e.g. English "Champion" → official "Héroe", not the literal
+        # "Campeón"), but for the OTHER career names listed as accesos/salidas.
+        prof['exits_raw']   = _normalize_career_list(prof.get('exits_raw', ''),   es_exact, es_prefix)
+        prof['entries_raw'] = _normalize_career_list(prof.get('entries_raw', ''), es_exact, es_prefix)
 
         # ── Duplicate detection ────────────────────────────────────────────
         existing = Profession.query.filter(

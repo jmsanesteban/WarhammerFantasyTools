@@ -187,16 +187,21 @@ def _register_cli_commands(app):
             seed_permissions_and_templates()
             click.echo('  Permissions and templates seeded.')
 
-            # Seed default synonyms on first run
+            # Seed default synonyms (idempotent — adds any new default entries
+            # introduced in later releases without touching admin-edited rows)
             from app.models.synonym import Synonym, DEFAULT_SYNONYMS
-            if Synonym.query.count() == 0:
-                for source, target, is_prefix, notes in DEFAULT_SYNONYMS:
+            existing_sources = {s.source for s in Synonym.query.all()}
+            added = 0
+            for source, target, is_prefix, notes in DEFAULT_SYNONYMS:
+                if source not in existing_sources:
                     db.session.add(Synonym(
                         source=source, target=target,
                         is_prefix=is_prefix, notes=notes or None,
                     ))
+                    added += 1
+            if added:
                 db.session.commit()
-                click.echo(f'  Seeded {len(DEFAULT_SYNONYMS)} default synonyms.')
+                click.echo(f'  Seeded {added} new default synonym(s).')
 
     @app.cli.command('create-admin')
     def create_admin_cmd():

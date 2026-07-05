@@ -683,7 +683,50 @@ def _parse_sections(text: str) -> dict:
             # Truncate at the first sentence-like token (contains a period or > 80 chars).
             raw = _filter_career_list(raw)
         sections[key + '_raw'] = raw
+
+    # OCR/translation sometimes garbles the "Enseres/Trappings" header badly
+    # enough that _RE_SECTION['trappings'] never matches - since Trappings
+    # immediately follows Talents in _SECTION_ORDER, its whole text then gets
+    # swallowed into talents_raw instead of being dropped as its own section.
+    # Recover it by detecting where equipment-looking items start and moving
+    # everything from that point onward into trappings_raw.
+    sections['talents_raw'], stray = _split_stray_trappings(sections['talents_raw'])
+    if stray:
+        sections['trappings_raw'] = ', '.join(
+            ([sections['trappings_raw']] if sections['trappings_raw'] else []) + stray
+        )
+
     return sections
+
+
+# Equipment-ish first words that flag a comma item as a stray trapping rather
+# than a talent name. Talent names never start with a bare quantity, and
+# essentially never lead with these nouns.
+_RE_TRAPPING_QTY = re.compile(r'^\d+\s+\S')
+_TRAPPING_KEYWORDS = frozenset({
+    'red', 'cuerda', 'cuerdas', 'veneno', 'venenos', 'gancho', 'ganchos',
+    'antorcha', 'antorchas', 'mochila', 'saco', 'sacos', 'ballesta', 'ballestas',
+    'munición', 'municion', 'municiones', 'daga', 'dagas', 'cuchillo', 'cuchillos',
+    'capa', 'capas', 'herramientas', 'linterna', 'brújula', 'brujula', 'mapa', 'mapas',
+})
+
+
+def _looks_like_trapping(item: str) -> bool:
+    if _RE_TRAPPING_QTY.match(item):
+        return True
+    first_word = re.split(r'\s+', item.strip().lower())[0].strip(':') if item.strip() else ''
+    return first_word in _TRAPPING_KEYWORDS
+
+
+def _split_stray_trappings(raw: str) -> tuple:
+    """Return (remaining_raw, moved_items). Once one item looks like
+    equipment, everything from there onward is treated as leaked trappings
+    text — a boundary miss doesn't self-correct partway through a list."""
+    items = [p.strip() for p in raw.split(',') if p.strip()]
+    for i, item in enumerate(items):
+        if _looks_like_trapping(item):
+            return ', '.join(items[:i]), items[i:]
+    return raw, []
 
 
 def _filter_items(raw: str) -> str:

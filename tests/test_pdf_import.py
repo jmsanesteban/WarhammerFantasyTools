@@ -1,11 +1,16 @@
 """Tests for the PDF import pipeline - the most fragile area of the app,
-with 3 previously-shipped real bugs:
+with several previously-shipped real bugs:
   1. skills/talents chips confirmed in the review UI were silently discarded
      and replaced by stale English source text on save.
   2. the review-session job/cache lived under tempfile.gettempdir(), so it
      was wiped on every container redeploy.
   3. exits/entries (career links) were always dumped as unlinked text instead
      of being auto-linked when a confident match existed.
+  4. a badly-OCR'd/translated "Trappings" header caused the whole enseres
+     block to be swallowed into talents_raw instead of its own section.
+  5. the ES synonym dictionary (GTranslate output vs. official WFRP2 name)
+     was only applied to skill/talent names and profession names, never to
+     the OTHER career names listed in exits/entries.
 This file exercises the fixed behavior directly, plus the underlying file-
 based job/cache persistence and the save-time duplicate guard.
 """
@@ -15,6 +20,7 @@ import time
 import pytest
 
 from app.routes import admin as admin_routes
+from app.services.pdf_processor import _parse_sections
 from app.models.profession import Profession, ProfessionSkill, ProfessionTalent
 
 
@@ -140,6 +146,116 @@ def test_fuzzy_link_professions_handles_multiple_comma_separated(app, db, make_p
         matched, unmatched = admin_routes._fuzzy_link_professions('Veterano, Capitán, Inventado')
     assert set(matched) == {p1, p2}
     assert unmatched == ['Inventado']
+
+
+def _seed_default_synonyms(db):
+    from app.models.synonym import Synonym, DEFAULT_SYNONYMS
+    for source, target, is_prefix, notes in DEFAULT_SYNONYMS:
+        db.session.add(Synonym(source=source, target=target, is_prefix=is_prefix, notes=notes))
+    db.session.commit()
+
+
+def test_fuzzy_link_professions_resolves_synonym_before_matching(app, db, make_profession):
+    """Regression test: GTranslate's literal translation of a career name
+    ('Campeón') differs from the official WFRP2 Spanish name ('Héroe') -
+    the synonym dictionary must be consulted before giving up on a match."""
+    _seed_default_synonyms(db)
+    target = make_profession(name='Héroe', type='advanced')
+    with app.test_request_context():
+        matched, unmatched = admin_routes._fuzzy_link_professions('Campeón')
+    assert matched == [target]
+    assert unmatched == []
+
+
+# ── Enseres misclassified as Talentos (Trappings header not recognized) ────
+
+def test_parse_sections_moves_quantity_items_from_talents_to_trappings():
+    """Regression test: when OCR/translation garbles the 'Enseres:' header
+    badly enough that it isn't recognized as its own section, its content
+    used to be silently swallowed into talents_raw with no way to recover it
+    in the confirmation step. Equipment-quantity items ('4 Cuchillos...')
+    are now detected and moved back into trappings_raw."""
+    text = (
+        'Talentos: Desenvainado rápido, Parada veloz, Pelea callejera, '
+        '4 Cuchillos Arrojadizos, Gancho De Agarre, 10 Metros De Cuerda, '
+        '1 Dosis De Veneno (Cualquiera)\n'
+        'Accesos: Duelista\n'
+        'Salidas: Sargento'
+    )
+    sections = _parse_sections(text)
+    assert sections['talents_raw'] == 'Desenvainado rápido, Parada veloz, Pelea callejera'
+    assert sections['trappings_raw'] == (
+        '4 Cuchillos Arrojadizos, Gancho De Agarre, 10 Metros De Cuerda, 1 Dosis De Veneno (Cualquiera)'
+    )
+
+
+def test_parse_sections_leaves_talents_untouched_when_no_stray_trappings():
+    text = 'Talentos: Desenvainado rápido, Parada veloz\nAccesos: Duelista\nSalidas: Sargento'
+    sections = _parse_sections(text)
+    assert sections['talents_raw'] == 'Desenvainado rápido, Parada veloz'
+    assert sections['trappings_raw'] == ''
+
+
+def test_parse_sections_appends_stray_items_after_a_real_trappings_section():
+    text = (
+        'Talentos: Certero, Astucia\n'
+        'Enseres: Espada\n'
+        'Accesos: Duelista'
+    )
+    sections = _parse_sections(text)
+    # The real "Enseres:" header was recognized here, so nothing should move.
+    assert sections['talents_raw'] == 'Certero, Astucia'
+    assert sections['trappings_raw'] == 'Espada'
+
+
+# ── Synonym correction for career names in exits/entries lists ─────────────
+
+def test_normalize_career_list_corrects_gtranslate_name_mismatch(db):
+    _seed_default_synonyms(db)
+    from app.routes.admin import _normalize_career_list, _get_synonyms_dicts
+    exact, prefix = _get_synonyms_dicts()
+    result = _normalize_career_list('Duelista, Campeón, Espía', exact, prefix)
+    assert result == 'Duelista, Héroe, Espía'
+
+
+def test_normalize_career_list_does_not_touch_compound_names(db):
+    """'Campeón judicial' is a distinct, legitimate career name - only the
+    standalone 'Campeón' token should be corrected, not substrings of it."""
+    _seed_default_synonyms(db)
+    from app.routes.admin import _normalize_career_list, _get_synonyms_dicts
+    exact, prefix = _get_synonyms_dicts()
+    result = _normalize_career_list('Campeón judicial, Campeón', exact, prefix)
+    assert result == 'Campeón judicial, Héroe'
+
+
+def test_validate_pdf_professions_corrects_exits_and_entries(db):
+    _seed_default_synonyms(db)
+    professions = [{
+        'name': 'Asesino', 'type': 'advanced',
+        'exits_raw': 'Bribón, Campeón',
+        'entries_raw': 'Campeón, Duelista',
+    }]
+    result = admin_routes._validate_pdf_professions(professions, [], [])
+    assert result[0]['exits_raw']   == 'Bribón, Héroe'
+    assert result[0]['entries_raw'] == 'Héroe, Duelista'
+
+
+def test_pdf_save_links_exit_despite_gtranslate_name_mismatch(db, client, admin_user, login_as, make_profession):
+    """End-to-end regression: a career exit written with GTranslate's literal
+    (wrong) translation still links to the correct existing profession."""
+    _seed_default_synonyms(db)
+    target = make_profession(name='Héroe', type='advanced')
+    login_as(client, admin_user, 'adminpass123')
+
+    resp = client.post('/admin/pdf/guardar', data={
+        'name': 'Asesino', 'type': 'advanced',
+        'exits_raw': 'Campeón',
+    }, follow_redirects=True)
+    assert resp.status_code == 200
+
+    prof = Profession.query.filter_by(name='Asesino').first()
+    assert target in prof.exits
+    assert 'PENDIENTES' not in (prof.description or '')
 
 
 # ── _validate_pdf_professions (duplicate triage + no_entries suppression) ──
