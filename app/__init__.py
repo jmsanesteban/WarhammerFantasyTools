@@ -62,7 +62,25 @@ def _register_security_headers(app):
 
 def _register_error_handlers(app):
     from werkzeug.exceptions import RequestEntityTooLarge
+    from flask_wtf.csrf import CSRFError
     logger = logging.getLogger(__name__)
+
+    @app.errorhandler(CSRFError)
+    def handle_csrf_error(e):
+        logger.warning(
+            'CSRFError on %s %s: %s', request.method, request.path, e.description,
+        )
+        message = ('Tu sesión ha caducado o la petición no es válida '
+                   '(token de seguridad expirado). Recarga la página e inténtalo de nuevo.')
+
+        # AJAX endpoints (e.g. the PDF uploader) expect JSON, not an HTML error page -
+        # returning HTML here breaks their fetch/XHR response parsing and surfaces
+        # as a confusing generic "HTTP 400" message client-side.
+        if request.path == '/admin/pdf' and request.method == 'POST':
+            return jsonify({'error': message}), 400
+
+        flash(message, 'warning')
+        return redirect(request.referrer or url_for('main.index'))
 
     @app.errorhandler(RequestEntityTooLarge)
     def handle_file_too_large(e):
