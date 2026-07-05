@@ -349,6 +349,8 @@ docker exec -i wft_db mysql -u wftuser -pwftpassword wft < backup_20240101_1200.
 
 Los uploads se almacenan en el volumen Docker `uploads`. Para acceder a ellos:
 
+> **Nota:** la caché de revisión de PDFs (resultados de OCR pendientes de guardar, 48h de vida) vive en un volumen Docker **separado** (`pdf_cache`, montado en `/app/pdf_cache`) — deliberadamente fuera de `uploads`, que se sirve públicamente sin autenticación vía `/uploads/<fichero>`.
+
 #### Windows — PowerShell
 
 ```powershell
@@ -485,12 +487,16 @@ Esta es la forma principal de cargar datos masivos desde el libro de reglas.
    - Detecta el idioma; si es **inglés**, traduce al español automáticamente (nombre original preservado en el campo EN).
    - Corrige nombres con letras separadas por el OCR (p.ej. `A Nimal T Rainer` → `Animal Trainer`).
    - Analiza el texto buscando bloques de profesión (nombre en mayúsculas, tablas de perfil, secciones de habilidades, etc.).
-4. Se muestra la pantalla de **revisión**: una tarjeta por cada profesión detectada, con los campos pre-rellenados y chips de colores para habilidades y talentos (verde = encontrado en BD, naranja = no encontrado).
-5. Se muestran advertencias si la profesión no tiene salidas, no tiene entradas, o tiene habilidades/talentos sin correspondencia en la BD.
+4. Se muestra la pantalla de **revisión**, con un **resumen de triaje** arriba del todo: para cada profesión detectada indica si es **nueva**, si **ya existe** (coincide exactamente con una profesión guardada) o si es una **posible colisión** (nombre parecido a otra ya existente — típico de erratas de OCR/traducción). Debajo, una tarjeta por cada profesión con los campos pre-rellenados y chips de colores para habilidades y talentos (verde = encontrado en BD, naranja = no encontrado).
+5. Se muestran advertencias si la profesión no tiene salidas, o tiene habilidades/talentos sin correspondencia en la BD. La advertencia de "sin accesos" solo aparece en profesiones **avanzadas** (las básicas normalmente no tienen acceso, al ser carreras iniciales).
 6. **Revisa y corrige** los datos de cada profesión. Presta especial atención a las características numéricas y los chips naranja.
 7. Pulsa **Guardar esta profesión** en cada tarjeta que quieras importar.
 
-> **Nota:** Las salidas y accesos entre profesiones se guardan como texto pendiente de vincular. Después de importar, edita cada profesión para asignar las salidas correctas desde el formulario.
+> **Salidas y accesos:** el sistema intenta enlazarlos automáticamente comparando el texto extraído contra los nombres de profesiones ya existentes (coincidencia difusa, tolera pequeñas erratas). Un acceso vincula la profesión importada como salida de la profesión de origen (los accesos no se guardan como campo propio — se derivan de las salidas de otras profesiones). Solo lo que no encuentra ninguna coincidencia queda como texto "pendiente de vincular" en la descripción, para asignarlo a mano.
+
+> **Duplicados:** si al guardar resulta que ya existe una profesión con ese nombre exacto (por ejemplo, al retomar una revisión ya guardada antes), el sistema no crea un duplicado — te redirige a la profesión existente con un aviso.
+
+> **Caché de la revisión:** el resultado del procesamiento (OCR incluido) se guarda 48 horas en un volumen persistente, así que puedes cerrar la pestaña o perder la sesión sin perder el trabajo — usa **"Retomar"** desde la pantalla de subida de PDF. Esta caché sobrevive incluso a un reinicio/actualización del servidor.
 
 ---
 
