@@ -157,6 +157,25 @@ def test_roll_objeto_magico_never_crashes():
         assert result['descripcion']
 
 
+def test_roll_objeto_magico_makes_two_separate_rolls():
+    """The rules require two rolls: one for the object type (amulet, weapon,
+    armour...) and a second, independent one for the specific property within
+    that type - both must be surfaced so the result is auditable."""
+    result = svc.roll_objeto_magico()
+    assert 1 <= result['tipo_roll'] <= 100
+    assert 1 <= result['detail_roll'] <= 100
+
+
+def test_roll_posesiones_bonus_can_reach_noble_title_entries(monkeypatch):
+    """Spending 2 PH instead of 1 rolls with a +2 bonus specifically so a
+    1d10 roll can reach entries 11/12 (knight/superior title) - confirm the
+    bonus is actually applied to the roll, not just accepted as a no-op."""
+    monkeypatch.setattr(svc, 'd10', lambda: 10)
+    result = svc.roll_posesiones(bonus=2)
+    assert result['roll'] == 12
+    assert result['tipo'] == 'titulo'
+
+
 def test_roll_apariencia_never_crashes():
     for _ in range(50):
         result = svc.roll_apariencia()

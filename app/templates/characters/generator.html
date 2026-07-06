@@ -244,12 +244,17 @@
       <div class="card-body">
         <input type="hidden" name="history_points_total" id="f-ph-total" value="0">
         <input type="hidden" name="history_points_spent" id="f-ph-spent" value="0">
+        <p class="text-muted small mb-2">Los costes en <strong>negativo</strong> restan de los PH disponibles (hay que poder pagarlos). Los costes en <strong>positivo</strong> (locura, corrupción) suman PH disponibles a cambio de la desventaja. Las opciones de posesiones y objetos mágicos tienen su propio botón en sus tarjetas correspondientes, más abajo.</p>
         <div class="d-flex flex-wrap gap-2" id="ph-options">
           {% for opt in history_point_options.opciones %}
+          {% if opt.id not in ('posesiones', 'objeto_magico') %}
           <button type="button" class="btn btn-outline-warning btn-sm ph-opt-btn"
-                  data-id="{{ opt.id }}" data-coste="{{ opt.coste }}" data-peaje="{{ opt.peaje or '' }}">
+                  data-id="{{ opt.id }}" data-coste="{{ opt.coste }}" data-peaje="{{ opt.peaje or '' }}"
+                  data-usos-maximos="{{ opt.usos_maximos }}">
             {{ opt.descripcion }} ({{ opt.coste }})
+            <span class="ph-usage-badge"></span>
           </button>
+          {% endif %}
           {% endfor %}
         </div>
       </div>
@@ -295,10 +300,23 @@
 
     <!-- Dinero y posesiones -->
     <div class="card wh-card mb-4">
-      <div class="card-header wh-card-header d-flex justify-content-between align-items-center">
+      <div class="card-header wh-card-header d-flex justify-content-between align-items-center flex-wrap gap-2">
         <span><i class="bi bi-coin me-2"></i>Dinero y posesiones</span>
+        <div class="d-flex gap-2">
+          <button type="button" class="btn btn-wh btn-sm ph-opt-btn" id="btn-roll-posesiones"
+                  data-id="posesiones" data-coste="-1" data-peaje="estetica" data-usos-maximos="1">
+            <i class="bi bi-dice-5 me-1"></i>Tirar (cuesta 1 PH)
+            <span class="ph-usage-badge"></span>
+          </button>
+          <button type="button" class="btn btn-outline-warning btn-sm ph-opt-btn" id="btn-roll-posesiones-bonus"
+                  data-id="posesiones" data-coste="-2" data-peaje="estetica" data-usos-maximos="1">
+            <i class="bi bi-dice-5 me-1"></i>Tirar con +2 (cuesta 2 PH)
+            <span class="ph-usage-badge"></span>
+          </button>
+        </div>
       </div>
       <div class="card-body">
+        <p class="text-muted small">Cada tirada indica en la descripción qué salió en la tabla de posesiones y, si toca dinero, la tirada adicional de coronas de oro ya resuelta.</p>
         <div class="row g-3 mb-2">
           <div class="col-md-4">
             <label class="form-label wh-label">Coronas de oro (Co)</label>
@@ -316,8 +334,16 @@
 
     <!-- Objetos mágicos -->
     <div class="card wh-card mb-4">
-      <div class="card-header wh-card-header"><i class="bi bi-magic me-2"></i>Objetos mágicos</div>
+      <div class="card-header wh-card-header d-flex justify-content-between align-items-center">
+        <span><i class="bi bi-magic me-2"></i>Objetos mágicos</span>
+        <button type="button" class="btn btn-wh btn-sm ph-opt-btn" id="btn-roll-objeto-magico"
+                data-id="objeto_magico" data-coste="-3" data-peaje="desventaja" data-usos-maximos="1">
+          <i class="bi bi-dice-5 me-1"></i>Tirar objeto mágico (cuesta 3 PH)
+          <span class="ph-usage-badge"></span>
+        </button>
+      </div>
       <div class="card-body">
+        <p class="text-muted small">Se hacen dos tiradas: primero el tipo de objeto (amuleto, arma, armadura…) y después la propiedad concreta dentro de ese tipo.</p>
         <div id="magic-items-list"></div>
         <input type="hidden" name="magic_items_json" id="f-magic-items-json">
       </div>
@@ -395,7 +421,11 @@
   function currentRace() { return document.getElementById('f-race').value; }
   function currentGender() { return document.getElementById('f-gender').value; }
 
-  /* ── Puntos de Historial bookkeeping ── */
+  /* ── Puntos de Historial bookkeeping ──
+   * coste < 0 → spend that many PH (must have enough available).
+   * coste > 0 → gain that many PH (e.g. taking a point of corruption/locura
+   * grants a credit to spend elsewhere) - this INCREASES the total, it never
+   * "un-spends" anything. */
   const phTotalInp = document.getElementById('f-ph-total');
   const phSpentInp = document.getElementById('f-ph-spent');
   function refreshPH() {
@@ -404,12 +434,51 @@
     document.getElementById('ph-gastados').textContent = phSpentInp.value || 0;
   }
   function addPH(delta) {
+    // Free bonuses (rolling+choosing race/profession, skipping signo astral).
     phTotalInp.value = Math.max(0, parseInt(phTotalInp.value || 0) + delta);
     refreshPH();
   }
-  function spendPH(coste) {
-    phSpentInp.value = parseInt(phSpentInp.value || 0) - coste; // coste is negative for spends, positive for gains
+  function applyHistoryCost(coste) {
+    if (coste < 0) {
+      phSpentInp.value = parseInt(phSpentInp.value || 0) + Math.abs(coste);
+    } else if (coste > 0) {
+      phTotalInp.value = parseInt(phTotalInp.value || 0) + coste;
+    }
     refreshPH();
+  }
+  function phDisponibles() {
+    return parseInt(phTotalInp.value || 0) - parseInt(phSpentInp.value || 0);
+  }
+
+  /* ── PH option usage tracking (some options are reusable, per usos_maximos;
+   * the two "posesiones" buttons share one counter/limit since they're really
+   * the same option rolled either at +0 or +2). Once the limit is reached the
+   * button(s) grey out and get a strikethrough so it's obvious it's spent. ── */
+  const phUsageCounts = {};
+  function phButtonsFor(id) {
+    return Array.from(document.querySelectorAll('.ph-opt-btn[data-id="' + id + '"]'));
+  }
+  function updatePHButtonVisuals(id) {
+    const btns = phButtonsFor(id);
+    if (!btns.length) return;
+    const max = parseInt(btns[0].dataset.usosMaximos || '1');
+    const used = phUsageCounts[id] || 0;
+    btns.forEach(btn => {
+      const badge = btn.querySelector('.ph-usage-badge');
+      if (badge) badge.textContent = used > 0 ? (' ✓ usado ' + used + '/' + max) : '';
+      if (used >= max) {
+        btn.disabled = true;
+        btn.style.opacity = '0.5';
+        btn.style.textDecoration = 'line-through';
+      } else if (used > 0) {
+        btn.style.borderColor = '#5cb85c';
+        btn.style.color = '#5cb85c';
+      }
+    });
+  }
+  function registerPHUsage(id) {
+    phUsageCounts[id] = (phUsageCounts[id] || 0) + 1;
+    updatePHButtonVisuals(id);
   }
   refreshPH();
 
@@ -664,28 +733,38 @@
   /* ── Puntos de Historial: opciones ── */
   document.querySelectorAll('.ph-opt-btn').forEach(btn => {
     btn.addEventListener('click', safe(async () => {
+      const id = btn.dataset.id;
       const coste = parseInt(btn.dataset.coste);
-      const disponibles = parseInt(phTotalInp.value || 0) - parseInt(phSpentInp.value || 0);
-      if (coste < 0 && Math.abs(coste) > disponibles) {
+      const max = parseInt(btn.dataset.usosMaximos || '1');
+      const used = phUsageCounts[id] || 0;
+
+      if (used >= max) {
+        alert('Esta opción ya se ha usado el máximo de veces permitido (' + max + ').');
+        return;
+      }
+      if (coste < 0 && Math.abs(coste) > phDisponibles()) {
         alert('No tienes suficientes Puntos de Historial disponibles.');
         return;
       }
-      spendPH(-coste);
 
-      const id = btn.dataset.id;
       const peaje = btn.dataset.peaje;
 
       if (id === 'objeto_magico') {
         const r = await rollStep('objeto_magico');
-        magicItemsWidget.add({ category: r.categoria, description: r.descripcion });
+        magicItemsWidget.add({
+          category: r.categoria,
+          description: r.descripcion + ' (tirada tipo: ' + r.tipo_roll + ', tirada propiedad: ' + r.detail_roll + ')',
+        });
       } else if (id === 'talento_aleatorio') {
         const race = currentRace() || 'Humano';
         const r = await rollStep('talento_aleatorio', { raza: race });
-        traitsWidget.add({ category: 'talento_extra', description: r.talento });
+        traitsWidget.add({ category: 'talento_extra', description: r.talento + ' (tirada ' + r.roll + ')' });
       } else if (id === 'posesiones') {
         const bonus = coste === -2 ? 2 : 0;
         const r = await rollStep('posesiones', { bonus: bonus });
-        possessionsWidget.add({ name: r.descripcion + (r.co ? (' (+' + r.co + ' Co)') : '') });
+        possessionsWidget.add({
+          name: r.descripcion + (r.co ? (' (+' + r.co + ' Co)') : '') + ' (tirada ' + r.roll + ')',
+        });
         if (r.co) {
           const dineroInp = document.getElementById('f-dinero');
           dineroInp.value = parseInt(dineroInp.value || 0) + r.co;
@@ -701,6 +780,9 @@
         const r = await rollStep(peaje);
         traitsWidget.add({ category: peaje, description: r.value });
       }
+
+      applyHistoryCost(coste);
+      registerPHUsage(id);
     }));
   });
 
