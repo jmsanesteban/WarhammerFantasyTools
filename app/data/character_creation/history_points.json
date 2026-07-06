@@ -1,0 +1,14 @@
+{
+  "max_puntos": 4,
+  "opciones": [
+    {"id": "misericordia_shallya", "coste": -1, "descripcion": "Misericordia de Shallya (sustituye una característica de 2d10 por la media 11, o tírala de nuevo)", "usos_maximos": 1, "peaje": "estetica"},
+    {"id": "mas_caracteristica",  "coste": -2, "descripcion": "Añade un +2% a una característica o +1 PV a heridas", "usos_maximos": 1, "peaje": "personalidad"},
+    {"id": "objeto_magico",       "coste": -3, "descripcion": "Tira en la tabla de objetos mágicos", "usos_maximos": 1, "peaje": "desventaja"},
+    {"id": "talento_aleatorio",   "coste": -2, "descripcion": "Tira en la tabla de talentos aleatorios", "usos_maximos": 1, "peaje": "desventaja"},
+    {"id": "posesiones",          "coste": -1, "coste_alt": -2, "descripcion": "Tira en la tabla de Posesiones (gastando 2 puntos se tira con +2 en dicha tabla)", "usos_maximos": 1, "peaje": "estetica"},
+    {"id": "contacto_elegido",    "coste": -1, "descripcion": "Añade un contacto de tu elección (hasta un nivel social máximo)", "usos_maximos": 2, "peaje": "estetica"},
+    {"id": "repetir_tirada",      "coste": -1, "descripcion": "Vuelve a tirar un resultado de tabla de estética, personalidad o desventaja", "usos_maximos": 3, "peaje": null},
+    {"id": "punto_locura",        "coste": 1,  "descripcion": "Añade un punto de locura", "usos_maximos": 1, "peaje": null},
+    {"id": "punto_corrupcion",    "coste": 2,  "descripcion": "Añade un punto de corrupción", "usos_maximos": 1, "peaje": null}
+  ]
+}

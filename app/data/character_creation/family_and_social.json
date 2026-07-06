@@ -1,0 +1,32 @@
+{
+  "situacion_familiar": [
+    {"min": 1, "max": 2,  "value": "huerfano",     "label": "Huérfano de padre y madre"},
+    {"min": 3, "max": 4,  "value": "hijo_unico",   "label": "Hijo único"},
+    {"min": 5, "max": 10, "value": "hermanos",      "label": "Tiene hermanos"}
+  ],
+  "hermanos_dado_base": {"Humano": 6, "Halfling": 6, "Enano": 6, "Elfo": 6},
+  "hermanos_ajuste": {"Humano": -2, "Halfling": -1, "Enano": -3, "Elfo": -3},
+  "hermano_sexo": [
+    {"min": 1, "max": 3, "value": "Varón"},
+    {"min": 4, "max": 6, "value": "Mujer"}
+  ],
+  "hermano_edad_relativa": [
+    {"min": 1, "max": 3, "value": "mayor"},
+    {"min": 4, "max": 6, "value": "menor"}
+  ],
+  "nivel_social": [
+    {"nivel": -1, "tipo": "Esclavo, mutante o forajido marcado",          "tratamiento": "Sin castigo legal por maltrato o muerte", "juzgado_por": "Sin derechos"},
+    {"nivel": 0,  "tipo": "Fuera de la nobleza - mendigos, gente de mal vivir", "tratamiento": "Desconfiado", "juzgado_por": "Tribunal ordinario"},
+    {"nivel": 1,  "tipo": "Fuera de la nobleza - Gente común",            "tratamiento": "-", "juzgado_por": "Tribunal ordinario"},
+    {"nivel": 2,  "tipo": "Fuera de la nobleza - Burguesía",              "tratamiento": "Don, maese", "juzgado_por": "Tribunal ordinario"},
+    {"nivel": 3,  "tipo": "Baja Nobleza - Caballeros",                    "tratamiento": "Señor, señoría", "juzgado_por": "Tribunal de pares"},
+    {"nivel": 4,  "tipo": "Baja Nobleza - Barón",                         "tratamiento": "Señor, señoría", "juzgado_por": "Tribunal de pares"},
+    {"nivel": 5,  "tipo": "Nobleza - Vizconde",                           "tratamiento": "Ilustrísima, ilustre", "juzgado_por": "Tribunal de pares"},
+    {"nivel": 6,  "tipo": "Nobleza - Conde",                              "tratamiento": "Ilustrísima, ilustre", "juzgado_por": "Tribunal de pares"},
+    {"nivel": 7,  "tipo": "Nobleza - Marqués",                            "tratamiento": "Ilustrísima, ilustre", "juzgado_por": "Tribunal de pares"},
+    {"nivel": 8,  "tipo": "Alta Nobleza - Duque",                         "tratamiento": "Excelencia, excelentísima", "juzgado_por": "Tribunal de pares"},
+    {"nivel": 9,  "tipo": "Alta Nobleza - Archiduque",                    "tratamiento": "Excelencia, excelentísima", "juzgado_por": "Tribunal de pares"},
+    {"nivel": 10, "tipo": "Alta Nobleza - Conde Elector",                 "tratamiento": "Su alteza", "juzgado_por": "Tribunal de pares"}
+  ],
+  "horas_sueno_base": {"Humano": 11, "Halfling": 11, "Enano": 10, "Elfo": 10}
+}

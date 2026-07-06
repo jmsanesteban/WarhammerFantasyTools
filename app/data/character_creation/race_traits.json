@@ -1,0 +1,111 @@
+{
+  "Humano": {
+    "rasgos": [],
+    "habilidades": ["Cotilleo", "Hablar idioma (Reikspiel)", "Sabiduría popular (el Imperio)"],
+    "talentos_fijos": [],
+    "talentos_aleatorios": 2
+  },
+  "Halfling": {
+    "rasgos": [
+      "Hay gente más grande para eso: Miedo (prueba de Vol) al combate cuerpo a cuerpo si están acompañados por no halflings. No tiene miedo si está solo o acompañado solo por halflings.",
+      "Amantes de la buena vida: -10% a Vol si no tiene raciones suficientes.",
+      "Furtivos: +10% a movimiento silencioso y esconderse."
+    ],
+    "habilidades": ["Cotilleo", "Hablar idioma (Halfling)", "Hablar idioma (Reikspiel)", "Oficio (Cocinero o Granjero)", "Sabiduría académica (Genealogía/Heráldica)", "Sabiduría popular (Halflings)"],
+    "talentos_fijos": ["Especialidad en armas (honda)", "Resistencia al Caos", "Visión nocturna"],
+    "talentos_aleatorios": 1
+  },
+  "Enano": {
+    "rasgos": [
+      "Miedo (prueba de Vol) a montar y nadar.",
+      "Patas cortas: montar caballo o similar -20%, montar poni o similar -10%, nadar -10%.",
+      "Centro de gravedad bajo: bonus de +10%/-10% para realizar/recibir ataques de derribo.",
+      "Voluntad de piedra: +10% a Vol bajo tierra."
+    ],
+    "habilidades": ["Hablar idioma (Khazalid)", "Hablar idioma (Reikspiel)", "Oficio (Minero, Herrero o Cantero)", "Sabiduría popular (Enanos)"],
+    "talentos_fijos": ["Artesanía enana", "Audaz", "Odio visceral", "Resistencia a la magia", "Robusto", "Visión nocturna"],
+    "talentos_aleatorios": 0
+  },
+  "Elfo Silvano": {
+    "rasgos": [
+      "Amantes de la naturaleza: Miedo (prueba de Vol) bajo tierra y grandes ciudades, Vol a -10%.",
+      "Rechazo de la tecnología: Miedo (prueba de Vol) al uso de armas de fuego y maquinaria mecánica, -20% al uso.",
+      "Criaturas del bosque: +10% a esconderse y movimiento silencioso en entornos boscosos/selváticos."
+    ],
+    "habilidades": ["Hablar idioma (Eltharin)", "Hablar idioma (Reikspiel)", "Sabiduría popular (Elfos)"],
+    "talentos_fijos": [],
+    "talentos_elegibles": [
+      ["Afinidad con el Aethyr", "Especialidad en armas (arco largo)"],
+      ["Sangre fría", "Intelectual"]
+    ],
+    "talentos_fijos_extra": ["Visión nocturna", "Vista excelente"],
+    "talentos_aleatorios": 0
+  },
+  "Alto Elfo": {
+    "rasgos": [
+      "Rechazo de la tecnología: Miedo (prueba de Vol) al uso de armas de fuego y maquinaria mecánica, -20% al uso.",
+      "Altanería: -10% a empatía al tratar con no elfos.",
+      "Afinidad con el mar: +10% a navegar y orientación en el mar."
+    ],
+    "habilidades": ["Hablar idioma (Eltharin)", "Hablar idioma (Reikspiel)", "Sabiduría popular (Elfos)"],
+    "talentos_fijos": [],
+    "talentos_elegibles": [
+      ["Afinidad con el Aethyr", "Especialidad en armas (arco largo)"],
+      ["Sangre fría", "Intelectual"]
+    ],
+    "talentos_fijos_extra": ["Visión nocturna", "Vista excelente"],
+    "talentos_aleatorios": 0
+  },
+  "provincias_imperio": {
+    "Averland": {
+      "habilidades": ["Cotilleo o Montar", "Criar animales u Oficio (Minero)", "Hablar idioma (Reikspiel)", "Sabiduría popular (el Imperio)"],
+      "talentos": ["1 talento aleatorio"],
+      "regla_especial": "Recibes una bonificación de +10% a todas las tiradas de Sabiduría popular (el Imperio) relacionadas con tu provincia natal, Averland."
+    },
+    "Hochland": {
+      "habilidades": ["Esconderse o Cotilleo", "Hablar idioma (Reikspiel)", "Sabiduría popular (el Imperio)"],
+      "talentos": ["Puntería o Errante", "1 talento aleatorio"],
+      "regla_especial": "Recibes una bonificación de +10% a todas las tiradas de Sabiduría popular (el Imperio) relacionadas con tu provincia natal, Hochland."
+    },
+    "Middenland": {
+      "habilidades": ["Cotilleo o Intimidar", "Hablar idioma (Reikspiel)", "Sabiduría popular (el Imperio)"],
+      "talentos": ["Amenazador o Guerrero nato", "1 talento aleatorio"],
+      "regla_especial": "Recibes una bonificación de +10% a todas las tiradas de Sabiduría popular (el Imperio) relacionadas con tu provincia natal, Middenland."
+    },
+    "Nordland": {
+      "habilidades": ["Consumir alcohol o Hablar idioma (Nórdico)", "Hablar idioma (Reikspiel)", "Sabiduría popular (el Imperio)"],
+      "talentos": ["Audaz o Muy resistente", "1 talento aleatorio"],
+      "regla_especial": "Recibes una bonificación de +10% a todas las tiradas de Sabiduría popular (el Imperio) relacionadas con tu provincia natal, Nordland."
+    },
+    "Ostermark": {
+      "habilidades": ["Consumir alcohol, Cotilleo o Hablar idioma (Kislevita)", "Hablar idioma (Reikspiel)", "Sabiduría popular (el Imperio)"],
+      "talentos": ["1 talento aleatorio"],
+      "regla_especial": "Recibes una bonificación de +10% a todas las tiradas de Sabiduría popular (el Imperio) relacionadas con tu provincia natal, Ostermark."
+    },
+    "Ostland": {
+      "habilidades": ["Cotilleo o Supervivencia", "Hablar idioma (Reikspiel)", "Sabiduría popular (el Imperio)"],
+      "talentos": ["Sangre fría o Muy resistente", "1 talento aleatorio"],
+      "regla_especial": "Recibes una bonificación de +10% a todas las tiradas de Sabiduría popular (el Imperio) relacionadas con tu provincia natal, Ostland."
+    },
+    "Reikland": {
+      "habilidades": ["Hablar idioma (Reikspiel)", "Mando o Cotilleo", "Sabiduría popular (el Imperio)"],
+      "talentos": ["Intelectual o Cortés", "1 talento aleatorio"],
+      "regla_especial": "Recibes una bonificación de +10% a todas las tiradas de Sabiduría popular (el Imperio) relacionadas con tu provincia natal, Reikland."
+    },
+    "Stirland": {
+      "habilidades": ["Adiestrar animales o Cotilleo", "Criar animales", "Hablar idioma (Reikspiel)", "Sabiduría popular (el Imperio)"],
+      "talentos": ["1 talento aleatorio"],
+      "regla_especial": "Recibes una bonificación de +10% a todas las tiradas de Sabiduría popular (el Imperio) relacionadas con tu provincia natal, Stirland."
+    },
+    "Talabecland": {
+      "habilidades": ["Hablar idioma (Reikspiel)", "Rastrear o Cotilleo", "Sabiduría popular (el Imperio)", "Supervivencia"],
+      "talentos": ["1 talento aleatorio"],
+      "regla_especial": "Recibes una bonificación de +10% a todas las tiradas de Sabiduría popular (el Imperio) relacionadas con tu provincia natal, Talabecland."
+    },
+    "Wissenland": {
+      "habilidades": ["Hablar idioma (Reikspiel)", "Oficio (Granjero o Minero)", "Sabiduría popular (el Imperio)"],
+      "talentos": ["Sangre fría o Recio", "1 talento aleatorio"],
+      "regla_especial": "Recibes una bonificación de +10% a todas las tiradas de Sabiduría popular (el Imperio) relacionadas con tu provincia natal, Wissenland."
+    }
+  }
+}

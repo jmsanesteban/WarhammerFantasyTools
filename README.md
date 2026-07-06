@@ -28,7 +28,7 @@ Aplicación web para gestionar profesiones, habilidades, talentos y personajes d
 | **Importación PDF** | Sube un PDF del libro (escaneado o digital), con OCR automático y traducción inglés → español |
 | **Buscador de caminos** | Encuentra hasta 5 rutas entre dos profesiones mostrando características acumuladas, habilidades y enseres necesarios en cada paso; todos los pasos de una ruta pueden verse simultáneamente |
 | **Habilidades y Talentos** | Catálogo completo con buscador avanzado (nombre / todos los campos); importación y exportación en texto, CSV y Excel; filtros por tipo (Básica / Avanzada) y por característica asociada; cada entrada muestra qué profesiones la otorgan |
-| **Personajes** | Crea personajes asignándoles una carrera profesional con múltiples profesiones en orden |
+| **Personajes** | Creación rápida (manual) o mediante el **Generador de Personaje**: asistente con tiradas guiadas (raza, profesión, características, trasfondo completo) siguiendo las reglas caseras de creación de personajes jugadores. Carrera profesional con múltiples profesiones en orden |
 | **Contactos** | Agenda de contactos con campos personalizables (EAV), notas, vínculos con "personas" propias de cada usuario, visibilidad por contacto/campo, e importación/exportación Excel. Módulo integrado a partir del proyecto independiente [ContactosWH](https://github.com/jmsanesteban/ContactosWH) (ahora archivado, ver nota histórica en su README) |
 | **Sistema de permisos** | Control granular por función: plantillas de permisos reutilizables + asignaciones directas por usuario; los administradores tienen acceso total |
 
@@ -502,6 +502,8 @@ pytest --cov=app --cov-report=term-missing
 | `tests/test_pdf_import.py` | Pipeline de importación de PDF: emparejamiento de habilidades/talentos, canonicalización de chips al nombre exacto del catálogo, auto-vinculación de accesos/salidas, detección de duplicados/casi-duplicados, persistencia del caché de trabajos en disco (con expiración a las 48h), recuperación de enseres mal clasificados como talentos, corrección de nombres de carrera vía sinónimos, y el endpoint de guardado (modos crear/actualizar/omitir + el guardián anti-duplicados). Incluye tests de regresión explícitos para los bugs reales corregidos: pérdida de chips confirmados al guardar, caché no persistente entre reinicios, accesos/salidas no auto-vinculados, enseres perdidos dentro de talentos, nombres de carrera no corregidos por el diccionario de sinónimos, y habilidades/talentos casi-duplicados (p.ej. "preparar veneno" vs "Preparar venenos") |
 | `tests/test_pathfinder.py` | Construcción del grafo de carreras, búsqueda de rutas (más cortas primero, límite de resultados, ausencia de ruta), y acumulación de estadísticas (máximo por característica, deduplicación de habilidades/talentos/enseres a lo largo de la ruta) |
 | `tests/test_talent_specializations.py` | Talentos con especializaciones predefinidas (p.ej. "Especialista en armas"): carga de `talent_specializations.json`, guardado en formato de entradas (JSON) con grupos de elección, y que los talentos sin especializaciones predefinidas siguen funcionando con el campo de texto libre de siempre |
+| `tests/test_character_creation_service.py` | Servicio de tiradas del generador de personajes: parseo de fórmulas de dados, barrido completo 1-100 de cada tabla porcentual para las 5 razas (detecta huecos en los datos), agrupación de razas (Elfo Silvano/Alto Elfo comparten tablas de características/altura/peso/edad), y cada función `roll_*` individual |
+| `tests/test_character_generator_routes.py` | Rutas del asistente de creación guiada: página del generador, endpoint de tirada por AJAX (`/generador/tirar`) para cada paso, y el guardado final (ficha completa con características, trasfondo, rasgos, contactos, posesiones y objetos mágicos) |
 
 ### Notas de diseño
 
@@ -800,14 +802,39 @@ Para cada ruta se muestra:
 
 ### Crear y gestionar personajes
 
-Ve a **Personajes → Nuevo personaje**.
+Hay dos formas de crear un personaje desde **Personajes**:
+
+#### Creación rápida (manual)
 
 1. Introduce el nombre, raza y género del personaje.
 2. En la sección **Carrera Profesional**, añade las profesiones que ha tenido el personaje en orden cronológico usando el botón **Añadir profesión**.
 3. La última profesión añadida se marca como "Actual".
 4. Guarda el personaje.
 
-Desde la ficha del personaje puedes ver las estadísticas de cada profesión en su carrera.
+#### Generador de Personaje (creación guiada por tiradas)
+
+Ve a **Personajes → Generador de personaje**. Implementa las reglas caseras de creación de personajes jugadores (raza, profesión, características, trasfondo). Cada sección tiene un botón de tirada (🎲) que rellena los campos automáticamente — todo es editable después, así que también puedes rellenar cualquier campo a mano en vez de tirar.
+
+Pasos del asistente, en orden:
+
+1. **Raza** — tira dos veces y elige uno de los dos resultados (te da +1 Punto de Historial), o elige la raza directamente sin tirar.
+2. **Profesión** — tira tres veces (según la raza elegida) y elige un resultado (+1 PH), o selecciona la profesión directamente del catálogo. Si la profesión tirada no existe todavía en el catálogo, créala primero desde **Profesiones** y luego selecciónala aquí.
+3. **Características** — tira el perfil primario y secundario completo según la raza (incluye Bono de Fuerza/Resistencia calculados y las horas de sueño estimadas).
+4. **Signo astral** — tira el signo (da un rasgo de personalidad y modificadores), o pulsa "Omitir" para no tirarlo y ganar +1 PH en su lugar.
+5. **Altura, peso y edad** — tres tiradas encadenadas (el peso depende de la altura ya tirada).
+6. **Apariencia** — color de pelo, ojos y mano dominante.
+7. **Procedencia** — provincia y población de origen (o patria de origen para no humanos).
+8. **Situación familiar** — huérfano, hijo único o número de hermanos (con sexo y edad relativa).
+9. **Sucesos de juventud** — tira tantas veces como el grado de edad + 1 indique; los resultados de tipo contacto/amigo/enemigo se añaden automáticamente a la lista de contactos.
+10. **Puntos de Historial** — el contador de PH disponibles/gastados se actualiza automáticamente según lo tirado y elegido en los pasos anteriores. Cada opción de gasto (objeto mágico, talento aleatorio extra, posesiones, etc.) tiene su propio botón; algunas conllevan tirar también en la tabla de estética, personalidad o desventajas (el "peaje").
+11. **Habilidades y talentos raciales** — se muestran automáticamente según la raza (y la provincia, si es humano imperial), incluyendo el bono especial de provincia. El botón de talento aleatorio tira los talentos aleatorios base de la raza.
+12. **Carrera profesional** — igual que en la creación rápida.
+
+Al guardar, el personaje queda con toda la ficha completa: características, trasfondo, rasgos, contactos, posesiones y objetos mágicos, visibles en su página de detalle.
+
+> **Nota:** el generador enlaza habilidades/talentos raciales al catálogo solo cuando el nombre coincide exactamente (p.ej. "Hablar idioma" con especialización "Reikspiel") — si el catálogo no tiene esa habilidad o talento todavía, no se crea nada automáticamente, igual que en la importación de PDF.
+
+Desde la ficha del personaje puedes ver las estadísticas de cada profesión en su carrera, además de todo lo generado por el asistente.
 
 ---
 
@@ -830,10 +857,17 @@ users
   ├─ user_permissions (M2M)               (permisos directos adicionales)
   ├─ must_change_password                 (heredado de ContactosWH, no aplicado aún en el login)
   ├─ created_by_id → users.id             (lineage: quién creó la cuenta, opcional)
-  ├─ characters
-  │    └─ character_professions  (lista ordenada de profesiones del personaje)
-  │    └─ character_skills
-  │    └─ character_talents
+  ├─ characters                   (perfil completo: características WFRP2, trasfondo del
+  │    │                           generador — raza, signo astral, altura/peso/edad,
+  │    │                           procedencia, situación familiar, nivel social,
+  │    │                           Puntos de Historial, dinero)
+  │    ├─ character_professions   (lista ordenada de profesiones del personaje)
+  │    ├─ character_skills        (skill_id + specialization, p.ej. "Hablar idioma (Reikspiel)")
+  │    ├─ character_talents       (talent_id + specialization + times_taken)
+  │    ├─ character_traits        (estética/personalidad/desventaja rolados con Puntos de Historial)
+  │    ├─ character_acquaintances (contactos/amigos/enemigos/hermanos de los sucesos de juventud)
+  │    ├─ character_possessions   (objetos de inventario iniciales)
+  │    └─ character_magic_items   (objetos mágicos rolados con Puntos de Historial)
   └─ contact_personas              (vínculos de Contactos asignados a este usuario)
 
 permissions                               (12 códigos de permiso disponibles)
@@ -938,7 +972,10 @@ WarhammerFantasyTools/
     ├── extensions.py       # Instancias de extensiones Flask
     ├── utils.py            # Decoradores: admin_required, require_permission; helpers
     ├── data/
-    │   └── skill_specializations.json  # Especializaciones predefinidas por habilidad
+    │   ├── skill_specializations.json   # Especializaciones predefinidas por habilidad
+    │   ├── talent_specializations.json  # Especializaciones predefinidas por talento
+    │   └── character_creation/          # Tablas de tiradas del Generador de Personaje (raza,
+    │       └── *.json                   # profesión, características, procedencia, PH, etc.)
     ├── models/
     │   ├── __init__.py     # Exporta todos los modelos para Flask-Migrate
     │   ├── permission.py   # Permission, PermissionTemplate + tablas M2M + seed data
@@ -946,7 +983,8 @@ WarhammerFantasyTools/
     │   ├── profession.py   # Profesión, ProfessionSkill, ProfessionTalent, Trapping
     │   ├── skill.py        # Habilidad
     │   ├── talent.py       # Talento
-    │   ├── character.py    # Personaje WFRP y su carrera profesional
+    │   ├── character.py    # Personaje WFRP: características, trasfondo, carrera profesional,
+    │   │                   # rasgos, contactos, posesiones y objetos mágicos
     │   ├── synonym.py      # Diccionario de sinónimos para importación PDF
     │   ├── contact.py           # FieldDefinition, Contact, ContactValue (EAV)
     │   ├── contact_persona.py   # ContactPersona, ContactPersonaLink (vínculos)
@@ -965,7 +1003,8 @@ WarhammerFantasyTools/
     │   ├── translation_service.py # Detección de idioma y traducción
     │   ├── import_service.py     # Importación/exportación de habilidades y talentos
     │   ├── pathfinder_service.py  # Construcción del grafo y BFS
-    │   └── contact_import_service.py  # Importación/exportación Excel de Contactos (EAV, pandas)
+    │   ├── contact_import_service.py  # Importación/exportación Excel de Contactos (EAV, pandas)
+    │   └── character_creation_service.py  # Tiradas del Generador de Personaje (dados, tablas porcentuales)
     ├── templates/
     │   ├── base.html             # Layout base con nav adaptativo
     │   ├── admin/

@@ -1,0 +1,25 @@
+{
+  "pelo": [
+    {"min": 1, "max": 1, "value": "Plateado"},
+    {"min": 2, "max": 2, "value": "Rubio"},
+    {"min": 3, "max": 3, "value": "Rubio oscuro"},
+    {"min": 4, "max": 4, "value": "Cobrizo"},
+    {"min": 5, "max": 5, "value": "Rojo"},
+    {"min": 6, "max": 6, "value": "Castaño claro"},
+    {"min": 7, "max": 8, "value": "Castaño"},
+    {"min": 9, "max": 10, "value": "Negro"}
+  ],
+  "ojos": [
+    {"min": 1, "max": 1, "value": "Grises claro"},
+    {"min": 2, "max": 3, "value": "Azules"},
+    {"min": 4, "max": 4, "value": "Verdes"},
+    {"min": 5, "max": 5, "value": "Avellana"},
+    {"min": 6, "max": 8, "value": "Marrones"},
+    {"min": 9, "max": 9, "value": "Violetas"},
+    {"min": 10, "max": 10, "value": "Negros"}
+  ],
+  "mano_dominante": [
+    {"min": 1, "max": 8, "value": "Diestro"},
+    {"min": 9, "max": 10, "value": "Zurdo"}
+  ]
+}

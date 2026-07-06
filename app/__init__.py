@@ -180,6 +180,39 @@ def _register_cli_commands(app):
                     ))
                     click.echo('  Added users.created_by_id')
 
+            # Incremental columns: characters (character creation wizard)
+            char_cols = {c['name'] for c in inspector.get_columns('characters')}
+            char_new_columns = [
+                ('ws', 'INT NULL'), ('bs', 'INT NULL'), ('s_char', 'INT NULL'), ('t_char', 'INT NULL'),
+                ('ag', 'INT NULL'), ('int_char', 'INT NULL'), ('wp', 'INT NULL'), ('fel', 'INT NULL'),
+                ('attacks', 'INT NULL'), ('wounds', 'INT NULL'),
+                ('strength_bonus', 'INT NULL'), ('toughness_bonus', 'INT NULL'),
+                ('movement', 'INT NULL'), ('magic', 'INT NULL'),
+                ('insanity_points', 'INT NULL'), ('fate_points', 'INT NULL'),
+                ('signo_astral', 'VARCHAR(100) NULL'), ('rasgo_personalidad_signo', 'VARCHAR(150) NULL'),
+                ('altura_cm', 'INT NULL'), ('peso_kg', 'INT NULL'),
+                ('edad', 'INT NULL'), ('edad_grado', 'INT NULL'),
+                ('color_pelo', 'VARCHAR(50) NULL'), ('color_ojos', 'VARCHAR(50) NULL'),
+                ('mano_dominante', 'VARCHAR(20) NULL'),
+                ('procedencia', 'VARCHAR(150) NULL'), ('situacion_familiar', 'VARCHAR(255) NULL'),
+                ('nivel_social', 'INT NULL DEFAULT 1'), ('dinero_coronas', 'INT NULL DEFAULT 0'),
+                ('history_points_total', 'INT NOT NULL DEFAULT 0'),
+                ('history_points_spent', 'INT NOT NULL DEFAULT 0'),
+            ]
+            with db.engine.begin() as conn:
+                for col_name, col_def in char_new_columns:
+                    if col_name not in char_cols:
+                        conn.execute(text(f'ALTER TABLE characters ADD COLUMN {col_name} {col_def}'))
+                        click.echo(f'  Added characters.{col_name}')
+
+            # Incremental column: specialization on character_skills / character_talents
+            for tbl in ('character_skills', 'character_talents'):
+                tbl_cols = {c['name'] for c in inspector.get_columns(tbl)}
+                with db.engine.begin() as conn:
+                    if 'specialization' not in tbl_cols:
+                        conn.execute(text(f'ALTER TABLE {tbl} ADD COLUMN specialization VARCHAR(150) NULL'))
+                        click.echo(f'  Added {tbl}.specialization')
+
             click.echo('Database tables created/verified.')
 
             # Seed permissions and default templates (idempotent)

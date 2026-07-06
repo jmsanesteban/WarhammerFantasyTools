@@ -1,0 +1,58 @@
+{
+  "race_roll_table": [
+    {"min": 1,  "max": 63,  "race": "Humano"},
+    {"min": 64, "max": 76,  "race": "Halfling"},
+    {"min": 77, "max": 88,  "race": "Enano"},
+    {"min": 89, "max": 94,  "race": "Elfo Silvano"},
+    {"min": 95, "max": 100, "race": "Alto Elfo"}
+  ],
+  "characteristics_group": {
+    "Humano": "Humano",
+    "Halfling": "Halfling",
+    "Enano": "Enano",
+    "Elfo Silvano": "Elfo",
+    "Alto Elfo": "Elfo"
+  },
+  "characteristics": {
+    "Humano": {
+      "movement": 4,
+      "ws": "20+2d10", "bs": "20+2d10", "s_char": "20+2d10", "t_char": "20+2d10",
+      "ag": "20+2d10", "int_char": "20+2d10", "wp": "20+2d10", "fel": "20+2d10",
+      "max_bf": 4, "max_br": 4,
+      "attacks": 1, "magic": 0,
+      "wounds_table":         [{"min": 1, "max": 3, "value": 10}, {"min": 4, "max": 6, "value": 11}, {"min": 7, "max": 9, "value": 12}, {"min": 10, "max": 10, "value": 13}],
+      "fate_points_table":    [{"min": 1, "max": 4, "value": 2},  {"min": 5, "max": 7, "value": 3},  {"min": 8, "max": 10, "value": 3}],
+      "history_points_table": [{"min": 1, "max": 4, "value": 1},  {"min": 5, "max": 7, "value": 2},  {"min": 8, "max": 10, "value": 2}]
+    },
+    "Halfling": {
+      "movement": 4,
+      "ws": "10+2d10", "bs": "30+2d10", "s_char": "10+2d10", "t_char": "10+2d10",
+      "ag": "30+2d10", "int_char": "20+2d10", "wp": "20+2d10", "fel": "30+2d10",
+      "max_bf": 3, "max_br": 3,
+      "attacks": 1, "magic": 0,
+      "wounds_table":         [{"min": 1, "max": 3, "value": 8},  {"min": 4, "max": 6, "value": 9},  {"min": 7, "max": 9, "value": 10}, {"min": 10, "max": 10, "value": 11}],
+      "fate_points_table":    [{"min": 1, "max": 4, "value": 2},  {"min": 5, "max": 7, "value": 2},  {"min": 8, "max": 10, "value": 3}],
+      "history_points_table": [{"min": 1, "max": 4, "value": 1},  {"min": 5, "max": 7, "value": 1},  {"min": 8, "max": 10, "value": 2}]
+    },
+    "Enano": {
+      "movement": 3,
+      "ws": "30+2d10", "bs": "20+2d10", "s_char": "20+2d10", "t_char": "30+2d10",
+      "ag": "10+2d10", "int_char": "20+2d10", "wp": "20+2d10", "fel": "10+2d10",
+      "max_bf": 4, "max_br": 5,
+      "attacks": 1, "magic": 0,
+      "wounds_table":         [{"min": 1, "max": 3, "value": 11}, {"min": 4, "max": 6, "value": 12}, {"min": 7, "max": 9, "value": 13}, {"min": 10, "max": 10, "value": 14}],
+      "fate_points_table":    [{"min": 1, "max": 4, "value": 1},  {"min": 5, "max": 7, "value": 2},  {"min": 8, "max": 10, "value": 3}],
+      "history_points_table": [{"min": 1, "max": 4, "value": 0},  {"min": 5, "max": 7, "value": 1},  {"min": 8, "max": 10, "value": 2}]
+    },
+    "Elfo": {
+      "movement": 5,
+      "ws": "20+2d10", "bs": "30+2d10", "s_char": "20+2d10", "t_char": "20+2d10",
+      "ag": "30+2d10", "int_char": "20+2d10", "wp": "20+2d10", "fel": "20+2d10",
+      "max_bf": 3, "max_br": 4,
+      "attacks": 1, "magic": 0,
+      "wounds_table":         [{"min": 1, "max": 3, "value": 9},  {"min": 4, "max": 6, "value": 10}, {"min": 7, "max": 9, "value": 11}, {"min": 10, "max": 10, "value": 12}],
+      "fate_points_table":    [{"min": 1, "max": 4, "value": 1},  {"min": 5, "max": 7, "value": 2},  {"min": 8, "max": 10, "value": 2}],
+      "history_points_table": [{"min": 1, "max": 4, "value": 0},  {"min": 5, "max": 7, "value": 1},  {"min": 8, "max": 10, "value": 1}]
+    }
+  }
+}

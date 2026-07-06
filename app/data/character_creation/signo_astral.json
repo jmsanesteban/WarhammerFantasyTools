@@ -1,0 +1,22 @@
+[
+  {"min": 1,   "max": 5,   "signo": "Wymind el anacoreta",     "rasgo": "Espartano, austero",                        "modificadores": "+3% a R"},
+  {"min": 6,   "max": 10,  "signo": "La gran cruz",             "rasgo": "Racional, analista",                        "modificadores": "+3% a Int"},
+  {"min": 11,  "max": 15,  "signo": "El trazo del retratista",  "rasgo": "Perfeccionista, centrado",                  "modificadores": "+3% a Hp"},
+  {"min": 16,  "max": 25,  "signo": "El buey Gnuthus",          "rasgo": "Obediente, leal",                           "modificadores": "+1% a Vol, +2% a R"},
+  {"min": 26,  "max": 30,  "signo": "El pato dragonas",         "rasgo": "Valiente, atrevido",                        "modificadores": "+3% a Vol"},
+  {"min": 31,  "max": 35,  "signo": "El crepúsculo",            "rasgo": "Optimista, confiado",                       "modificadores": "+1% a Vol, +1% a Int, +1% Emp"},
+  {"min": 36,  "max": 40,  "signo": "El cinto de grungni",      "rasgo": "Marcial, disciplinado",                     "modificadores": "+3% a HA"},
+  {"min": 41,  "max": 45,  "signo": "Mammit el sabio",          "rasgo": "Sabio, teórico",                            "modificadores": "+2% a Int, +1% a Vol"},
+  {"min": 46,  "max": 50,  "signo": "Mummit el necio",          "rasgo": "Instintivo, práctico",                      "modificadores": "+2% a Agi, +1% a HA"},
+  {"min": 51,  "max": 55,  "signo": "Los dos becerros",         "rasgo": "Artista, emocional",                        "modificadores": "+2% a Emp, +1% a R"},
+  {"min": 56,  "max": 60,  "signo": "La bailarina",             "rasgo": "Extrovertido, simpático",                   "modificadores": "+3% a Emp"},
+  {"min": 61,  "max": 65,  "signo": "El tamborilero",           "rasgo": "Hedonista, libertino",                      "modificadores": "+2% a R, +1% a Emp"},
+  {"min": 66,  "max": 70,  "signo": "El gaitero",               "rasgo": "Embaucador, egoísta",                       "modificadores": "+2% a Int, +1% a Emp"},
+  {"min": 71,  "max": 75,  "signo": "Vobist el exánime",        "rasgo": "Inseguro, dubitativo",                      "modificadores": "+2% a Agi, +1% a Int"},
+  {"min": 76,  "max": 80,  "signo": "El carro roto",            "rasgo": "Orgulloso, altivo",                         "modificadores": "+1% a R, +1% a Vol, +1% a F"},
+  {"min": 81,  "max": 85,  "signo": "La cabra untada",          "rasgo": "Liberal, gusto por lo prohibido",           "modificadores": "+2% a Vol, +1% a Emp"},
+  {"min": 86,  "max": 90,  "signo": "El caldero de rhya",       "rasgo": "Compasivo, generoso",                       "modificadores": "+1% a R, +1% a Agi, +1% a Vol"},
+  {"min": 91,  "max": 95,  "signo": "El gallo cackelfax",       "rasgo": "Codicioso, acaparador",                     "modificadores": "+2% a Emp, +1% a Vol"},
+  {"min": 96,  "max": 98,  "signo": "El quebrantahuesos",       "rasgo": "Eterno estudiante/practicante",             "modificadores": "+1% a Int, +1% a Agi, +1% a Vol"},
+  {"min": 99,  "max": 100, "signo": "La estrella bruja",        "rasgo": "Misterioso, reservado",                     "modificadores": "+2% a Vol, +1% a Int"}
+]

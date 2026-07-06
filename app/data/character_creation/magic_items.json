@@ -1,0 +1,88 @@
+{
+  "tipo_objeto": [
+    {"min": 1,  "max": 15,  "value": "amuleto"},
+    {"min": 16, "max": 25,  "value": "bolsa"},
+    {"min": 26, "max": 35,  "value": "cuerda"},
+    {"min": 36, "max": 50,  "value": "ropa"},
+    {"min": 51, "max": 60,  "value": "varita"},
+    {"min": 61, "max": 80,  "value": "arma"},
+    {"min": 81, "max": 100, "value": "armadura"}
+  ],
+  "arma": [
+    {"min": 1,   "max": 40,  "value": "+0 al daño"},
+    {"min": 41,  "max": 50,  "value": "+1 al daño"},
+    {"min": 51,  "max": 60,  "value": "+5% al uso"},
+    {"min": 61,  "max": 70,  "value": "+2 al daño"},
+    {"min": 71,  "max": 80,  "value": "+5 a iniciativa"},
+    {"min": 81,  "max": 85,  "value": "De ithilmar, +0 al daño (si el tipo de arma no lo permite, material raro equivalente con el mismo bonus)"},
+    {"min": 86,  "max": 90,  "value": "De gromril, +0 al daño (si el tipo de arma no lo permite, material raro equivalente con el mismo bonus)"},
+    {"min": 91,  "max": 95,  "value": "De ithilmar, +1 al daño (si el tipo de arma no lo permite, material raro equivalente con el mismo bonus)"},
+    {"min": 96,  "max": 99,  "value": "De gromril, +1 al daño (si el tipo de arma no lo permite, material raro equivalente con el mismo bonus)"},
+    {"min": 100, "max": 100, "value": "+3 al daño"}
+  ],
+  "armadura": [
+    {"min": 1,  "max": 15,  "value": "+10 contra frío (se suma al de la propia pieza)"},
+    {"min": 16, "max": 30,  "value": "+10 contra calor (se suma al de la propia pieza)"},
+    {"min": 31, "max": 45,  "value": "Reduce la penalización de agilidad en 3 puntos"},
+    {"min": 46, "max": 60,  "value": "Reduce la penalización de agilidad en 5 puntos"},
+    {"min": 61, "max": 70,  "value": "+1 de armadura"},
+    {"min": 71, "max": 85,  "value": "-10 a HP enemigos"},
+    {"min": 86, "max": 90,  "value": "De ithilmar"},
+    {"min": 91, "max": 95,  "value": "De gromril"},
+    {"min": 96, "max": 98,  "value": "Mágica (funciona contra ataques que ignoren la armadura)"},
+    {"min": 99, "max": 100, "value": "Ignora penalizaciones de agilidad, HC, HP y frío/calor (se consideran 0)"}
+  ],
+  "amuleto": [
+    {"min": 1,  "max": 15,  "value": "+5 a Voluntad"},
+    {"min": 16, "max": 30,  "value": "+5 a Resistencia"},
+    {"min": 31, "max": 45,  "value": "+5 a Fuerza"},
+    {"min": 46, "max": 60,  "value": "+5 a Inteligencia"},
+    {"min": 61, "max": 70,  "value": "+5 a Empatía"},
+    {"min": 71, "max": 85,  "value": "+10 a Voluntad"},
+    {"min": 86, "max": 90,  "value": "+10 a Empatía"},
+    {"min": 91, "max": 95,  "value": "Las pruebas de terror son de miedo, y las de miedo a +5%"},
+    {"min": 96, "max": 98,  "value": "Especial: cambia de color al haber cerca (5 metros o menos) algo específico (veneno, no-muertos, agua...)"},
+    {"min": 99, "max": 100, "value": "1 vez al día permite hablar (ambos) con una persona conocida hasta 5 km de distancia (30 segundos)"}
+  ],
+  "bolsa": [
+    {"min": 1,  "max": 20,  "value": "Doble fondo mágico con la misma capacidad del original. -30 a buscar para detectarlo."},
+    {"min": 21, "max": 40,  "value": "Doble fondo mágico con la misma capacidad del original; su contenido no pesa. -30 a buscar para detectarlo."},
+    {"min": 41, "max": 60,  "value": "Impermeable y flota para dos personas, o una muy cargada."},
+    {"min": 61, "max": 70,  "value": "Irrompible salvo por fuego."},
+    {"min": 71, "max": 80,  "value": "No se puede abrir salvo por el dueño o disipar magia."},
+    {"min": 81, "max": 90,  "value": "Genera bebida, agua o comida u otro alimento común. 1 vez al día para 1d6 personas."},
+    {"min": 91, "max": 95,  "value": "Conserva el contenido de forma que no se degrade de forma natural."},
+    {"min": 96, "max": 100, "value": "El contenido no se puede romper mientras siga dentro (aunque se golpee, pise, etc. el contenedor). Si se rompe el contenedor, sí."}
+  ],
+  "cuerda": [
+    {"min": 1,  "max": 20,  "value": "Resistencia del objeto a 100"},
+    {"min": 21, "max": 40,  "value": "+5 a la habilidad de usar dicho objeto (definir la habilidad)"},
+    {"min": 41, "max": 60,  "value": "+10 a la habilidad de usar dicho objeto (definir la habilidad)"},
+    {"min": 61, "max": 80,  "value": "No gasta combustible o no se desgasta por su uso"},
+    {"min": 81, "max": 90,  "value": "Cuerda que se puede cortar hasta el 50% y vuelve a crecer. 2 veces al día."},
+    {"min": 91, "max": 97,  "value": "El objeto proporciona la habilidad como si el portador la tuviera (definir la habilidad)"},
+    {"min": 98, "max": 100, "value": "Objeto animado. De funcionar solo, sería a la mitad de la habilidad del dueño (a definir por jugador y DJ)"}
+  ],
+  "ropa": [
+    {"min": 1,  "max": 15,  "value": "Cambia de color sólido a elección del dueño. 1 vez al día."},
+    {"min": 16, "max": 30,  "value": "+5 a la habilidad de usar dicho objeto (definir la habilidad)"},
+    {"min": 31, "max": 45,  "value": "+10 a la habilidad de usar dicho objeto (definir la habilidad)"},
+    {"min": 46, "max": 50,  "value": "El objeto proporciona la habilidad como si el portador la tuviera (definir la habilidad)"},
+    {"min": 51, "max": 70,  "value": "+5 a Empatía"},
+    {"min": 71, "max": 85,  "value": "+10 a Empatía"},
+    {"min": 86, "max": 90,  "value": "+10 contra frío"},
+    {"min": 91, "max": 95,  "value": "+10 contra calor"},
+    {"min": 96, "max": 98,  "value": "Pañuelo o similar que protege totalmente contra venenos y olores inhalados."},
+    {"min": 99, "max": 100, "value": "+10 a resistencia contra enfermedades"}
+  ],
+  "varita": [
+    {"min": 1,  "max": 25,  "value": "+5 a Voluntad"},
+    {"min": 26, "max": 40,  "value": "Permite detectar agua potable a 1 km. 1 vez al día."},
+    {"min": 41, "max": 60,  "value": "+5 a Mando"},
+    {"min": 61, "max": 65,  "value": "Pareja de objetos pequeños: indica la dirección de su gemelo, permite ver a través del otro o hablar con el otro. 1 vez al día, 1 hora máximo."},
+    {"min": 66, "max": 75,  "value": "1 vez al día, al preguntar por un destino, indica la dirección en línea recta."},
+    {"min": 76, "max": 80,  "value": "Aumenta la dificultad de hechizos lanzados contra el portador en 3"},
+    {"min": 81, "max": 95,  "value": "3 veces al día ilumina como una antorcha con el color que quieras. 1 hora de duración cada vez."},
+    {"min": 96, "max": 100, "value": "+10 a resistencia/voluntad para resistir efectos de corrupción"}
+  ]
+}

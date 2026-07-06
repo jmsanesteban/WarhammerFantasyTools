@@ -1,0 +1,718 @@
+{% extends 'base.html' %}
+{% block title %}Generador de Personaje — Warhammer Fantasy Tools{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+  <div class="d-flex align-items-center justify-content-between mb-4">
+    <h2 class="wh-heading mb-0"><i class="bi bi-dice-6 me-2"></i>Generador de Personaje</h2>
+    <a href="{{ url_for('characters.create') }}" class="btn btn-outline-secondary btn-sm">Creación rápida (manual)</a>
+  </div>
+  <p class="text-muted small">Cada sección tiene un botón de tirada. Todos los resultados son editables antes de guardar — puedes tirar, o rellenar a mano.</p>
+
+  <form method="POST" action="{{ url_for('characters.generator_save') }}" id="genForm">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+    <!-- Información básica -->
+    <div class="card wh-card mb-4">
+      <div class="card-header wh-card-header">Información básica</div>
+      <div class="card-body">
+        <div class="row g-3">
+          <div class="col-md-4">
+            <label class="form-label wh-label">Nombre *</label>
+            <input type="text" name="name" class="form-control wh-input" required>
+          </div>
+          <div class="col-md-4">
+            <label class="form-label wh-label">Género</label>
+            <select name="gender" id="f-gender" class="form-select wh-input">
+              <option value="Masculino">Masculino</option>
+              <option value="Femenino">Femenino</option>
+              <option value="Otro">Otro</option>
+            </select>
+          </div>
+          <div class="col-md-4">
+            <label class="form-label wh-label">Nivel social</label>
+            <input type="number" name="nivel_social" id="f-nivel-social" class="form-control wh-input" value="1" min="-1" max="10">
+          </div>
+          <div class="col-12">
+            <label class="form-label wh-label">Notas</label>
+            <textarea name="notes" rows="2" class="form-control wh-input"></textarea>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Raza -->
+    <div class="card wh-card mb-4">
+      <div class="card-header wh-card-header d-flex justify-content-between align-items-center">
+        <span><i class="bi bi-globe-americas me-2"></i>Raza</span>
+        <button type="button" class="btn btn-wh btn-sm" id="btn-roll-raza"><i class="bi bi-dice-5 me-1"></i>Tirar 2 veces (+1 PH)</button>
+      </div>
+      <div class="card-body">
+        <div id="raza-options" class="d-flex flex-wrap gap-2 mb-2"></div>
+        <label class="form-label wh-label">Raza elegida</label>
+        <select name="race" id="f-race" class="form-select wh-input" required>
+          <option value="">— Selecciona —</option>
+          {% for r in razas %}
+          <option value="{{ r }}">{{ r }}</option>
+          {% endfor %}
+        </select>
+      </div>
+    </div>
+
+    <!-- Profesión -->
+    <div class="card wh-card mb-4">
+      <div class="card-header wh-card-header d-flex justify-content-between align-items-center">
+        <span><i class="bi bi-person-badge me-2"></i>Profesión</span>
+        <button type="button" class="btn btn-wh btn-sm" id="btn-roll-profesion"><i class="bi bi-dice-5 me-1"></i>Tirar 3 veces (+1 PH)</button>
+      </div>
+      <div class="card-body">
+        <div id="profesion-options" class="d-flex flex-wrap gap-2 mb-2"></div>
+        <label class="form-label wh-label">Profesión inicial (del catálogo)</label>
+        <select name="matched_profession_id" id="f-matched-profession" class="form-select wh-input">
+          <option value="">— Selecciona —</option>
+          {% for p in professions %}
+          <option value="{{ p.id }}">{{ p.name }}</option>
+          {% endfor %}
+        </select>
+        <small class="text-muted">Si la profesión tirada no existe aún en el catálogo, créala primero desde <a href="{{ url_for('professions.create') }}" target="_blank" class="wh-link">Profesiones</a> y luego selecciónala aquí.</small>
+      </div>
+    </div>
+
+    <!-- Características -->
+    <div class="card wh-card mb-4">
+      <div class="card-header wh-card-header d-flex justify-content-between align-items-center">
+        <span><i class="bi bi-bar-chart me-2"></i>Características</span>
+        <button type="button" class="btn btn-wh btn-sm" id="btn-roll-caracteristicas"><i class="bi bi-dice-5 me-1"></i>Tirar</button>
+      </div>
+      <div class="card-body">
+        <div class="wh-stat-group mb-2">
+          <div class="wh-stat-group-title">Perfil Principal</div>
+          <div class="row g-1">
+            {% for field, label in [('ws','HA'),('bs','HP'),('s_char','F'),('t_char','R'),('ag','Ag'),('int_char','I'),('wp','V'),('fel','Em')] %}
+            <div class="col">
+              <label class="form-label wh-stat-lbl text-center d-block mb-1">{{ label }}</label>
+              <input type="number" name="{{ field }}" id="f-{{ field }}" class="form-control form-control-sm wh-input text-center">
+            </div>
+            {% endfor %}
+          </div>
+        </div>
+        <div class="wh-stat-group">
+          <div class="wh-stat-group-title">Perfil Secundario</div>
+          <div class="row g-1">
+            {% for field, label in [('attacks','A'),('wounds','H'),('strength_bonus','BF'),('toughness_bonus','BR'),('movement','M'),('magic','Mag'),('insanity_points','PL'),('fate_points','PD')] %}
+            <div class="col">
+              <label class="form-label wh-stat-lbl text-center d-block mb-1">{{ label }}</label>
+              <input type="number" name="{{ field }}" id="f-{{ field }}" class="form-control form-control-sm wh-input text-center">
+            </div>
+            {% endfor %}
+          </div>
+        </div>
+        <small class="text-muted d-block mt-2">Horas de sueño estimadas: <span id="horas-sueno">—</span></small>
+      </div>
+    </div>
+
+    <!-- Signo astral -->
+    <div class="card wh-card mb-4">
+      <div class="card-header wh-card-header d-flex justify-content-between align-items-center">
+        <span><i class="bi bi-stars me-2"></i>Signo astral</span>
+        <div class="d-flex gap-2">
+          <button type="button" class="btn btn-wh btn-sm" id="btn-roll-signo"><i class="bi bi-dice-5 me-1"></i>Tirar</button>
+          <button type="button" class="btn btn-outline-warning btn-sm" id="btn-skip-signo">Omitir (+1 PH)</button>
+        </div>
+      </div>
+      <div class="card-body">
+        <div class="row g-3">
+          <div class="col-md-6">
+            <label class="form-label wh-label">Signo</label>
+            <input type="text" name="signo_astral" id="f-signo" class="form-control wh-input">
+          </div>
+          <div class="col-md-6">
+            <label class="form-label wh-label">Rasgo de personalidad</label>
+            <input type="text" name="rasgo_personalidad_signo" id="f-rasgo-signo" class="form-control wh-input">
+          </div>
+          <div class="col-12"><small class="text-muted" id="signo-modificadores"></small></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Altura / Peso / Edad -->
+    <div class="card wh-card mb-4">
+      <div class="card-header wh-card-header"><i class="bi bi-rulers me-2"></i>Altura, peso y edad</div>
+      <div class="card-body">
+        <div class="row g-3 align-items-end">
+          <div class="col-md-4">
+            <label class="form-label wh-label">Altura (cm)</label>
+            <div class="input-group">
+              <input type="number" name="altura_cm" id="f-altura" class="form-control wh-input">
+              <button type="button" class="btn btn-outline-warning" id="btn-roll-altura"><i class="bi bi-dice-5"></i></button>
+            </div>
+          </div>
+          <div class="col-md-4">
+            <label class="form-label wh-label">Peso (kg)</label>
+            <div class="input-group">
+              <input type="number" name="peso_kg" id="f-peso" class="form-control wh-input">
+              <button type="button" class="btn btn-outline-warning" id="btn-roll-peso"><i class="bi bi-dice-5"></i></button>
+            </div>
+          </div>
+          <div class="col-md-4">
+            <label class="form-label wh-label">Edad (años)</label>
+            <div class="input-group">
+              <input type="number" name="edad" id="f-edad" class="form-control wh-input">
+              <button type="button" class="btn btn-outline-warning" id="btn-roll-edad"><i class="bi bi-dice-5"></i></button>
+            </div>
+            <input type="hidden" name="edad_grado" id="f-edad-grado">
+          </div>
+          <div class="col-12"><small class="text-muted" id="edad-modificadores"></small></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Apariencia -->
+    <div class="card wh-card mb-4">
+      <div class="card-header wh-card-header d-flex justify-content-between align-items-center">
+        <span><i class="bi bi-person-lines-fill me-2"></i>Apariencia</span>
+        <button type="button" class="btn btn-wh btn-sm" id="btn-roll-apariencia"><i class="bi bi-dice-5 me-1"></i>Tirar</button>
+      </div>
+      <div class="card-body">
+        <div class="row g-3">
+          <div class="col-md-4">
+            <label class="form-label wh-label">Color de pelo</label>
+            <input type="text" name="color_pelo" id="f-pelo" class="form-control wh-input">
+          </div>
+          <div class="col-md-4">
+            <label class="form-label wh-label">Color de ojos</label>
+            <input type="text" name="color_ojos" id="f-ojos" class="form-control wh-input">
+          </div>
+          <div class="col-md-4">
+            <label class="form-label wh-label">Mano dominante</label>
+            <select name="mano_dominante" id="f-mano" class="form-select wh-input">
+              <option value="">—</option>
+              <option value="Diestro">Diestro</option>
+              <option value="Zurdo">Zurdo</option>
+            </select>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Procedencia -->
+    <div class="card wh-card mb-4">
+      <div class="card-header wh-card-header d-flex justify-content-between align-items-center">
+        <span><i class="bi bi-geo-alt me-2"></i>Procedencia</span>
+        <button type="button" class="btn btn-wh btn-sm" id="btn-roll-procedencia"><i class="bi bi-dice-5 me-1"></i>Tirar</button>
+      </div>
+      <div class="card-body">
+        <input type="text" name="procedencia" id="f-procedencia" class="form-control wh-input" placeholder="Provincia - Población">
+      </div>
+    </div>
+
+    <!-- Situación familiar -->
+    <div class="card wh-card mb-4">
+      <div class="card-header wh-card-header d-flex justify-content-between align-items-center">
+        <span><i class="bi bi-people me-2"></i>Situación familiar</span>
+        <button type="button" class="btn btn-wh btn-sm" id="btn-roll-familia"><i class="bi bi-dice-5 me-1"></i>Tirar</button>
+      </div>
+      <div class="card-body">
+        <input type="text" name="situacion_familiar" id="f-situacion-familiar" class="form-control wh-input">
+      </div>
+    </div>
+
+    <!-- Sucesos de juventud -->
+    <div class="card wh-card mb-4">
+      <div class="card-header wh-card-header d-flex justify-content-between align-items-center flex-wrap gap-2">
+        <span><i class="bi bi-hourglass-split me-2"></i>Sucesos de juventud</span>
+        <div class="d-flex align-items-center gap-2">
+          <label class="wh-label small mb-0">Nº tiradas</label>
+          <input type="number" id="f-num-sucesos" class="form-control form-control-sm wh-input" style="width:70px" value="1" min="0">
+          <button type="button" class="btn btn-wh btn-sm" id="btn-roll-sucesos"><i class="bi bi-dice-5 me-1"></i>Tirar</button>
+        </div>
+      </div>
+      <div class="card-body">
+        <div id="sucesos-list" class="mb-2"></div>
+        <input type="hidden" id="f-sucesos-json">
+        <small class="text-muted">Nº de tiradas recomendado = grado de edad + 1.</small>
+      </div>
+    </div>
+
+    <!-- Puntos de Historial -->
+    <div class="card wh-card mb-4">
+      <div class="card-header wh-card-header">
+        <i class="bi bi-journal-bookmark me-2"></i>Puntos de Historial
+        <span class="badge bg-warning text-dark ms-2">Disponibles: <span id="ph-disponibles">0</span></span>
+        <span class="badge bg-secondary ms-1">Gastados: <span id="ph-gastados">0</span></span>
+      </div>
+      <div class="card-body">
+        <input type="hidden" name="history_points_total" id="f-ph-total" value="0">
+        <input type="hidden" name="history_points_spent" id="f-ph-spent" value="0">
+        <div class="d-flex flex-wrap gap-2" id="ph-options">
+          {% for opt in history_point_options.opciones %}
+          <button type="button" class="btn btn-outline-warning btn-sm ph-opt-btn"
+                  data-id="{{ opt.id }}" data-coste="{{ opt.coste }}" data-peaje="{{ opt.peaje or '' }}">
+            {{ opt.descripcion }} ({{ opt.coste }})
+          </button>
+          {% endfor %}
+        </div>
+      </div>
+    </div>
+
+    <!-- Talentos raciales / de procedencia -->
+    <div class="card wh-card mb-4">
+      <div class="card-header wh-card-header d-flex justify-content-between align-items-center">
+        <span><i class="bi bi-star me-2"></i>Habilidades y talentos raciales / de procedencia</span>
+        <button type="button" class="btn btn-wh btn-sm" id="btn-roll-talento-racial" disabled><i class="bi bi-dice-5 me-1"></i>Tirar talento(s) racial(es)</button>
+      </div>
+      <div class="card-body">
+        <div id="racial-info" class="mb-2 small text-muted">Elige una raza para ver sus habilidades y talentos base.</div>
+        <div id="racial-talentos-aleatorios" class="mb-2"></div>
+        <input type="hidden" name="racial_skills_json" id="f-racial-skills-json">
+        <input type="hidden" name="racial_talents_json" id="f-racial-talents-json">
+      </div>
+    </div>
+
+    <!-- Rasgos (estética / personalidad / desventajas) -->
+    <div class="card wh-card mb-4">
+      <div class="card-header wh-card-header"><i class="bi bi-emoji-neutral me-2"></i>Rasgos (estética, personalidad, desventajas)</div>
+      <div class="card-body">
+        <div id="traits-list"></div>
+        <small class="text-muted">Se añaden desde los Puntos de Historial (peaje) o manualmente con los botones de abajo.</small>
+        <div class="d-flex gap-2 mt-2">
+          <button type="button" class="btn btn-outline-warning btn-sm" data-roll-trait="estetica">Tirar estética</button>
+          <button type="button" class="btn btn-outline-warning btn-sm" data-roll-trait="personalidad">Tirar personalidad</button>
+          <button type="button" class="btn btn-outline-warning btn-sm" data-roll-trait="desventaja">Tirar desventaja</button>
+        </div>
+        <input type="hidden" name="traits_json" id="f-traits-json">
+      </div>
+    </div>
+
+    <!-- Contactos -->
+    <div class="card wh-card mb-4">
+      <div class="card-header wh-card-header"><i class="bi bi-person-hearts me-2"></i>Contactos, amigos y enemigos</div>
+      <div class="card-body">
+        <div id="acquaintances-list"></div>
+        <input type="hidden" name="acquaintances_json" id="f-acquaintances-json">
+      </div>
+    </div>
+
+    <!-- Dinero y posesiones -->
+    <div class="card wh-card mb-4">
+      <div class="card-header wh-card-header d-flex justify-content-between align-items-center">
+        <span><i class="bi bi-coin me-2"></i>Dinero y posesiones</span>
+      </div>
+      <div class="card-body">
+        <div class="row g-3 mb-2">
+          <div class="col-md-4">
+            <label class="form-label wh-label">Coronas de oro (Co)</label>
+            <input type="number" name="dinero_coronas" id="f-dinero" class="form-control wh-input" value="0">
+          </div>
+        </div>
+        <div id="possessions-list" class="mb-2"></div>
+        <input type="hidden" name="possessions_json" id="f-possessions-json">
+        <div class="d-flex gap-2">
+          <input type="text" id="f-new-possession" class="form-control form-control-sm wh-input" placeholder="Añadir objeto manualmente…" style="max-width:300px">
+          <button type="button" class="btn btn-outline-secondary btn-sm" id="btn-add-possession">Añadir</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Objetos mágicos -->
+    <div class="card wh-card mb-4">
+      <div class="card-header wh-card-header"><i class="bi bi-magic me-2"></i>Objetos mágicos</div>
+      <div class="card-body">
+        <div id="magic-items-list"></div>
+        <input type="hidden" name="magic_items_json" id="f-magic-items-json">
+      </div>
+    </div>
+
+    <!-- Carrera profesional -->
+    <div class="card wh-card mb-4">
+      <div class="card-header wh-card-header d-flex justify-content-between">
+        <span><i class="bi bi-person-badge me-2"></i>Carrera profesional</span>
+        <button type="button" class="btn btn-wh btn-sm" id="addProfBtn"><i class="bi bi-plus-circle me-1"></i>Añadir profesión</button>
+      </div>
+      <div class="card-body" id="profList"></div>
+    </div>
+
+    <template id="profRowTemplate">
+      <div class="d-flex align-items-center gap-2 mb-2 prof-row">
+        <span class="prof-index text-muted"></span>
+        <select name="profession_ids" class="form-select wh-input">
+          <option value="">— Selecciona —</option>
+          {% for p in professions %}
+          <option value="{{ p.id }}">{{ p.name }}</option>
+          {% endfor %}
+        </select>
+        <button type="button" class="btn btn-outline-danger btn-sm remove-prof"><i class="bi bi-x-lg"></i></button>
+      </div>
+    </template>
+
+    <div class="d-flex gap-2 mb-5">
+      <button type="submit" class="btn btn-wh"><i class="bi bi-floppy me-1"></i>Guardar personaje</button>
+      <a href="{{ url_for('characters.list_characters') }}" class="btn btn-outline-secondary">Cancelar</a>
+    </div>
+  </form>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+(function () {
+  const ROLL_URL = '{{ url_for("characters.generator_roll") }}';
+  const CSRF = document.querySelector('input[name=csrf_token]').value;
+
+  async function rollStep(paso, contexto) {
+    const resp = await fetch(ROLL_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ paso: paso, contexto: contexto || {} }),
+    });
+    const data = await resp.json();
+    if (!resp.ok) throw new Error(data.error || 'Error en la tirada');
+    return data.result;
+  }
+
+  function currentRace() { return document.getElementById('f-race').value; }
+  function currentGender() { return document.getElementById('f-gender').value; }
+
+  /* ── Puntos de Historial bookkeeping ── */
+  const phTotalInp = document.getElementById('f-ph-total');
+  const phSpentInp = document.getElementById('f-ph-spent');
+  function refreshPH() {
+    document.getElementById('ph-disponibles').textContent =
+      (parseInt(phTotalInp.value || 0) - parseInt(phSpentInp.value || 0));
+    document.getElementById('ph-gastados').textContent = phSpentInp.value || 0;
+  }
+  function addPH(delta) {
+    phTotalInp.value = Math.max(0, parseInt(phTotalInp.value || 0) + delta);
+    refreshPH();
+  }
+  function spendPH(coste) {
+    phSpentInp.value = parseInt(phSpentInp.value || 0) - coste; // coste is negative for spends, positive for gains
+    refreshPH();
+  }
+  refreshPH();
+
+  /* ── Generic JSON-backed list widget ── */
+  function makeListWidget(containerId, hiddenId, renderItem) {
+    const container = document.getElementById(containerId);
+    const hidden = document.getElementById(hiddenId);
+    let items = [];
+    function sync() { hidden.value = JSON.stringify(items); }
+    function render() {
+      container.innerHTML = '';
+      items.forEach((item, idx) => {
+        const row = document.createElement('div');
+        row.className = 'd-flex align-items-center gap-2 mb-1';
+        row.innerHTML = renderItem(item) +
+          '<button type="button" class="btn btn-outline-danger btn-sm rm-item" data-idx="' + idx + '"><i class="bi bi-x-lg"></i></button>';
+        container.appendChild(row);
+      });
+      container.querySelectorAll('.rm-item').forEach(btn => {
+        btn.addEventListener('click', () => {
+          items.splice(parseInt(btn.dataset.idx), 1);
+          render(); sync();
+        });
+      });
+    }
+    return {
+      add(item) { items.push(item); render(); sync(); },
+      all() { return items; },
+    };
+  }
+
+  const traitsWidget = makeListWidget('traits-list', 'f-traits-json',
+    t => '<span class="badge wh-badge-skill">' + t.category + '</span><span class="flex-grow-1">' + t.description + '</span>');
+  const acquaintancesWidget = makeListWidget('acquaintances-list', 'f-acquaintances-json',
+    a => '<span class="badge wh-badge-prof">' + a.kind + '</span>' +
+         '<input type="text" class="form-control form-control-sm wh-input flex-grow-1" value="' +
+         (a.description || '').replace(/"/g, '&quot;') + '" disabled>');
+  const possessionsWidget = makeListWidget('possessions-list', 'f-possessions-json',
+    p => '<span class="flex-grow-1">' + (p.name || p) + '</span>');
+  const magicItemsWidget = makeListWidget('magic-items-list', 'f-magic-items-json',
+    m => '<span class="badge wh-badge-skill-opt">' + m.category + '</span><span class="flex-grow-1">' + m.description + '</span>');
+  const sucesosWidget = makeListWidget('sucesos-list', 'f-sucesos-json',
+    e => '<span class="flex-grow-1">' + (e.grupo || e.value) + '</span>');
+
+  /* ── Raza ── */
+  document.getElementById('btn-roll-raza').addEventListener('click', async () => {
+    const box = document.getElementById('raza-options');
+    box.innerHTML = 'Tirando…';
+    const r1 = await rollStep('raza');
+    const r2 = await rollStep('raza');
+    box.innerHTML = '';
+    [r1, r2].forEach(r => {
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'btn btn-outline-warning btn-sm';
+      btn.textContent = r.race + ' (tirada ' + r.roll + ')';
+      btn.addEventListener('click', () => {
+        document.getElementById('f-race').value = r.race;
+        addPH(1);
+        onRaceChanged();
+      });
+      box.appendChild(btn);
+    });
+  });
+  document.getElementById('f-race').addEventListener('change', onRaceChanged);
+  document.getElementById('f-procedencia').addEventListener('change', onRaceChanged);
+
+  async function onRaceChanged() {
+    const race = currentRace();
+    const info = document.getElementById('racial-info');
+    const rollTalentBtn = document.getElementById('btn-roll-talento-racial');
+    if (!race) { info.textContent = 'Elige una raza para ver sus habilidades y talentos base.'; rollTalentBtn.disabled = true; return; }
+    rollTalentBtn.disabled = false;
+
+    const provincia = (document.getElementById('f-procedencia').value.split(' - ')[0] || '').trim();
+    const r = await rollStep('info_racial', { raza: race, provincia: provincia });
+
+    const skills = (r.habilidades || []).slice();
+    const talentos = (r.talentos_fijos || []).slice();
+    (r.talentos_fijos_extra || []).forEach(t => talentos.push(t));
+    if (r.provincia_bonus) {
+      (r.provincia_bonus.habilidades || []).forEach(h => skills.push(h));
+    }
+
+    document.getElementById('f-racial-skills-json').value = JSON.stringify(skills);
+    document.getElementById('f-racial-talents-json').value = JSON.stringify(talentos);
+
+    let html = '<strong>Habilidades:</strong> ' + (skills.join(', ') || '—') + '<br>';
+    html += '<strong>Talentos fijos:</strong> ' + (talentos.join(', ') || '—');
+    if (r.talentos_aleatorios) {
+      html += '<br><strong>Talentos aleatorios a tirar:</strong> ' + r.talentos_aleatorios;
+    }
+    if (r.rasgos && r.rasgos.length) {
+      html += '<br><strong>Rasgos raciales:</strong><ul class="mb-0">' + r.rasgos.map(x => '<li>' + x + '</li>').join('') + '</ul>';
+    }
+    if (r.provincia_bonus) {
+      html += '<br><strong>Bono de provincia (' + provincia + '):</strong> ' + r.provincia_bonus.regla_especial;
+    }
+    info.innerHTML = html;
+
+    document.getElementById('racial-talentos-aleatorios').innerHTML = '';
+  }
+
+  /* ── Profesión ── */
+  document.getElementById('btn-roll-profesion').addEventListener('click', async () => {
+    const race = currentRace();
+    if (!race) { alert('Elige primero una raza.'); return; }
+    const box = document.getElementById('profesion-options');
+    box.innerHTML = 'Tirando…';
+    const results = [];
+    for (let i = 0; i < 3; i++) results.push(await rollStep('profesion', { raza: race }));
+    box.innerHTML = '';
+    results.forEach(r => {
+      const label = (r.profession_name || '(sin resultado para esta raza)') +
+        (r.matched_profession ? ' ✓' : (r.profession_name ? ' (crear en catálogo)' : ''));
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'btn btn-outline-warning btn-sm';
+      btn.disabled = !r.profession_name;
+      btn.textContent = label + ' (tirada ' + r.roll + ')';
+      btn.addEventListener('click', () => {
+        if (r.matched_profession) {
+          document.getElementById('f-matched-profession').value = r.matched_profession.id;
+        }
+        addPH(1);
+      });
+      box.appendChild(btn);
+    });
+  });
+
+  /* ── Características ── */
+  document.getElementById('btn-roll-caracteristicas').addEventListener('click', async () => {
+    const race = currentRace();
+    if (!race) { alert('Elige primero una raza.'); return; }
+    const r = await rollStep('caracteristicas', { raza: race });
+    ['ws','bs','s_char','t_char','ag','int_char','wp','fel',
+     'attacks','wounds','strength_bonus','toughness_bonus','movement','magic','insanity_points','fate_points'
+    ].forEach(f => { document.getElementById('f-' + f).value = r[f]; });
+    addPH(r.history_points || 0);
+    updateHorasSueno();
+  });
+
+  function updateHorasSueno() {
+    const race = currentRace();
+    const res = parseInt(document.getElementById('f-t_char').value || 0);
+    if (!race || !res) return;
+    rollStep('horas_sueno', { raza: race, resistencia: res }).then(r => {
+      document.getElementById('horas-sueno').textContent = r.horas;
+    });
+  }
+
+  /* ── Signo astral ── */
+  document.getElementById('btn-roll-signo').addEventListener('click', async () => {
+    const r = await rollStep('signo_astral');
+    document.getElementById('f-signo').value = r.signo;
+    document.getElementById('f-rasgo-signo').value = r.rasgo;
+    document.getElementById('signo-modificadores').textContent = 'Modificadores: ' + r.modificadores;
+  });
+  document.getElementById('btn-skip-signo').addEventListener('click', () => {
+    document.getElementById('f-signo').value = '';
+    document.getElementById('f-rasgo-signo').value = '';
+    document.getElementById('signo-modificadores').textContent = 'Omitido.';
+    addPH(1);
+  });
+
+  /* ── Altura / Peso / Edad ── */
+  document.getElementById('btn-roll-altura').addEventListener('click', async () => {
+    const race = currentRace();
+    if (!race) { alert('Elige primero una raza.'); return; }
+    const r = await rollStep('altura', { raza: race, genero: currentGender() });
+    document.getElementById('f-altura').value = r.cm;
+  });
+  document.getElementById('btn-roll-peso').addEventListener('click', async () => {
+    const race = currentRace();
+    const altura = document.getElementById('f-altura').value;
+    if (!race || !altura) { alert('Necesitas raza y altura primero.'); return; }
+    const r = await rollStep('peso', { raza: race, altura_cm: altura });
+    document.getElementById('f-peso').value = r.kg;
+  });
+  document.getElementById('btn-roll-edad').addEventListener('click', async () => {
+    const race = currentRace();
+    if (!race) { alert('Elige primero una raza.'); return; }
+    const r = await rollStep('edad', { raza: race });
+    document.getElementById('f-edad').value = r.edad;
+    document.getElementById('f-edad-grado').value = r.grado;
+    document.getElementById('edad-modificadores').textContent = r.modificadores ? ('Modificadores: ' + r.modificadores) : '';
+    document.getElementById('f-num-sucesos').value = r.grado + 1;
+  });
+
+  /* ── Apariencia ── */
+  document.getElementById('btn-roll-apariencia').addEventListener('click', async () => {
+    const r = await rollStep('apariencia');
+    document.getElementById('f-pelo').value = r.pelo;
+    document.getElementById('f-ojos').value = r.ojos;
+    document.getElementById('f-mano').value = r.mano_dominante;
+  });
+
+  /* ── Procedencia ── */
+  document.getElementById('btn-roll-procedencia').addEventListener('click', async () => {
+    const race = currentRace();
+    if (!race) { alert('Elige primero una raza.'); return; }
+    const r = await rollStep('procedencia', { raza: race });
+    document.getElementById('f-procedencia').value = r.procedencia;
+  });
+
+  /* ── Situación familiar ── */
+  document.getElementById('btn-roll-familia').addEventListener('click', async () => {
+    const race = currentRace();
+    if (!race) { alert('Elige primero una raza.'); return; }
+    const r = await rollStep('situacion_familiar', { raza: race });
+    document.getElementById('f-situacion-familiar').value = r.situacion;
+    (r.hermanos || []).forEach(h => acquaintancesWidget.add({ kind: 'hermano', description: h }));
+  });
+
+  /* ── Sucesos de juventud ── */
+  document.getElementById('btn-roll-sucesos').addEventListener('click', async () => {
+    const n = parseInt(document.getElementById('f-num-sucesos').value || 1);
+    const r = await rollStep('sucesos_juventud', { num_rolls: n });
+    r.eventos.forEach(ev => {
+      sucesosWidget.add(ev);
+      if (ev.categoria === 'relacion') {
+        acquaintancesWidget.add({ kind: ev.tipo, description: ev.grupo });
+      }
+    });
+  });
+
+  /* ── Talento aleatorio racial ── */
+  document.getElementById('btn-roll-talento-racial').addEventListener('click', async () => {
+    const race = currentRace();
+    if (!race) return;
+    const r = await rollStep('talento_aleatorio', { raza: race });
+    const box = document.getElementById('racial-talentos-aleatorios');
+    const span = document.createElement('div');
+    span.className = 'badge wh-badge-skill me-1 mb-1';
+    span.textContent = r.talento;
+    box.appendChild(span);
+    const hidden = document.getElementById('f-racial-talents-json');
+    const arr = hidden.value ? JSON.parse(hidden.value) : [];
+    arr.push(r.talento);
+    hidden.value = JSON.stringify(arr);
+  });
+
+  /* ── Rasgos manuales ── */
+  document.querySelectorAll('[data-roll-trait]').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      const cat = btn.dataset.rollTrait;
+      const r = await rollStep(cat);
+      traitsWidget.add({ category: cat, description: r.value });
+    });
+  });
+
+  /* ── Puntos de Historial: opciones ── */
+  document.querySelectorAll('.ph-opt-btn').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      const coste = parseInt(btn.dataset.coste);
+      const disponibles = parseInt(phTotalInp.value || 0) - parseInt(phSpentInp.value || 0);
+      if (coste < 0 && Math.abs(coste) > disponibles) {
+        alert('No tienes suficientes Puntos de Historial disponibles.');
+        return;
+      }
+      spendPH(-coste);
+
+      const id = btn.dataset.id;
+      const peaje = btn.dataset.peaje;
+
+      if (id === 'objeto_magico') {
+        const r = await rollStep('objeto_magico');
+        magicItemsWidget.add({ category: r.categoria, description: r.descripcion });
+      } else if (id === 'talento_aleatorio') {
+        const race = currentRace() || 'Humano';
+        const r = await rollStep('talento_aleatorio', { raza: race });
+        traitsWidget.add({ category: 'talento_extra', description: r.talento });
+      } else if (id === 'posesiones') {
+        const bonus = coste === -2 ? 2 : 0;
+        const r = await rollStep('posesiones', { bonus: bonus });
+        possessionsWidget.add({ name: r.descripcion + (r.co ? (' (+' + r.co + ' Co)') : '') });
+        if (r.co) {
+          const dineroInp = document.getElementById('f-dinero');
+          dineroInp.value = parseInt(dineroInp.value || 0) + r.co;
+        }
+      } else if (id === 'mas_caracteristica') {
+        // Efecto libre: el jugador decide a qué característica/heridas aplica el +2%/+1PV manualmente.
+      } else if (id === 'contacto_elegido') {
+        const desc = prompt('Describe el contacto añadido:');
+        if (desc) acquaintancesWidget.add({ kind: 'contacto', description: desc });
+      }
+
+      if (peaje) {
+        const r = await rollStep(peaje);
+        traitsWidget.add({ category: peaje, description: r.value });
+      }
+    });
+  });
+
+  /* ── Posesiones manuales ── */
+  document.getElementById('btn-add-possession').addEventListener('click', () => {
+    const inp = document.getElementById('f-new-possession');
+    if (inp.value.trim()) { possessionsWidget.add({ name: inp.value.trim() }); inp.value = ''; }
+  });
+
+  /* ── Carrera profesional (mismo patrón que la creación rápida) ── */
+  const profList = document.getElementById('profList');
+  const tmpl = document.getElementById('profRowTemplate');
+  function reindex() {
+    profList.querySelectorAll('.prof-row').forEach((row, i) => {
+      const idx = row.querySelector('.prof-index');
+      if (idx) idx.textContent = (i + 1) + '.';
+    });
+  }
+  document.getElementById('addProfBtn').addEventListener('click', () => {
+    profList.appendChild(tmpl.content.cloneNode(true));
+    reindex();
+  });
+  profList.addEventListener('click', e => {
+    if (e.target.closest('.remove-prof')) { e.target.closest('.prof-row').remove(); reindex(); }
+  });
+  document.getElementById('addProfBtn').click();
+
+  /* ── Nivel social automático para Noble ── */
+  document.getElementById('f-matched-profession').addEventListener('change', function () {
+    const label = this.options[this.selectedIndex].text;
+    if (/^noble$/i.test(label.trim())) {
+      document.getElementById('f-nivel-social').value = 3;
+    }
+  });
+})();
+</script>
+{% endblock %}

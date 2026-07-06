@@ -1,0 +1,135 @@
+{
+  "humano_imperio": {
+    "provincia_table": [
+      {"min": 1,  "max": 10,  "provincia": "Averland"},
+      {"min": 11, "max": 20,  "provincia": "Hochland"},
+      {"min": 21, "max": 30,  "provincia": "Middenland"},
+      {"min": 31, "max": 40,  "provincia": "Nordland"},
+      {"min": 41, "max": 50,  "provincia": "Ostermark"},
+      {"min": 51, "max": 60,  "provincia": "Ostland"},
+      {"min": 61, "max": 70,  "provincia": "Reikland"},
+      {"min": 71, "max": 80,  "provincia": "Stirland"},
+      {"min": 81, "max": 90,  "provincia": "Talabecland"},
+      {"min": 91, "max": 100, "provincia": "Wissenland"}
+    ],
+    "poblaciones": {
+      "Averland": [
+        {"min": 1,  "max": 25,  "value": "Averheim (capital)"},
+        {"min": 26, "max": 35,  "value": "Grenzstadt (pueblo)"},
+        {"min": 36, "max": 45,  "value": "Hochsleben (pueblo)"},
+        {"min": 46, "max": 54,  "value": "Loningbruck (pueblo)"},
+        {"min": 55, "max": 63,  "value": "Wuppertal (pueblo)"},
+        {"min": 64, "max": 72,  "value": "Agbeiten (aldea)"},
+        {"min": 73, "max": 81,  "value": "Braundorf (aldea)"},
+        {"min": 82, "max": 91,  "value": "Kotzenheim (aldea)"},
+        {"min": 92, "max": 100, "value": "Zecher (aldea)"}
+      ],
+      "Hochland": [
+        {"min": 1,  "max": 25,  "value": "Hergig (capital)"},
+        {"min": 26, "max": 38,  "value": "Breder (pueblo)"},
+        {"min": 39, "max": 51,  "value": "Krudenwald (pueblo)"},
+        {"min": 52, "max": 64,  "value": "Bergendorf (aldea)"},
+        {"min": 65, "max": 77,  "value": "Esk (aldea)"},
+        {"min": 78, "max": 90,  "value": "Gruyden (aldea)"},
+        {"min": 91, "max": 100, "value": "Koerin (aldea)"}
+      ],
+      "Middenland": [
+        {"min": 1,  "max": 25,  "value": "Middenheim (capital)"},
+        {"min": 26, "max": 37,  "value": "Delberz (pueblo)"},
+        {"min": 38, "max": 49,  "value": "Grimminhagen (pueblo)"},
+        {"min": 50, "max": 60,  "value": "Norderingen (pueblo)"},
+        {"min": 61, "max": 70,  "value": "Holzbeck (aldea)"},
+        {"min": 71, "max": 80,  "value": "Immelscheld (aldea)"},
+        {"min": 81, "max": 90,  "value": "Pritzstock (aldea)"},
+        {"min": 91, "max": 100, "value": "Sokh (aldea)"}
+      ],
+      "Nordland": [
+        {"min": 1,  "max": 25,  "value": "Salzenmund (capital)"},
+        {"min": 26, "max": 38,  "value": "Beeckerhoven (pueblo)"},
+        {"min": 39, "max": 51,  "value": "Dietershafen (pueblo)"},
+        {"min": 52, "max": 64,  "value": "Grafenrich (aldea)"},
+        {"min": 65, "max": 77,  "value": "Luftberg (aldea)"},
+        {"min": 78, "max": 90,  "value": "Oldenlitz (aldea)"},
+        {"min": 91, "max": 100, "value": "Wilhelmskoog (aldea)"}
+      ],
+      "Ostermark": [
+        {"min": 1,  "max": 25,  "value": "Bechafen (capital)"},
+        {"min": 26, "max": 38,  "value": "Eisental (pueblo)"},
+        {"min": 39, "max": 51,  "value": "Remer (pueblo)"},
+        {"min": 52, "max": 64,  "value": "Bissendorf (aldea)"},
+        {"min": 65, "max": 77,  "value": "Dorna (aldea)"},
+        {"min": 78, "max": 90,  "value": "Fortenhaf (aldea)"},
+        {"min": 91, "max": 100, "value": "Heffengen (aldea)"}
+      ],
+      "Ostland": [
+        {"min": 1,  "max": 25,  "value": "Wolfenburg (capital)"},
+        {"min": 26, "max": 38,  "value": "Ferlangen (pueblo)"},
+        {"min": 39, "max": 51,  "value": "Vandengart (pueblo)"},
+        {"min": 52, "max": 64,  "value": "Boven (aldea)"},
+        {"min": 65, "max": 77,  "value": "Lubrecht (aldea)"},
+        {"min": 78, "max": 90,  "value": "Smallhof (aldea)"},
+        {"min": 91, "max": 100, "value": "Zundap (aldea)"}
+      ],
+      "Reikland": [
+        {"min": 1,  "max": 25,  "value": "Altdorf (capital imperial)"},
+        {"min": 26, "max": 40,  "value": "Nuln (ciudad)"},
+        {"min": 41, "max": 50,  "value": "Bögenhafen (pueblo)"},
+        {"min": 51, "max": 60,  "value": "Grünburg (pueblo)"},
+        {"min": 61, "max": 70,  "value": "Halheim (aldea)"},
+        {"min": 71, "max": 80,  "value": "Misthausen (aldea)"},
+        {"min": 81, "max": 90,  "value": "Teufelfeuer (aldea)"},
+        {"min": 91, "max": 100, "value": "Weissbruck (aldea)"}
+      ],
+      "Stirland": [
+        {"min": 1,  "max": 25,  "value": "Wurtbad (capital)"},
+        {"min": 26, "max": 38,  "value": "Drakenhof (pueblo)"},
+        {"min": 39, "max": 51,  "value": "Waldenhof (pueblo)"},
+        {"min": 52, "max": 64,  "value": "Eschedorf (aldea)"},
+        {"min": 65, "max": 77,  "value": "Furtzhausen (aldea)"},
+        {"min": 78, "max": 90,  "value": "Schwartzhafen (aldea)"},
+        {"min": 91, "max": 100, "value": "Wurstheim (aldea)"}
+      ],
+      "Talabecland": [
+        {"min": 1,  "max": 25,  "value": "Talabheim (capital)"},
+        {"min": 26, "max": 38,  "value": "Bek (pueblo)"},
+        {"min": 39, "max": 51,  "value": "Kemperbad (pueblo)"},
+        {"min": 52, "max": 64,  "value": "Garndorf (aldea)"},
+        {"min": 65, "max": 77,  "value": "Ragenhof (aldea)"},
+        {"min": 78, "max": 90,  "value": "Wellenborn (aldea)"},
+        {"min": 91, "max": 100, "value": "Zurin (aldea)"}
+      ],
+      "Wissenland": [
+        {"min": 1,  "max": 25,  "value": "Wissenburg (capital)"},
+        {"min": 26, "max": 38,  "value": "Grissenwald (pueblo)"},
+        {"min": 39, "max": 51,  "value": "Pfeildorf (pueblo)"},
+        {"min": 52, "max": 64,  "value": "Ambosstein (aldea)"},
+        {"min": 65, "max": 77,  "value": "Konigsdorf (aldea)"},
+        {"min": 78, "max": 90,  "value": "Segeldorf (aldea)"},
+        {"min": 91, "max": 100, "value": "Steingart (aldea)"}
+      ]
+    }
+  },
+  "halfling": [
+    {"min": 1, "max": 5,  "value": "La Asamblea"},
+    {"min": 6, "max": 10, "value": "__imperio__"}
+  ],
+  "enano": [
+    {"min": 1,  "max": 30,  "value": "__imperio__"},
+    {"min": 31, "max": 40,  "value": "Karak-Norn"},
+    {"min": 41, "max": 50,  "value": "Karak-Izor"},
+    {"min": 51, "max": 60,  "value": "Karak-Hirn"},
+    {"min": 61, "max": 70,  "value": "Karak-Kadrin"},
+    {"min": 71, "max": 80,  "value": "Karak-a-Karak"},
+    {"min": 81, "max": 90,  "value": "Zhufbar"},
+    {"min": 91, "max": 100, "value": "Barak-Varr"}
+  ],
+  "elfo_silvano": [
+    {"min": 1, "max": 7,  "value": "Bosque de Laurelorn"},
+    {"min": 8, "max": 10, "value": "Athel Loren"}
+  ],
+  "alto_elfo": [
+    {"min": 1, "max": 1,  "value": "__imperio__"},
+    {"min": 2, "max": 4,  "value": "Mariemburgo"},
+    {"min": 5, "max": 10, "value": "Ulthuan"}
+  ]
+}

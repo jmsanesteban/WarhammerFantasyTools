@@ -7,7 +7,10 @@ from app.models.profession import (
 )
 from app.models.skill import Skill
 from app.models.talent import Talent
-from app.models.character import Character, CharacterProfession, CharacterSkill, CharacterTalent
+from app.models.character import (
+    Character, CharacterProfession, CharacterSkill, CharacterTalent,
+    CharacterTrait, CharacterAcquaintance, CharacterPossession, CharacterMagicItem,
+)
 from app.models.synonym import Synonym
 from app.models.contact import FieldDefinition, Contact, ContactValue
 from app.models.contact_persona import ContactPersona, ContactPersonaLink
@@ -20,6 +23,7 @@ __all__ = [
     'career_exits_table',
     'Skill', 'Talent',
     'Character', 'CharacterProfession', 'CharacterSkill', 'CharacterTalent',
+    'CharacterTrait', 'CharacterAcquaintance', 'CharacterPossession', 'CharacterMagicItem',
     'Synonym',
     'FieldDefinition', 'Contact', 'ContactValue',
     'ContactPersona', 'ContactPersonaLink',

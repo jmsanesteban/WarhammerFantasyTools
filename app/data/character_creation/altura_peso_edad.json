@@ -1,0 +1,31 @@
+{
+  "altura": {
+    "Humano":       [{"min":1,"max":10,"base":165,"base_f":160,"formula":"-2d10"}, {"min":11,"max":20,"base":165,"base_f":160,"formula":"-1d10"}, {"min":21,"max":75,"base":165,"base_f":160,"formula":"+1d10"}, {"min":76,"max":90,"base":165,"base_f":160,"formula":"+2d10"}, {"min":91,"max":100,"base":175,"base_f":170,"formula":"+3d10","modificadores":"+1% a F, -1% a Agi"}],
+    "Halfling":     [{"min":1,"max":10,"base":105,"base_f":100,"formula":"-2d10"}, {"min":11,"max":20,"base":105,"base_f":100,"formula":"-1d10"}, {"min":21,"max":75,"base":105,"base_f":100,"formula":"+1d10"}, {"min":76,"max":90,"base":105,"base_f":100,"formula":"+1d10+1d4"}, {"min":91,"max":100,"base":110,"base_f":105,"formula":"+2d10","modificadores":"+1% a F, -1% a Agi"}],
+    "Enano":        [{"min":1,"max":10,"base":135,"base_f":130,"formula":"-2d10"}, {"min":11,"max":20,"base":135,"base_f":130,"formula":"-1d10"}, {"min":21,"max":75,"base":135,"base_f":130,"formula":"+1d10"}, {"min":76,"max":90,"base":135,"base_f":130,"formula":"+1d10+1d4"}, {"min":91,"max":100,"base":135,"base_f":130,"formula":"+2d10","modificadores":"+1% a F, -1% a Agi"}],
+    "Elfo":         [{"min":1,"max":10,"base":180,"base_f":175,"formula":"-2d10"}, {"min":11,"max":20,"base":180,"base_f":175,"formula":"-1d10"}, {"min":21,"max":75,"base":180,"base_f":175,"formula":"+1d10"}, {"min":76,"max":90,"base":180,"base_f":175,"formula":"+1d10+1d4"}, {"min":91,"max":100,"base":180,"base_f":175,"formula":"+2d10","modificadores":"+1% a F, -1% a Agi"}]
+  },
+  "peso": {
+    "offset_from_altura": {"Humano": -100, "Halfling": -60, "Enano": -65, "Elfo": -110},
+    "tramos": [
+      {"min":1,  "max":10,  "formula":"-2d6", "modificadores":"+3% a F, +3% a Agi"},
+      {"min":11, "max":20,  "formula":"-1d6", "modificadores":"+2% a Agi"},
+      {"min":21, "max":79,  "formula":"+1d6"},
+      {"min":80, "max":90,  "formula":"+2d6", "modificadores":"+2% a F"},
+      {"min":91, "max":100, "formula":"+3d6", "modificadores":"+3% a F, -3% a Agi"}
+    ]
+  },
+  "edad": {
+    "Humano":   [{"min":1,"max":10,"grado":1,"formula":"15+1d3"}, {"min":11,"max":20,"grado":2,"formula":"15+1d6"}, {"min":21,"max":75,"grado":3,"formula":"20+1d6"}, {"min":76,"max":90,"grado":4,"formula":"24+1d6"}, {"min":91,"max":100,"grado":5,"formula":"28+1d6"}],
+    "Halfling": [{"min":1,"max":10,"grado":1,"formula":"19+1d6"}, {"min":11,"max":20,"grado":2,"formula":"19+1d10"}, {"min":21,"max":75,"grado":3,"formula":"24+1d10"}, {"min":76,"max":90,"grado":4,"formula":"28+1d10"}, {"min":91,"max":100,"grado":5,"formula":"32+1d10"}],
+    "Enano":    [{"min":1,"max":10,"grado":1,"formula":"25+1d10"}, {"min":11,"max":20,"grado":2,"formula":"35+1d10"}, {"min":21,"max":75,"grado":3,"formula":"45+1d10"}, {"min":76,"max":90,"grado":4,"formula":"65+2d10"}, {"min":91,"max":100,"grado":5,"formula":"85+2d10"}],
+    "Elfo":     [{"min":1,"max":10,"grado":1,"formula":"30+1d10"}, {"min":11,"max":20,"grado":2,"formula":"50+1d10"}, {"min":21,"max":75,"grado":3,"formula":"60+1d10"}, {"min":76,"max":90,"grado":4,"formula":"80+2d10"}, {"min":91,"max":100,"grado":5,"formula":"100+2d10"}],
+    "grado_modificadores": {
+      "1": "+2% a Agi y R, -2% a Vol y Int",
+      "2": "+1% a Agi y R, -1% a Vol y Int",
+      "3": null,
+      "4": null,
+      "5": "-1% a Agi y F, +1% a Vol y Int"
+    }
+  }
+}

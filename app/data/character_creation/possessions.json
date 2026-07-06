@@ -1,0 +1,12 @@
+{
+  "tabla_posesiones": [
+    {"min": 1,  "max": 2,  "tipo": "dinero",  "value": "+1D10 Co iniciales"},
+    {"min": 3,  "max": 6,  "tipo": "dinero",  "value": "+30 + 3d10 Co iniciales"},
+    {"min": 7,  "max": 7,  "tipo": "objetos", "max_objetos": 3, "valor_co": 80,   "value": "Objetos del inventario (máximo 3) por un valor de hasta 80 Co. El dinero no usado se pierde."},
+    {"min": 8,  "max": 8,  "tipo": "objetos", "max_objetos": 3, "valor_co": 300,  "value": "Objetos del inventario (máximo 3) por un valor de hasta 300 Co. El dinero no usado se pierde."},
+    {"min": 9,  "max": 9,  "tipo": "objetos", "max_objetos": 4, "valor_co": 800,  "value": "Objetos del inventario (máximo 4) por un valor de hasta 800 Co. El dinero no usado se pierde."},
+    {"min": 10, "max": 10, "tipo": "objetos", "max_objetos": 5, "valor_co": 1500, "value": "Objetos del inventario (máximo 5) por un valor de hasta 1500 Co. El dinero no usado se pierde."},
+    {"min": 11, "max": 11, "tipo": "titulo",  "value": "Título nobiliario de caballero (o el siguiente superior si ya se posee uno) + resultado del 9"},
+    {"min": 12, "max": 12, "tipo": "titulo",  "value": "Título nobiliario de caballero (o el siguiente superior si ya se posee uno) + resultado del 10"}
+  ]
+}

@@ -17,6 +17,16 @@
         <div class="card-body">
           {% if char.race %}<p><strong class="wh-label">Raza:</strong> {{ char.race }}</p>{% endif %}
           {% if char.gender %}<p><strong class="wh-label">Género:</strong> {{ char.gender }}</p>{% endif %}
+          {% if char.edad %}<p><strong class="wh-label">Edad:</strong> {{ char.edad }} años{% if char.edad_grado %} (grado {{ char.edad_grado }}){% endif %}</p>{% endif %}
+          {% if char.altura_cm %}<p><strong class="wh-label">Altura:</strong> {{ char.altura_cm }} cm{% if char.peso_kg %} · {{ char.peso_kg }} kg{% endif %}</p>{% endif %}
+          {% if char.color_pelo or char.color_ojos %}<p><strong class="wh-label">Pelo/Ojos:</strong> {{ char.color_pelo or '—' }} / {{ char.color_ojos or '—' }}</p>{% endif %}
+          {% if char.mano_dominante %}<p><strong class="wh-label">Mano dominante:</strong> {{ char.mano_dominante }}</p>{% endif %}
+          {% if char.signo_astral %}<p><strong class="wh-label">Signo astral:</strong> {{ char.signo_astral }}{% if char.rasgo_personalidad_signo %} — {{ char.rasgo_personalidad_signo }}{% endif %}</p>{% endif %}
+          {% if char.procedencia %}<p><strong class="wh-label">Procedencia:</strong> {{ char.procedencia }}</p>{% endif %}
+          {% if char.situacion_familiar %}<p><strong class="wh-label">Familia:</strong> {{ char.situacion_familiar }}</p>{% endif %}
+          {% if char.nivel_social is not none %}<p><strong class="wh-label">Nivel social:</strong> {{ char.nivel_social }}</p>{% endif %}
+          {% if char.dinero_coronas %}<p><strong class="wh-label">Dinero:</strong> {{ char.dinero_coronas }} Co</p>{% endif %}
+          <p><strong class="wh-label">Puntos de Historial:</strong> {{ char.history_points_available }} disponibles ({{ char.history_points_spent }} gastados de {{ char.history_points_total }})</p>
           {% if char.notes %}<p class="text-muted small">{{ char.notes }}</p>{% endif %}
         </div>
         <div class="card-footer d-flex gap-2">
@@ -30,6 +40,98 @@
           </form>
         </div>
       </div>
+
+      {% if char.ws or char.bs %}
+      <div class="card wh-card mt-3">
+        <div class="card-header wh-card-header">Características</div>
+        <div class="card-body p-2">
+          <div class="table-responsive">
+            <table class="table table-sm wh-stat-table text-center mb-0">
+              <thead>
+                <tr>
+                  <th>HA</th><th>HP</th><th>F</th><th>R</th><th>Ag</th><th>I</th><th>V</th><th>Em</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  {% for field in ['ws','bs','s_char','t_char','ag','int_char','wp','fel'] %}
+                  <td>{{ char|attr(field) if char|attr(field) is not none else '—' }}</td>
+                  {% endfor %}
+                </tr>
+              </tbody>
+            </table>
+            <table class="table table-sm wh-stat-table text-center mb-0">
+              <thead>
+                <tr>
+                  <th>A</th><th>H</th><th>BF</th><th>BR</th><th>M</th><th>Mag</th><th>PL</th><th>PD</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  {% for field in ['attacks','wounds','strength_bonus','toughness_bonus','movement','magic','insanity_points','fate_points'] %}
+                  <td>{{ char|attr(field) if char|attr(field) is not none else '—' }}</td>
+                  {% endfor %}
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+      {% endif %}
+
+      {% if char.skills or char.talents %}
+      <div class="card wh-card mt-3">
+        <div class="card-header wh-card-header">Habilidades y talentos raciales</div>
+        <div class="card-body">
+          {% if char.skills %}
+          <p class="mb-1"><strong class="wh-label">Habilidades:</strong>
+            {% for cs in char.skills %}<span class="badge wh-badge-skill me-1">{{ cs.skill.name_es }}{% if cs.specialization %} ({{ cs.specialization }}){% endif %}</span>{% endfor %}
+          </p>
+          {% endif %}
+          {% if char.talents %}
+          <p class="mb-0"><strong class="wh-label">Talentos:</strong>
+            {% for ct in char.talents %}<span class="badge wh-badge-skill-opt me-1">{{ ct.talent.name_es }}{% if ct.specialization %} ({{ ct.specialization }}){% endif %}</span>{% endfor %}
+          </p>
+          {% endif %}
+        </div>
+      </div>
+      {% endif %}
+
+      {% if char.traits %}
+      <div class="card wh-card mt-3">
+        <div class="card-header wh-card-header">Rasgos</div>
+        <div class="card-body">
+          {% for t in char.traits %}<p class="mb-1"><span class="badge bg-secondary me-1">{{ t.category }}</span>{{ t.description }}</p>{% endfor %}
+        </div>
+      </div>
+      {% endif %}
+
+      {% if char.acquaintances %}
+      <div class="card wh-card mt-3">
+        <div class="card-header wh-card-header">Contactos, amigos y enemigos</div>
+        <div class="card-body">
+          {% for a in char.acquaintances %}<p class="mb-1"><span class="badge bg-secondary me-1">{{ a.kind }}</span>{{ a.description }}</p>{% endfor %}
+        </div>
+      </div>
+      {% endif %}
+
+      {% if char.possessions %}
+      <div class="card wh-card mt-3">
+        <div class="card-header wh-card-header">Posesiones</div>
+        <div class="card-body">
+          <ul class="mb-0">{% for p in char.possessions %}<li>{{ p.name }}</li>{% endfor %}</ul>
+        </div>
+      </div>
+      {% endif %}
+
+      {% if char.magic_items %}
+      <div class="card wh-card mt-3">
+        <div class="card-header wh-card-header">Objetos mágicos</div>
+        <div class="card-body">
+          {% for m in char.magic_items %}<p class="mb-1"><span class="badge bg-warning text-dark me-1">{{ m.category }}</span>{{ m.description }}</p>{% endfor %}
+        </div>
+      </div>
+      {% endif %}
     </div>
 
     <div class="col-md-8">
