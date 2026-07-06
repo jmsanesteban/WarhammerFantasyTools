@@ -60,6 +60,17 @@ def _register_security_headers(app):
         return response
 
 
+def _wants_json() -> bool:
+    """True when the request is an AJAX/fetch call expecting a JSON response
+    (checked by content-type/accept header, not a hardcoded path list - any
+    current or future fetch()-based endpoint gets a parseable JSON error
+    instead of an HTML redirect that breaks `await resp.json()` client-side)."""
+    if request.is_json:
+        return True
+    accept = request.headers.get('Accept', '')
+    return 'application/json' in accept and 'text/html' not in accept
+
+
 def _register_error_handlers(app):
     from werkzeug.exceptions import RequestEntityTooLarge
     from flask_wtf.csrf import CSRFError
@@ -73,10 +84,11 @@ def _register_error_handlers(app):
         message = ('Tu sesión ha caducado o la petición no es válida '
                    '(token de seguridad expirado). Recarga la página e inténtalo de nuevo.')
 
-        # AJAX endpoints (e.g. the PDF uploader) expect JSON, not an HTML error page -
-        # returning HTML here breaks their fetch/XHR response parsing and surfaces
-        # as a confusing generic "HTTP 400" message client-side.
-        if request.path == '/admin/pdf' and request.method == 'POST':
+        # AJAX endpoints (e.g. the PDF uploader, the character generator's roll
+        # endpoint) expect JSON, not an HTML error page - returning HTML here
+        # breaks their fetch/XHR response parsing and surfaces as a confusing
+        # generic "HTTP 400" / silently-hung request client-side.
+        if (request.path == '/admin/pdf' and request.method == 'POST') or _wants_json():
             return jsonify({'error': message}), 400
 
         flash(message, 'warning')
@@ -96,7 +108,7 @@ def _register_error_handlers(app):
         # AJAX endpoints (e.g. the PDF uploader) expect JSON, not an HTML redirect -
         # returning HTML here breaks their fetch/XHR response parsing and surfaces
         # as a confusing generic "network error" client-side.
-        if request.path == '/admin/pdf' and request.method == 'POST':
+        if (request.path == '/admin/pdf' and request.method == 'POST') or _wants_json():
             return jsonify({'error': message}), 413
 
         flash(message, 'danger')

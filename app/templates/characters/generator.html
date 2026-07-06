@@ -362,12 +362,34 @@
   async function rollStep(paso, contexto) {
     const resp = await fetch(ROLL_URL, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+        'X-CSRFToken': CSRF,
+      },
       body: JSON.stringify({ paso: paso, contexto: contexto || {} }),
     });
-    const data = await resp.json();
+    let data;
+    try {
+      data = await resp.json();
+    } catch (err) {
+      throw new Error('Respuesta inesperada del servidor (¿sesión caducada? recarga la página).');
+    }
     if (!resp.ok) throw new Error(data.error || 'Error en la tirada');
     return data.result;
+  }
+
+  /* Wraps a click handler so a failed roll shows an alert instead of leaving
+   * the UI stuck on "Tirando…" forever with a silent unhandled rejection. */
+  function safe(handler) {
+    return async (...args) => {
+      try {
+        await handler(...args);
+      } catch (err) {
+        console.error(err);
+        alert(err.message || 'Ha ocurrido un error inesperado.');
+      }
+    };
   }
 
   function currentRace() { return document.getElementById('f-race').value; }
@@ -433,29 +455,7 @@
     e => '<span class="flex-grow-1">' + (e.grupo || e.value) + '</span>');
 
   /* ── Raza ── */
-  document.getElementById('btn-roll-raza').addEventListener('click', async () => {
-    const box = document.getElementById('raza-options');
-    box.innerHTML = 'Tirando…';
-    const r1 = await rollStep('raza');
-    const r2 = await rollStep('raza');
-    box.innerHTML = '';
-    [r1, r2].forEach(r => {
-      const btn = document.createElement('button');
-      btn.type = 'button';
-      btn.className = 'btn btn-outline-warning btn-sm';
-      btn.textContent = r.race + ' (tirada ' + r.roll + ')';
-      btn.addEventListener('click', () => {
-        document.getElementById('f-race').value = r.race;
-        addPH(1);
-        onRaceChanged();
-      });
-      box.appendChild(btn);
-    });
-  });
-  document.getElementById('f-race').addEventListener('change', onRaceChanged);
-  document.getElementById('f-procedencia').addEventListener('change', onRaceChanged);
-
-  async function onRaceChanged() {
+  const onRaceChanged = safe(async () => {
     const race = currentRace();
     const info = document.getElementById('racial-info');
     const rollTalentBtn = document.getElementById('btn-roll-talento-racial');
@@ -489,10 +489,32 @@
     info.innerHTML = html;
 
     document.getElementById('racial-talentos-aleatorios').innerHTML = '';
-  }
+  });
+
+  document.getElementById('btn-roll-raza').addEventListener('click', safe(async () => {
+    const box = document.getElementById('raza-options');
+    box.innerHTML = 'Tirando…';
+    const r1 = await rollStep('raza');
+    const r2 = await rollStep('raza');
+    box.innerHTML = '';
+    [r1, r2].forEach(r => {
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'btn btn-outline-warning btn-sm';
+      btn.textContent = r.race + ' (tirada ' + r.roll + ')';
+      btn.addEventListener('click', () => {
+        document.getElementById('f-race').value = r.race;
+        addPH(1);
+        onRaceChanged();
+      });
+      box.appendChild(btn);
+    });
+  }));
+  document.getElementById('f-race').addEventListener('change', onRaceChanged);
+  document.getElementById('f-procedencia').addEventListener('change', onRaceChanged);
 
   /* ── Profesión ── */
-  document.getElementById('btn-roll-profesion').addEventListener('click', async () => {
+  document.getElementById('btn-roll-profesion').addEventListener('click', safe(async () => {
     const race = currentRace();
     if (!race) { alert('Elige primero una raza.'); return; }
     const box = document.getElementById('profesion-options');
@@ -516,10 +538,10 @@
       });
       box.appendChild(btn);
     });
-  });
+  }));
 
   /* ── Características ── */
-  document.getElementById('btn-roll-caracteristicas').addEventListener('click', async () => {
+  document.getElementById('btn-roll-caracteristicas').addEventListener('click', safe(async () => {
     const race = currentRace();
     if (!race) { alert('Elige primero una raza.'); return; }
     const r = await rollStep('caracteristicas', { raza: race });
@@ -528,7 +550,7 @@
     ].forEach(f => { document.getElementById('f-' + f).value = r[f]; });
     addPH(r.history_points || 0);
     updateHorasSueno();
-  });
+  }));
 
   function updateHorasSueno() {
     const race = currentRace();
@@ -536,16 +558,16 @@
     if (!race || !res) return;
     rollStep('horas_sueno', { raza: race, resistencia: res }).then(r => {
       document.getElementById('horas-sueno').textContent = r.horas;
-    });
+    }).catch(err => console.error(err));
   }
 
   /* ── Signo astral ── */
-  document.getElementById('btn-roll-signo').addEventListener('click', async () => {
+  document.getElementById('btn-roll-signo').addEventListener('click', safe(async () => {
     const r = await rollStep('signo_astral');
     document.getElementById('f-signo').value = r.signo;
     document.getElementById('f-rasgo-signo').value = r.rasgo;
     document.getElementById('signo-modificadores').textContent = 'Modificadores: ' + r.modificadores;
-  });
+  }));
   document.getElementById('btn-skip-signo').addEventListener('click', () => {
     document.getElementById('f-signo').value = '';
     document.getElementById('f-rasgo-signo').value = '';
@@ -554,20 +576,20 @@
   });
 
   /* ── Altura / Peso / Edad ── */
-  document.getElementById('btn-roll-altura').addEventListener('click', async () => {
+  document.getElementById('btn-roll-altura').addEventListener('click', safe(async () => {
     const race = currentRace();
     if (!race) { alert('Elige primero una raza.'); return; }
     const r = await rollStep('altura', { raza: race, genero: currentGender() });
     document.getElementById('f-altura').value = r.cm;
-  });
-  document.getElementById('btn-roll-peso').addEventListener('click', async () => {
+  }));
+  document.getElementById('btn-roll-peso').addEventListener('click', safe(async () => {
     const race = currentRace();
     const altura = document.getElementById('f-altura').value;
     if (!race || !altura) { alert('Necesitas raza y altura primero.'); return; }
     const r = await rollStep('peso', { raza: race, altura_cm: altura });
     document.getElementById('f-peso').value = r.kg;
-  });
-  document.getElementById('btn-roll-edad').addEventListener('click', async () => {
+  }));
+  document.getElementById('btn-roll-edad').addEventListener('click', safe(async () => {
     const race = currentRace();
     if (!race) { alert('Elige primero una raza.'); return; }
     const r = await rollStep('edad', { raza: race });
@@ -575,35 +597,35 @@
     document.getElementById('f-edad-grado').value = r.grado;
     document.getElementById('edad-modificadores').textContent = r.modificadores ? ('Modificadores: ' + r.modificadores) : '';
     document.getElementById('f-num-sucesos').value = r.grado + 1;
-  });
+  }));
 
   /* ── Apariencia ── */
-  document.getElementById('btn-roll-apariencia').addEventListener('click', async () => {
+  document.getElementById('btn-roll-apariencia').addEventListener('click', safe(async () => {
     const r = await rollStep('apariencia');
     document.getElementById('f-pelo').value = r.pelo;
     document.getElementById('f-ojos').value = r.ojos;
     document.getElementById('f-mano').value = r.mano_dominante;
-  });
+  }));
 
   /* ── Procedencia ── */
-  document.getElementById('btn-roll-procedencia').addEventListener('click', async () => {
+  document.getElementById('btn-roll-procedencia').addEventListener('click', safe(async () => {
     const race = currentRace();
     if (!race) { alert('Elige primero una raza.'); return; }
     const r = await rollStep('procedencia', { raza: race });
     document.getElementById('f-procedencia').value = r.procedencia;
-  });
+  }));
 
   /* ── Situación familiar ── */
-  document.getElementById('btn-roll-familia').addEventListener('click', async () => {
+  document.getElementById('btn-roll-familia').addEventListener('click', safe(async () => {
     const race = currentRace();
     if (!race) { alert('Elige primero una raza.'); return; }
     const r = await rollStep('situacion_familiar', { raza: race });
     document.getElementById('f-situacion-familiar').value = r.situacion;
     (r.hermanos || []).forEach(h => acquaintancesWidget.add({ kind: 'hermano', description: h }));
-  });
+  }));
 
   /* ── Sucesos de juventud ── */
-  document.getElementById('btn-roll-sucesos').addEventListener('click', async () => {
+  document.getElementById('btn-roll-sucesos').addEventListener('click', safe(async () => {
     const n = parseInt(document.getElementById('f-num-sucesos').value || 1);
     const r = await rollStep('sucesos_juventud', { num_rolls: n });
     r.eventos.forEach(ev => {
@@ -612,10 +634,10 @@
         acquaintancesWidget.add({ kind: ev.tipo, description: ev.grupo });
       }
     });
-  });
+  }));
 
   /* ── Talento aleatorio racial ── */
-  document.getElementById('btn-roll-talento-racial').addEventListener('click', async () => {
+  document.getElementById('btn-roll-talento-racial').addEventListener('click', safe(async () => {
     const race = currentRace();
     if (!race) return;
     const r = await rollStep('talento_aleatorio', { raza: race });
@@ -628,20 +650,20 @@
     const arr = hidden.value ? JSON.parse(hidden.value) : [];
     arr.push(r.talento);
     hidden.value = JSON.stringify(arr);
-  });
+  }));
 
   /* ── Rasgos manuales ── */
   document.querySelectorAll('[data-roll-trait]').forEach(btn => {
-    btn.addEventListener('click', async () => {
+    btn.addEventListener('click', safe(async () => {
       const cat = btn.dataset.rollTrait;
       const r = await rollStep(cat);
       traitsWidget.add({ category: cat, description: r.value });
-    });
+    }));
   });
 
   /* ── Puntos de Historial: opciones ── */
   document.querySelectorAll('.ph-opt-btn').forEach(btn => {
-    btn.addEventListener('click', async () => {
+    btn.addEventListener('click', safe(async () => {
       const coste = parseInt(btn.dataset.coste);
       const disponibles = parseInt(phTotalInp.value || 0) - parseInt(phSpentInp.value || 0);
       if (coste < 0 && Math.abs(coste) > disponibles) {
@@ -679,7 +701,7 @@
         const r = await rollStep(peaje);
         traitsWidget.add({ category: peaje, description: r.value });
       }
-    });
+    }));
   });
 
   /* ── Posesiones manuales ── */

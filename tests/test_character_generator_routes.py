@@ -2,6 +2,7 @@
 /personajes/generador (page), /personajes/generador/tirar (AJAX roll
 dispatch) and /personajes/generador/guardar (final save)."""
 import json
+import re
 
 from app.models.character import (
     Character, CharacterSkill, CharacterTalent, CharacterTrait,
@@ -20,6 +21,55 @@ def test_generator_page_renders(client, regular_user, login_as):
     resp = client.get('/personajes/generador')
     assert resp.status_code == 200
     assert 'Generador de Personaje'.encode('utf-8') in resp.data
+
+
+# ── CSRF (real regression: the roll endpoint's fetch() call must send the
+# token, and a CSRF failure there must come back as JSON - not an HTML
+# redirect that `await resp.json()` can't parse, which is what silently hung
+# the "Tirando…" UI forever before this was caught) ─────────────────────────
+
+def test_roll_without_csrf_token_returns_json_error_not_redirect(app, client, regular_user, login_as):
+    app.config['WTF_CSRF_ENABLED'] = True
+    try:
+        login_as(client, regular_user, 'userpass123')
+        resp = client.post('/personajes/generador/tirar', json={'paso': 'raza'})
+        assert resp.status_code == 400
+        assert resp.is_json
+        assert 'error' in resp.get_json()
+    finally:
+        app.config['WTF_CSRF_ENABLED'] = False
+
+
+def _extract_csrf_token(html_bytes):
+    match = re.search(rb'name="csrf_token" value="([^"]+)"', html_bytes)
+    assert match, 'Could not find a csrf_token in the rendered page'
+    return match.group(1).decode()
+
+
+def test_roll_with_csrf_header_succeeds(app, client, regular_user):
+    """The real fix: generator.html's fetch() call must send the same
+    csrf_token the page rendered, via the X-CSRFToken header."""
+    app.config['WTF_CSRF_ENABLED'] = True
+    try:
+        login_page = client.get('/auth/login')
+        login_token = _extract_csrf_token(login_page.data)
+        client.post('/auth/login', data={
+            'username': regular_user.username, 'password': 'userpass123',
+            'csrf_token': login_token,
+        })
+
+        page = client.get('/personajes/generador')
+        token = _extract_csrf_token(page.data)
+
+        resp = client.post(
+            '/personajes/generador/tirar',
+            json={'paso': 'raza'},
+            headers={'X-CSRFToken': token},
+        )
+        assert resp.status_code == 200
+        assert 'race' in resp.get_json()['result']
+    finally:
+        app.config['WTF_CSRF_ENABLED'] = False
 
 
 # ── Roll dispatch endpoint ───────────────────────────────────────────────────
@@ -44,20 +94,17 @@ def test_roll_raza(client, regular_user, login_as):
     assert body['race'] in ('Humano', 'Halfling', 'Enano', 'Elfo Silvano', 'Alto Elfo')
 
 
-def test_roll_profesion_matches_existing_catalog_entry(db, client, regular_user, login_as, make_profession):
+def test_roll_profesion_matches_existing_catalog_entry(db, client, regular_user, login_as, make_profession, monkeypatch):
     prof = make_profession(name='Alborotador', type='basic')
     login_as(client, regular_user, 'userpass123')
 
-    # Roll enough times to hit the deterministic Alborotador range for Enano (01-02).
-    matched = False
-    for _ in range(100):
-        resp = client.post('/personajes/generador/tirar', json={'paso': 'profesion', 'contexto': {'raza': 'Enano'}})
-        result = resp.get_json()['result']
-        if result['profession_name'] == 'Alborotador':
-            assert result['matched_profession']['id'] == prof.id
-            matched = True
-            break
-    assert matched, 'Expected to roll Alborotador for Enano at least once in 100 tries'
+    # Alborotador is 01-02 for Enano - force the d100 roll deterministically
+    # instead of hoping to land on a 2%-wide range within a handful of tries.
+    monkeypatch.setattr('app.services.character_creation_service.random.randint', lambda a, b: 1)
+    resp = client.post('/personajes/generador/tirar', json={'paso': 'profesion', 'contexto': {'raza': 'Enano'}})
+    result = resp.get_json()['result']
+    assert result['profession_name'] == 'Alborotador'
+    assert result['matched_profession']['id'] == prof.id
 
 
 def test_roll_caracteristicas_returns_full_profile(client, regular_user, login_as):
