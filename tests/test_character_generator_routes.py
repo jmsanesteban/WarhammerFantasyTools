@@ -23,6 +23,16 @@ def test_generator_page_renders(client, regular_user, login_as):
     assert 'Generador de Personaje'.encode('utf-8') in resp.data
 
 
+def test_generator_page_embeds_tables_for_manual_picker(client, regular_user, login_as):
+    """The manual (physical-dice) picker UI needs the full raw tables
+    embedded client-side - confirm the blob actually made it into the page."""
+    login_as(client, regular_user, 'userpass123')
+    resp = client.get('/personajes/generador')
+    assert b'razas_caracteristicas' in resp.data
+    assert b'objetos_magicos' in resp.data
+    assert 'Registro de tiradas'.encode('utf-8') in resp.data
+
+
 # ── CSRF (real regression: the roll endpoint's fetch() call must send the
 # token, and a CSRF failure there must come back as JSON - not an HTML
 # redirect that `await resp.json()` can't parse, which is what silently hung

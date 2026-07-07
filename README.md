@@ -813,7 +813,9 @@ Hay dos formas de crear un personaje desde **Personajes**:
 
 #### Generador de Personaje (creación guiada por tiradas)
 
-Ve a **Personajes → Generador de personaje**. Implementa las reglas caseras de creación de personajes jugadores (raza, profesión, características, trasfondo). Cada sección tiene un botón de tirada (🎲) que rellena los campos automáticamente — todo es editable después, así que también puedes rellenar cualquier campo a mano en vez de tirar.
+Ve a **Personajes → Generador de personaje**. Implementa las reglas caseras de creación de personajes jugadores (raza, profesión, características, trasfondo). Cada sección tiene un botón **Tirar** (🎲, lo hace la web) y un botón **Ver tabla** (para partidas con dados físicos: muestra todas las opciones posibles con su rango, y al hacer clic en la tuya se resalta en dorado y rellena los campos exactamente igual que si se hubiera tirado en la web). Todos los campos son editables a mano en cualquier momento.
+
+> **Registro de tiradas:** en la parte superior de la página hay un panel que anota **todas** las tiradas (o elecciones manuales de tabla) hechas durante la creación, con el resultado exacto de cada dado — aunque el proceso sea automático, nada queda oculto. Se puede limpiar con el botón "Limpiar registro" si quieres empezar de cero.
 
 Pasos del asistente, en orden:
 

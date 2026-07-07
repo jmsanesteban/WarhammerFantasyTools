@@ -135,6 +135,7 @@ def generator():
         razas=_RAZAS,
         professions=professions,
         history_point_options=ccs.history_point_options(),
+        tables=ccs.get_frontend_tables(),
     )
 
 

@@ -184,6 +184,38 @@ def test_roll_apariencia_never_crashes():
         assert result['mano_dominante'] in ('Diestro', 'Zurdo')
 
 
+def test_roll_apariencia_exposes_raw_dice_for_the_roll_log():
+    """Every roll must be auditable in the UI's roll log - the raw 1d10 for
+    each of pelo/ojos/mano must be returned, not just the resolved value."""
+    result = svc.roll_apariencia()
+    assert 1 <= result['pelo_roll'] <= 10
+    assert 1 <= result['ojos_roll'] <= 10
+    assert 1 <= result['mano_roll'] <= 10
+
+
+def test_get_frontend_tables_has_every_table_for_the_manual_picker_ui():
+    tables = svc.get_frontend_tables()
+    for key in (
+        'raza', 'razas_caracteristicas', 'razas_caracteristicas_group', 'profesion',
+        'signo_astral', 'altura', 'peso', 'edad', 'apariencia', 'procedencia',
+        'situacion_familiar', 'sucesos_juventud', 'talentos_aleatorios', 'flaws',
+        'posesiones', 'objetos_magicos',
+    ):
+        assert key in tables, f'missing {key}'
+
+    # Spot-check the nested race-group data a manual picker needs for the
+    # Heridas/Destino/Puntos-de-Historial sub-tables.
+    for group in ('Humano', 'Halfling', 'Enano', 'Elfo'):
+        spec = tables['razas_caracteristicas'][group]
+        assert spec['wounds_table']
+        assert spec['fate_points_table']
+        assert spec['history_points_table']
+
+    assert tables['flaws']['estetica']
+    assert tables['flaws']['personalidad']
+    assert tables['flaws']['desventaja']
+
+
 def test_roll_sucesos_juventud_returns_requested_count():
     events = svc.roll_sucesos_juventud(4)
     assert len(events) == 4

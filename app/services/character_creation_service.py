@@ -247,6 +247,7 @@ def roll_apariencia() -> dict:
     ojos_roll = d10()
     mano_roll = d10()
     return {
+        'pelo_roll': pelo_roll, 'ojos_roll': ojos_roll, 'mano_roll': mano_roll,
         'pelo': roll_table(data['pelo'], pelo_roll)['value'],
         'ojos': roll_table(data['ojos'], ojos_roll)['value'],
         'mano_dominante': roll_table(data['mano_dominante'], mano_roll)['value'],
@@ -426,3 +427,35 @@ def race_info(race: str, provincia: str = None) -> dict:
         provincias = traits.get('provincias_imperio', {})
         info['provincia_bonus'] = provincias.get(provincia)
     return info
+
+
+# ---------------------------------------------------------------------------
+# Raw tables for the manual (physical-dice) picker UI - a player who rolled
+# physical dice needs to see every possible entry and its range, then click
+# the one their result maps to, with the same effect as an automatic roll.
+# ---------------------------------------------------------------------------
+
+def get_frontend_tables() -> dict:
+    apariencia = _load('apariencia.json')
+    altura_peso_edad = _load('altura_peso_edad.json')
+    procedencia = _load('procedencia.json')
+    family_social = _load('family_and_social.json')
+    races = _load('races.json')
+    return {
+        'raza': races['race_roll_table'],
+        'razas_caracteristicas': races['characteristics'],
+        'razas_caracteristicas_group': races['characteristics_group'],
+        'profesion': _load('profession_table.json'),
+        'signo_astral': _load('signo_astral.json'),
+        'altura': altura_peso_edad['altura'],
+        'peso': altura_peso_edad['peso'],
+        'edad': altura_peso_edad['edad'],
+        'apariencia': apariencia,
+        'procedencia': procedencia,
+        'situacion_familiar': family_social['situacion_familiar'],
+        'sucesos_juventud': _load('youth_events.json'),
+        'talentos_aleatorios': _load('random_talents.json'),
+        'flaws': _load('aesthetic_personality_flaws.json'),
+        'posesiones': _load('possessions.json')['tabla_posesiones'],
+        'objetos_magicos': _load('magic_items.json'),
+    }
