@@ -14,6 +14,7 @@
 .picker-row:disabled { opacity: .35; }
 #roll-log { max-height: 240px; overflow-y: auto; font-size: .82rem; }
 #roll-log .log-entry { border-bottom: 1px solid var(--wh-border, #444); padding: 2px 0; }
+.wh-formula-hint { color: var(--wh-gold, #caa53d); font-style: italic; background: transparent; }
 </style>
 {% endblock %}
 
@@ -125,7 +126,7 @@
         </div>
       </div>
       <div class="card-body">
-        <div id="caract-formulas" class="mb-3 small" style="display:none"></div>
+        <div id="caract-formulas" class="mb-3" style="display:none"></div>
         <div class="wh-stat-group mb-2">
           <div class="wh-stat-group-title">Perfil Principal</div>
           <div class="row g-1">
@@ -362,6 +363,9 @@
           {% endif %}
           {% endfor %}
         </div>
+        <div id="ph-caract-chooser" class="alert alert-warning mt-3" style="display:none">
+          <div id="ph-caract-chooser-body"></div>
+        </div>
       </div>
     </div>
 
@@ -557,6 +561,14 @@
   function currentGender() { return document.getElementById('f-gender').value; }
   function raceGroup(race) { return RACE_GROUP[race] || race; }
 
+  /* "+3% a R" -> "+3% RES", to match the compact stat-code format used
+   * elsewhere for displaying signo astral modifiers inline. */
+  const STAT_ABBR_MAP = { HA: 'HA', Hp: 'HP', F: 'FUE', R: 'RES', Agi: 'AGI', Int: 'INT', Vol: 'VOL', Emp: 'EMP' };
+  function abbreviateModificadores(text) {
+    if (!text) return '';
+    return text.replace(/a (HA|Hp|F|R|Agi|Int|Vol|Emp)\b/g, (m, code) => STAT_ABBR_MAP[code]);
+  }
+
   /* ── Registro de tiradas: TODAS las tiradas (automáticas o elegidas de una
    * tabla) quedan aquí, aunque la creación sea "automática" - nunca queda
    * una tirada oculta. ── */
@@ -708,6 +720,20 @@
     return parseInt(phTotalInp.value || 0) - parseInt(phSpentInp.value || 0);
   }
 
+  /* Some PH bonuses come from a step that can be re-rolled or re-picked
+   * (raza, profesión, características, signo astral). addPH() alone can't
+   * tell a fresh bonus from a repeat of one already granted, so re-rolling
+   * would keep stacking PH forever. setPHCredit() tracks the latest amount
+   * granted per source and only applies the delta - re-rolling/re-picking
+   * the same step replaces its contribution instead of adding to it. */
+  const phCredits = {};
+  function setPHCredit(source, amount) {
+    const prev = phCredits[source] || 0;
+    const delta = amount - prev;
+    phCredits[source] = amount;
+    if (delta !== 0) addPH(delta);
+  }
+
   /* ── PH option usage tracking (some options are reusable, per usos_maximos;
    * the two "posesiones" buttons share one counter/limit since they're really
    * the same option rolled either at +0 or +2). Once the limit is reached the
@@ -839,6 +865,7 @@
     const r1 = await rollStep('raza');
     const r2 = await rollStep('raza');
     box.innerHTML = '';
+    const batchBtns = [];
     [r1, r2].forEach(r => {
       const btn = document.createElement('button');
       btn.type = 'button';
@@ -846,9 +873,11 @@
       btn.textContent = r.race + ' (tirada ' + r.roll + ')';
       btn.addEventListener('click', () => {
         document.getElementById('f-race').value = r.race;
-        addPH(1);
+        batchBtns.forEach(b => { b.disabled = true; });
+        setPHCredit('raza', 1);
         onRaceChanged();
       });
+      batchBtns.push(btn);
       box.appendChild(btn);
     });
   }));
@@ -859,6 +888,7 @@
         labelFn: r => r.min + '-' + r.max + ': ' + r.race,
         onSelect: r => {
           document.getElementById('f-race').value = r.race;
+          setPHCredit('raza', 0);
           onRaceChanged();
           logRoll('raza', {}, { roll: r.min + '-' + r.max, race: r.race }, true);
         },
@@ -878,6 +908,7 @@
     const results = [];
     for (let i = 0; i < 3; i++) results.push(await rollStep('profesion', { raza: race }));
     box.innerHTML = '';
+    const batchBtns = [];
     results.forEach(r => {
       const label = (r.profession_name || '(sin resultado para esta raza)') +
         (r.matched_profession ? ' ✓' : (r.profession_name ? ' (crear en catálogo)' : ''));
@@ -890,8 +921,10 @@
         if (r.matched_profession) {
           document.getElementById('f-matched-profession').value = r.matched_profession.id;
         }
-        addPH(1);
+        batchBtns.forEach(b => { b.disabled = true; });
+        setPHCredit('profesion', 1);
       });
+      batchBtns.push(btn);
       box.appendChild(btn);
     });
   }));
@@ -910,6 +943,7 @@
         } else {
           alert('«' + row.name + '» no está en el catálogo todavía. Créala desde Profesiones y luego selecciónala en el desplegable.');
         }
+        setPHCredit('profesion', 0);
         logRoll('profesion', { raza: race }, { roll: row[col], profession_name: row.name }, true);
       },
     });
@@ -927,20 +961,42 @@
     ['ws','bs','s_char','t_char','ag','int_char','wp','fel',
      'attacks','wounds','strength_bonus','toughness_bonus','movement','magic','insanity_points','fate_points'
     ].forEach(f => { document.getElementById('f-' + f).value = r[f]; });
-    addPH(r.history_points || 0);
+    setPHCredit('historial_caracteristicas', r.history_points || 0);
     updateHorasSueno();
   }));
+
+  /* Renders the dice-formula "explanation" for each stat using the exact same
+   * grid layout as the real Perfil Principal/Secundario inputs above, but
+   * with the formula text (in a distinct helper color) where the value
+   * would normally go - so it's obviously a hint, not a real character value. */
+  function formulaGroupHtml(title, rows) {
+    return '<div class="wh-stat-group mb-2">' +
+      '<div class="wh-stat-group-title">' + title + '</div>' +
+      '<div class="row g-1">' +
+      rows.map(([label, formula]) =>
+        '<div class="col">' +
+        '<label class="form-label wh-stat-lbl text-center d-block mb-1">' + label + '</label>' +
+        '<div class="form-control form-control-sm text-center wh-formula-hint">' + formula + '</div>' +
+        '</div>'
+      ).join('') +
+      '</div></div>';
+  }
 
   function renderCaractFormulas() {
     const race = currentRace();
     const box = document.getElementById('caract-formulas');
     if (!race) { box.innerHTML = 'Elige una raza primero.'; return; }
-    const spec = TABLES.razas_caracteristicas[raceGroup(race)];
-    const labels = { ws: 'HA', bs: 'HP', s_char: 'F', t_char: 'R', ag: 'Ag', int_char: 'I', wp: 'V', fel: 'Em' };
-    let html = '<strong>Fórmulas (' + raceGroup(race) + '):</strong> ';
-    html += Object.keys(labels).map(f => labels[f] + '=' + spec[f]).join(', ');
-    html += ' | Movimiento=' + spec.movement + ', Ataques=' + spec.attacks + ', Magia=' + spec.magic;
-    html += ' | Máx. BF=' + spec.max_bf + ', Máx. BR=' + spec.max_br;
+    const group = raceGroup(race);
+    const spec = TABLES.razas_caracteristicas[group];
+    const primary = [['HA','ws'],['HP','bs'],['F','s_char'],['R','t_char'],['Ag','ag'],['I','int_char'],['V','wp'],['Em','fel']]
+      .map(([label, field]) => [label, spec[field]]);
+    const secondary = [
+      ['A', spec.attacks], ['H', '1D10 (tabla ↓)'],
+      ['BF', 'F÷10 (máx ' + spec.max_bf + ')'], ['BR', 'R÷10 (máx ' + spec.max_br + ')'],
+      ['M', spec.movement], ['Mag', spec.magic], ['PL', '0'], ['PD', '1D10 (tabla ↓)'],
+    ];
+    let html = formulaGroupHtml('Fórmulas — Perfil Principal (' + group + ')', primary);
+    html += formulaGroupHtml('Fórmulas — Perfil Secundario (' + group + ')', secondary);
     box.innerHTML = html;
 
     renderPicker('picker-heridas', spec.wounds_table, {
@@ -960,7 +1016,7 @@
     renderPicker('picker-historial', spec.history_points_table, {
       labelFn: r => r.min + '-' + r.max + ': ' + r.value,
       onSelect: r => {
-        addPH(r.value);
+        setPHCredit('historial_caracteristicas', r.value);
         logManualPick('Puntos de Historial (perfil)', 'tirada ' + r.min + '-' + r.max + ' → +' + r.value + ' PH');
       },
     });
@@ -985,15 +1041,17 @@
     document.getElementById('f-signo').value = r.signo;
     document.getElementById('f-rasgo-signo').value = r.rasgo;
     document.getElementById('signo-modificadores').textContent = 'Modificadores: ' + r.modificadores;
+    setPHCredit('signo_omitido', 0);
   }));
   document.getElementById('btn-toggle-signo-table').addEventListener('click', () => {
     toggleBox('signo-table', () => {
       renderPicker('signo-table', TABLES.signo_astral, {
-        labelFn: r => r.min + '-' + r.max + ': ' + r.signo,
+        labelFn: r => r.min + '-' + r.max + ': ' + r.signo + ' (' + abbreviateModificadores(r.modificadores) + ')',
         onSelect: r => {
           document.getElementById('f-signo').value = r.signo;
           document.getElementById('f-rasgo-signo').value = r.rasgo;
           document.getElementById('signo-modificadores').textContent = 'Modificadores: ' + r.modificadores;
+          setPHCredit('signo_omitido', 0);
           logRoll('signo_astral', {}, { roll: r.min + '-' + r.max, signo: r.signo, rasgo: r.rasgo }, true);
         },
       });
@@ -1003,7 +1061,7 @@
     document.getElementById('f-signo').value = '';
     document.getElementById('f-rasgo-signo').value = '';
     document.getElementById('signo-modificadores').textContent = 'Omitido.';
-    addPH(1);
+    setPHCredit('signo_omitido', 1);
   });
 
   /* ── Altura / Peso / Edad ── */
@@ -1185,9 +1243,12 @@
   });
 
   /* ── Sucesos de juventud ── */
+  function narrativosYaOcurridos() {
+    return sucesosWidget.all().filter(e => e.categoria === 'narrativo').map(e => e.value);
+  }
   document.getElementById('btn-roll-sucesos').addEventListener('click', safe(async () => {
     const n = parseInt(document.getElementById('f-num-sucesos').value || 1);
-    const r = await rollStep('sucesos_juventud', { num_rolls: n });
+    const r = await rollStep('sucesos_juventud', { num_rolls: n, excluir: narrativosYaOcurridos() });
     r.eventos.forEach(ev => {
       sucesosWidget.add(ev);
       if (ev.categoria === 'relacion') {
@@ -1201,6 +1262,10 @@
         multi: true,
         labelFn: r => r.min + '-' + r.max + ': ' + (r.grupo || r.value),
         onSelect: r => {
+          if (r.categoria === 'narrativo' && narrativosYaOcurridos().includes(r.value)) {
+            alert('Ese suceso ya ha ocurrido, no puede repetirse.');
+            return;
+          }
           sucesosWidget.add(r);
           if (r.categoria === 'relacion') acquaintancesWidget.add({ kind: r.tipo, description: r.grupo });
           logRoll('sucesos_juventud', {}, { eventos: [{ roll: r.min + '-' + r.max, grupo: r.grupo, value: r.value }] }, true);
@@ -1210,19 +1275,22 @@
   });
 
   /* ── Talento aleatorio racial ── */
+  function racialTalentsArr() {
+    const hidden = document.getElementById('f-racial-talents-json');
+    return hidden.value ? JSON.parse(hidden.value) : [];
+  }
   document.getElementById('btn-roll-talento-racial').addEventListener('click', safe(async () => {
     const race = currentRace();
     if (!race) return;
-    const r = await rollStep('talento_aleatorio', { raza: race });
+    const arr = racialTalentsArr();
+    const r = await rollStep('talento_aleatorio', { raza: race, excluir: arr });
     const box = document.getElementById('racial-talentos-aleatorios');
     const span = document.createElement('div');
     span.className = 'badge wh-badge-skill me-1 mb-1';
     span.textContent = r.talento;
     box.appendChild(span);
-    const hidden = document.getElementById('f-racial-talents-json');
-    const arr = hidden.value ? JSON.parse(hidden.value) : [];
     arr.push(r.talento);
-    hidden.value = JSON.stringify(arr);
+    document.getElementById('f-racial-talents-json').value = JSON.stringify(arr);
   }));
 
   function talentGroup(race) {
@@ -1235,15 +1303,18 @@
       multi: true,
       labelFn: r => r.min + '-' + r.max + ': ' + r.value,
       onSelect: r => {
+        const arr = racialTalentsArr();
+        if (arr.includes(r.value)) {
+          alert('Ese talento ya se ha obtenido, no puede repetirse.');
+          return;
+        }
         const box = document.getElementById('racial-talentos-aleatorios');
         const span = document.createElement('div');
         span.className = 'badge wh-badge-skill me-1 mb-1';
         span.textContent = r.value;
         box.appendChild(span);
-        const hidden = document.getElementById('f-racial-talents-json');
-        const arr = hidden.value ? JSON.parse(hidden.value) : [];
         arr.push(r.value);
-        hidden.value = JSON.stringify(arr);
+        document.getElementById('f-racial-talents-json').value = JSON.stringify(arr);
         logRoll('talento_aleatorio', { raza: race }, { roll: r.min + '-' + r.max, talento: r.value }, true);
       },
     });
@@ -1276,6 +1347,95 @@
     });
   });
 
+  /* ── Selector de característica para opciones de PH que requieren elegir
+   * sobre qué característica actuar (Misericordia de Shallya, +2%/+1PV) ── */
+  const PRIMARY_STAT_FIELDS = [
+    ['ws', 'HA'], ['bs', 'HP'], ['s_char', 'F'], ['t_char', 'R'],
+    ['ag', 'Ag'], ['int_char', 'I'], ['wp', 'V'], ['fel', 'Em'],
+  ];
+  function openCaractChooser(title, buildBody) {
+    const box = document.getElementById('ph-caract-chooser');
+    const body = document.getElementById('ph-caract-chooser-body');
+    body.innerHTML = '';
+    const heading = document.createElement('div');
+    heading.className = 'mb-2 fw-bold';
+    heading.textContent = title;
+    body.appendChild(heading);
+    const btnsWrap = document.createElement('div');
+    btnsWrap.className = 'd-flex flex-wrap gap-2';
+    body.appendChild(btnsWrap);
+    function close() { box.style.display = 'none'; }
+    buildBody(btnsWrap, close);
+    box.style.display = 'block';
+  }
+  function openMisericordiaChooser(onDone) {
+    const race = currentRace();
+    if (!race) { alert('Elige primero una raza.'); return; }
+    const spec = TABLES.razas_caracteristicas[raceGroup(race)];
+    openCaractChooser('Misericordia de Shallya: elige una característica y qué hacer con ella.', (wrap, close) => {
+      PRIMARY_STAT_FIELDS.forEach(([field, label]) => {
+        const btnMedia = document.createElement('button');
+        btnMedia.type = 'button';
+        btnMedia.className = 'btn btn-outline-warning btn-sm';
+        btnMedia.textContent = label + ': usar media (11)';
+        btnMedia.addEventListener('click', () => {
+          const base = parseInt(String(spec[field]).split('+')[0]) || 0;
+          const nuevoValor = base + 11;
+          document.getElementById('f-' + field).value = nuevoValor;
+          logManualPick('Misericordia de Shallya', label + ' sustituida por la media: ' + base + '+11 = ' + nuevoValor);
+          close();
+          onDone();
+        });
+        wrap.appendChild(btnMedia);
+
+        const btnReroll = document.createElement('button');
+        btnReroll.type = 'button';
+        btnReroll.className = 'btn btn-outline-warning btn-sm';
+        btnReroll.textContent = label + ': volver a tirar';
+        btnReroll.addEventListener('click', safe(async () => {
+          const r = await rollStep('formula', { formula: spec[field] });
+          document.getElementById('f-' + field).value = r.value;
+          logManualPick('Misericordia de Shallya', label + ' vuelta a tirar (' + spec[field] + ') = ' + r.value);
+          close();
+          onDone();
+        }));
+        wrap.appendChild(btnReroll);
+      });
+    });
+  }
+  function openMasCaracteristicaChooser(onDone) {
+    openCaractChooser('+2% a una característica, o +1 PV a Heridas: elige una opción.', (wrap, close) => {
+      PRIMARY_STAT_FIELDS.forEach(([field, label]) => {
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'btn btn-outline-warning btn-sm';
+        btn.textContent = '+2% ' + label;
+        btn.addEventListener('click', () => {
+          const inp = document.getElementById('f-' + field);
+          const nuevoValor = parseInt(inp.value || 0) + 2;
+          inp.value = nuevoValor;
+          logManualPick('Bono de Historial', '+2% a ' + label + ' → ' + nuevoValor);
+          close();
+          onDone();
+        });
+        wrap.appendChild(btn);
+      });
+      const btnHeridas = document.createElement('button');
+      btnHeridas.type = 'button';
+      btnHeridas.className = 'btn btn-outline-warning btn-sm';
+      btnHeridas.textContent = '+1 PV a Heridas';
+      btnHeridas.addEventListener('click', () => {
+        const inp = document.getElementById('f-wounds');
+        const nuevoValor = parseInt(inp.value || 0) + 1;
+        inp.value = nuevoValor;
+        logManualPick('Bono de Historial', '+1 PV a Heridas → ' + nuevoValor);
+        close();
+        onDone();
+      });
+      wrap.appendChild(btnHeridas);
+    });
+  }
+
   /* ── Puntos de Historial: opciones ── */
   document.querySelectorAll('.ph-opt-btn').forEach(btn => {
     btn.addEventListener('click', safe(async () => {
@@ -1294,6 +1454,14 @@
       }
 
       const peaje = btn.dataset.peaje;
+      async function finish() {
+        if (peaje) {
+          const r = await rollStep(peaje);
+          traitsWidget.add({ category: peaje, description: r.value });
+        }
+        applyHistoryCost(coste);
+        registerPHUsage(id);
+      }
 
       if (id === 'objeto_magico') {
         const r = await rollStep('objeto_magico');
@@ -1301,10 +1469,15 @@
           category: r.categoria,
           description: r.descripcion + ' (tirada tipo: ' + r.tipo_roll + ', tirada propiedad: ' + r.detail_roll + ')',
         });
+        await finish();
       } else if (id === 'talento_aleatorio') {
         const race = currentRace() || 'Humano';
-        const r = await rollStep('talento_aleatorio', { raza: race });
+        const extraArr = traitsWidget.all().filter(t => t.category === 'talento_extra')
+          .map(t => t.description.replace(/\s*\(tirada.*\)$/, ''));
+        const excluir = racialTalentsArr().concat(extraArr);
+        const r = await rollStep('talento_aleatorio', { raza: race, excluir: excluir });
         traitsWidget.add({ category: 'talento_extra', description: r.talento + ' (tirada ' + r.roll + ')' });
+        await finish();
       } else if (id === 'posesiones') {
         const bonus = coste === -2 ? 2 : 0;
         const r = await rollStep('posesiones', { bonus: bonus });
@@ -1315,20 +1488,19 @@
           const dineroInp = document.getElementById('f-dinero');
           dineroInp.value = parseInt(dineroInp.value || 0) + r.co;
         }
+        await finish();
+      } else if (id === 'misericordia_shallya') {
+        openMisericordiaChooser(safe(finish));
       } else if (id === 'mas_caracteristica') {
-        // Efecto libre: el jugador decide a qué característica/heridas aplica el +2%/+1PV manualmente.
+        openMasCaracteristicaChooser(safe(finish));
       } else if (id === 'contacto_elegido') {
         const desc = prompt('Describe el contacto añadido:');
-        if (desc) acquaintancesWidget.add({ kind: 'contacto', description: desc });
+        if (!desc) return;
+        acquaintancesWidget.add({ kind: 'contacto', description: desc });
+        await finish();
+      } else {
+        await finish();
       }
-
-      if (peaje) {
-        const r = await rollStep(peaje);
-        traitsWidget.add({ category: peaje, description: r.value });
-      }
-
-      applyHistoryCost(coste);
-      registerPHUsage(id);
     }));
   });
 
@@ -1363,15 +1535,18 @@
 
   /* ── Objetos mágicos: tabla manual (cascada tipo → propiedad) ── */
   document.getElementById('btn-toggle-objeto-magico-table').addEventListener('click', () => {
+    const box1 = document.getElementById('objeto-magico-table-1');
+    const box2 = document.getElementById('objeto-magico-table-2');
     toggleBox('objeto-magico-table-1', () => {
-      const box2 = document.getElementById('objeto-magico-table-2');
       box2.style.display = 'none';
       box2.innerHTML = '';
       renderPicker('objeto-magico-table-1', TABLES.objetos_magicos.tipo_objeto, {
         labelFn: r => r.min + '-' + r.max + ': ' + r.value,
         onSelect: r => {
+          const detailTable = TABLES.objetos_magicos[r.value];
+          if (!detailTable) { alert('No hay tabla de propiedades para «' + r.value + '».'); return; }
           box2.style.display = 'flex';
-          renderPicker('objeto-magico-table-2', TABLES.objetos_magicos[r.value], {
+          renderPicker('objeto-magico-table-2', detailTable, {
             labelFn: p => p.min + '-' + p.max + ': ' + p.value,
             onSelect: p => {
               magicItemsWidget.add({
@@ -1384,6 +1559,8 @@
         },
       });
     });
+    // Si el toggle cerró la tabla 1, la 2 (dependiente) tampoco debe quedar huérfana visible.
+    if (box1.style.display === 'none') box2.style.display = 'none';
   });
 
   /* ── Carrera profesional (mismo patrón que la creación rápida) ── */

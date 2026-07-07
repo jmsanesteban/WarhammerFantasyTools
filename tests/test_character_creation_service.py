@@ -227,6 +227,35 @@ def test_roll_sucesos_juventud_zero_returns_empty():
     assert svc.roll_sucesos_juventud(0) == []
 
 
+def test_roll_sucesos_juventud_never_repeats_narrativo_within_batch(monkeypatch):
+    """31-35 is 'Madre muerta' (narrativo), 58-60 is a non-narrativo relacion
+    entry. Force the same narrativo roll twice in a row - the second one must
+    reroll instead of letting 'Madre muerta' happen twice to one character."""
+    calls = iter([33, 33, 60])
+    monkeypatch.setattr(svc, 'd100', lambda: next(calls))
+    events = svc.roll_sucesos_juventud(2)
+    narrativos = [e['value'] for e in events if e['categoria'] == 'narrativo']
+    assert narrativos == ['Madre muerta']
+    assert len(events) == 2
+
+
+def test_roll_sucesos_juventud_respects_excluir_from_previous_rolls(monkeypatch):
+    calls = iter([33, 33, 33, 60])
+    monkeypatch.setattr(svc, 'd100', lambda: next(calls))
+    events = svc.roll_sucesos_juventud(1, excluir=['Madre muerta'])
+    assert events[0]['roll'] == 60
+    assert events[0]['categoria'] != 'narrativo'
+
+
+def test_roll_talento_aleatorio_never_repeats_when_excluded(monkeypatch):
+    table = svc._load('random_talents.json')['Humano-Halfling']
+    first_entry, second_entry = table[0], table[1]
+    calls = iter([first_entry['min'], second_entry['min']])
+    monkeypatch.setattr(svc, 'd100', lambda: next(calls))
+    result = svc.roll_talento_aleatorio('Humano', excluir=[first_entry['value']])
+    assert result['talento'] == second_entry['value']
+
+
 def test_horas_sueno_formula():
     assert svc.horas_sueno('Humano', 40) == 11 - 4
     assert svc.horas_sueno('Enano', 55) == 10 - 5

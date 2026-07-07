@@ -323,13 +323,25 @@ def roll_situacion_familiar(race: str) -> dict:
 # Step 10: Sucesos de juventud
 # ---------------------------------------------------------------------------
 
-def roll_sucesos_juventud(num_rolls: int) -> list:
+def roll_sucesos_juventud(num_rolls: int, excluir: list = None) -> list:
+    """Narrative youth events (e.g. 'Madre muerta', 'Padres divorciados') can't
+    happen twice to the same character - reroll (bounded attempts) whenever a
+    narrativo entry already occurred, either earlier in this same batch or in
+    a previous roll (via excluir, the values already on the character)."""
     table = _load('youth_events.json')
+    ya_ocurridos = list(excluir or [])
     events = []
     for _ in range(max(0, num_rolls)):
-        roll = d100()
-        entry = roll_table(table, roll)
+        entry = None
+        roll = None
+        for _attempt in range(30):
+            roll = d100()
+            entry = roll_table(table, roll)
+            if entry['categoria'] != 'narrativo' or entry['value'] not in ya_ocurridos:
+                break
         events.append({'roll': roll, **entry})
+        if entry['categoria'] == 'narrativo':
+            ya_ocurridos.append(entry['value'])
     return events
 
 
@@ -337,10 +349,19 @@ def roll_sucesos_juventud(num_rolls: int) -> list:
 # Step 11: Talento aleatorio
 # ---------------------------------------------------------------------------
 
-def roll_talento_aleatorio(race: str) -> dict:
+def roll_talento_aleatorio(race: str, excluir: list = None) -> dict:
+    """Rolling several racial random talents for the same character must never
+    yield the same talent twice - reroll (bounded attempts) against the
+    talents already obtained, passed in via excluir."""
     table = _load('random_talents.json')[talent_group(race)]
-    roll = d100()
-    entry = roll_table(table, roll)
+    ya_obtenidos = set(excluir or [])
+    roll = None
+    entry = None
+    for _attempt in range(30):
+        roll = d100()
+        entry = roll_table(table, roll)
+        if entry['value'] not in ya_obtenidos:
+            break
     return {'roll': roll, 'talento': entry['value']}
 
 

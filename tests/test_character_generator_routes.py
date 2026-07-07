@@ -139,6 +139,36 @@ def test_roll_info_racial(client, regular_user, login_as):
     assert 'Cotilleo' in result['habilidades']
 
 
+def test_roll_formula_evaluates_dice_string(client, regular_user, login_as, monkeypatch):
+    """Backs the Misericordia de Shallya 'volver a tirar' chooser, which
+    re-rolls a characteristic's full formula (e.g. '20+2d10') server-side."""
+    login_as(client, regular_user, 'userpass123')
+    monkeypatch.setattr('app.services.character_creation_service.random.randint', lambda a, b: 5)
+    resp = client.post('/personajes/generador/tirar', json={'paso': 'formula', 'contexto': {'formula': '20+2d10'}})
+    assert resp.status_code == 200
+    assert resp.get_json()['result']['value'] == 30
+
+
+def test_roll_sucesos_juventud_passes_excluir_through(client, regular_user, login_as, monkeypatch):
+    calls = iter([33, 33, 60])
+    monkeypatch.setattr('app.services.character_creation_service.d100', lambda: next(calls))
+    login_as(client, regular_user, 'userpass123')
+    resp = client.post('/personajes/generador/tirar', json={
+        'paso': 'sucesos_juventud', 'contexto': {'num_rolls': 1, 'excluir': ['Madre muerta']},
+    })
+    result = resp.get_json()['result']
+    assert result['eventos'][0]['roll'] == 60
+
+
+def test_roll_talento_aleatorio_passes_excluir_through(client, regular_user, login_as):
+    login_as(client, regular_user, 'userpass123')
+    resp = client.post('/personajes/generador/tirar', json={
+        'paso': 'talento_aleatorio', 'contexto': {'raza': 'Humano', 'excluir': ['Oído aguzado']},
+    })
+    assert resp.status_code == 200
+    assert 'talento' in resp.get_json()['result']
+
+
 # ── Save endpoint ────────────────────────────────────────────────────────────
 
 def test_save_requires_login(client):
