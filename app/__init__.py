@@ -293,6 +293,16 @@ def _register_cli_commands(app):
                         conn.execute(text(f'DROP TABLE {legacy_tbl}'))
                         click.echo(f'  Dropped legacy table {legacy_tbl}')
 
+            # contact_notes changed shape (author_id/is_global -> character_id) as part
+            # of the same redesign; db.create_all() only creates missing tables, so an
+            # existing old-shape table needs dropping before it can be recreated fresh.
+            note_cols = {c['name'] for c in inspector.get_columns('contact_notes')}
+            if 'character_id' not in note_cols:
+                with db.engine.begin() as conn:
+                    conn.execute(text('DROP TABLE contact_notes'))
+                    click.echo('  Dropped legacy-shape contact_notes (recreating with character_id)')
+                db.create_all()
+
             click.echo('Database tables created/verified.')
 
             # Seed permissions and default templates (idempotent)
