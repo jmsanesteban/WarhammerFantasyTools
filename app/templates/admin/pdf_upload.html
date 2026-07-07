@@ -116,6 +116,11 @@
   const MAX_BYTES = 104857600; // 100 MB
   const POLL_MS   = 1500;
 
+  const UPLOAD_URL = '{{ url_for("admin.pdf_upload") }}';
+  const PROGRESS_URL_TMPL = '{{ url_for("admin.pdf_progress", job_id="__JOB_ID__") }}';
+  const RESULT_URL_TMPL = '{{ url_for("admin.pdf_result", job_id="__JOB_ID__") }}';
+  const RESUME_URL_TMPL = '{{ url_for("admin.pdf_resume", cache_id="__CACHE_ID__") }}';
+
   const form        = document.getElementById('pdf-form');
   const fileInput   = document.getElementById('pdf-file');
   const sizeErr     = document.getElementById('size-error');
@@ -157,7 +162,7 @@
     errorBox.textContent = msg;
     errorBox.style.display = 'block';
     errorBox.insertAdjacentHTML('afterend',
-      '<a href="/admin/pdf" class="btn btn-secondary btn-sm mt-2">Volver</a>');
+      '<a href="' + UPLOAD_URL + '" class="btn btn-secondary btn-sm mt-2">Volver</a>');
     stageText.textContent = 'Ha ocurrido un error.';
     bar.classList.remove('progress-bar-animated', 'progress-bar-striped');
     bar.classList.add('bg-danger');
@@ -166,7 +171,7 @@
   // ---- polling ----
 
   function poll(jobId) {
-    fetch('/admin/pdf/progress/' + jobId)
+    fetch(PROGRESS_URL_TMPL.replace('__JOB_ID__', jobId))
       .then(function(r) {
         if (!r.ok) throw new Error('HTTP ' + r.status);
         return r.json();
@@ -185,7 +190,7 @@
           setProgress(100, 'Completado. Redirigiendo…');
           bar.classList.remove('progress-bar-animated', 'progress-bar-striped');
           setTimeout(function() {
-            window.location.href = '/admin/pdf/result/' + jobId;
+            window.location.href = RESULT_URL_TMPL.replace('__JOB_ID__', jobId);
           }, 600);
         } else {
           setTimeout(function() { poll(jobId); }, POLL_MS);
@@ -267,7 +272,7 @@
                 'Comprueba el tamaño del PDF y vuelve a intentarlo.');
     });
 
-    xhr.open('POST', '/admin/pdf');
+    xhr.open('POST', UPLOAD_URL);
     xhr.setRequestHeader('X-CSRFToken', '{{ csrf_token() }}');
     xhr.send(formData);
   });
@@ -293,7 +298,7 @@
             '<div class="wh-label mb-1">Importación anterior disponible</div>' +
             '<div class="text-muted small">PDF' + fname + ' procesado ' + ageStr + '. Puedes retomar la revisión sin volver a procesar el libro.</div>' +
           '</div>' +
-          '<a href="/admin/pdf/resume/' + last.cache_id + '" class="btn btn-wh btn-sm">' +
+          '<a href="' + RESUME_URL_TMPL.replace('__CACHE_ID__', last.cache_id) + '" class="btn btn-wh btn-sm">' +
             '<i class="bi bi-arrow-counterclockwise me-1"></i>Retomar</a>' +
           '<button class="btn btn-outline-secondary btn-sm" id="dismiss-resume" title="Descartar">' +
             '<i class="bi bi-x-lg"></i></button>' +

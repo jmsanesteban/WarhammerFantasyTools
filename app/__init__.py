@@ -10,6 +10,12 @@ def create_app(config_name='default'):
     app = Flask(__name__)
     app.config.from_object(config_by_name[config_name])
 
+    url_prefix = os.environ.get('URL_PREFIX', '').rstrip('/')
+    if url_prefix:
+        from app.wsgi_prefix import PrefixMiddleware
+        app.config['APPLICATION_ROOT'] = url_prefix
+        app.wsgi_app = PrefixMiddleware(app.wsgi_app, url_prefix)
+
     db.init_app(app)
     login_manager.init_app(app)
     bcrypt.init_app(app)
@@ -115,7 +121,7 @@ def _register_error_handlers(app):
         referrer = request.referrer
         if referrer and '/admin/pdf' in referrer:
             return redirect(url_for('admin.pdf_upload')), 302
-        return redirect('/'), 302
+        return redirect(url_for('main.index')), 302
 
 
 def _register_cli_commands(app):

@@ -178,12 +178,14 @@
 </style>
 
 <script>
+const EDIT_URL_TMPL = '{{ url_for("admin.synonym_edit", syn_id=999999) }}';
+
 function openEdit(id, source, target, isPrefix, notes) {
   document.getElementById('editSource').value = source;
   document.getElementById('editTarget').value = target;
   document.getElementById('editPrefix').checked = isPrefix;
   document.getElementById('editNotes').value  = notes;
-  document.getElementById('editForm').action  = '/admin/synonyms/' + id + '/edit';
+  document.getElementById('editForm').action  = EDIT_URL_TMPL.replace('999999', id);
   new bootstrap.Modal(document.getElementById('editModal')).show();
 }
 </script>

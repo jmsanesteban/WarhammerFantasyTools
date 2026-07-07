@@ -182,6 +182,7 @@ Todas las variables se definen en el fichero `.env` (copia de `.env.example`):
 | `ADMIN_PASSWORD` | Contraseña del administrador inicial | `changeme123` |
 | `UPLOAD_FOLDER` | Ruta donde se guardan PDFs e imágenes subidas | `/app/uploads` |
 | `MAX_CONTENT_LENGTH` | Tamaño máximo de fichero en bytes | `104857600` (100 MB) |
+| `URL_PREFIX` | Sirve la app bajo un prefijo (p.ej. `/wft`) en vez de en la raíz — para compartir un dominio con otras apps detrás de un mismo proxy/túnel. Vacío = raíz (por defecto en local y staging). | *(vacío)* |
 
 > **Importante:** En producción genera una `SECRET_KEY` larga y aleatoria:
 > ```python
@@ -504,6 +505,7 @@ pytest --cov=app --cov-report=term-missing
 | `tests/test_talent_specializations.py` | Talentos con especializaciones predefinidas (p.ej. "Especialista en armas"): carga de `talent_specializations.json`, guardado en formato de entradas (JSON) con grupos de elección, y que los talentos sin especializaciones predefinidas siguen funcionando con el campo de texto libre de siempre |
 | `tests/test_character_creation_service.py` | Servicio de tiradas del generador de personajes: parseo de fórmulas de dados, barrido completo 1-100 de cada tabla porcentual para las 5 razas (detecta huecos en los datos), agrupación de razas (Elfo Silvano/Alto Elfo comparten tablas de características/altura/peso/edad), y cada función `roll_*` individual |
 | `tests/test_character_generator_routes.py` | Rutas del asistente de creación guiada: página del generador, endpoint de tirada por AJAX (`/generador/tirar`) para cada paso, y el guardado final (ficha completa con características, trasfondo, rasgos, contactos, posesiones y objetos mágicos) |
+| `tests/test_wsgi_prefix.py` | `PrefixMiddleware` (servir la app bajo `URL_PREFIX`, p.ej. `/wft`): recorte de prefijo + `SCRIPT_NAME`, tolerancia con peticiones sin prefijo, y generación de URLs correctas de extremo a extremo con `url_for()` |
 
 ### Notas de diseño
 
@@ -976,6 +978,7 @@ WarhammerFantasyTools/
 ├── run.py                  # Punto de entrada de la aplicación
 └── app/
     ├── __init__.py         # Factory de la app Flask + comandos CLI (init-db, create-admin)
+    ├── wsgi_prefix.py       # PrefixMiddleware: sirve la app bajo URL_PREFIX (p.ej. /wft)
     ├── config.py           # Configuraciones por entorno
     ├── extensions.py       # Instancias de extensiones Flask
     ├── utils.py            # Decoradores: admin_required, require_permission; helpers
