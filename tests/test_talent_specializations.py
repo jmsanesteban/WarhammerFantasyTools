@@ -55,7 +55,7 @@ def test_edit_profession_replaces_talent_spec_entries(db, client, admin_user, lo
     db.session.commit()
 
     login_as(client, admin_user, 'adminpass123')
-    entries = json.dumps([{'spec': 'Enredo', 'group': None}])
+    entries = json.dumps([{'spec': 'Presa', 'group': None}])
     resp = client.post(f'/profesiones/{prof.id}/editar', data={
         'name': 'Asesino', 'type': 'advanced',
         f'talent_{talent.id}': '1',
@@ -64,7 +64,7 @@ def test_edit_profession_replaces_talent_spec_entries(db, client, admin_user, lo
     assert resp.status_code == 200
 
     rows = ProfessionTalent.query.filter_by(profession_id=prof.id, talent_id=talent.id).all()
-    assert {r.specialization for r in rows} == {'Enredo'}
+    assert {r.specialization for r in rows} == {'Presa'}
 
 
 def test_talent_spec_entries_support_choice_groups(db, client, admin_user, login_as, make_talent):

@@ -6,7 +6,7 @@
     { "nombre": "Ballesta",      "descripcion": "Ballestas de mano, ligeras y pesadas" },
     { "nombre": "Caballería",    "descripcion": "Armas de uso específico montado a caballo" },
     { "nombre": "Dos manos",     "descripcion": "Armas cuerpo a cuerpo empuñadas a dos manos" },
-    { "nombre": "Enredo",        "descripcion": "Redes y otras armas de enredo/apresamiento" },
+    { "nombre": "Presa",         "descripcion": "Redes y otras armas de enredo/apresamiento" },
     { "nombre": "Improvisada",   "descripcion": "Objetos cotidianos usados como arma" },
     { "nombre": "Ingenios",      "descripcion": "Armas de asedio y mecanismos de artillería" },
     { "nombre": "Palo",         "descripcion": "Bastones, palos y armas de asta cortas" },
