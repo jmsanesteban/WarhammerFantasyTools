@@ -62,7 +62,7 @@ ALL_PERMISSIONS = [
     ('characters.view',    'Ver personajes',         'Consultar personajes propios',                            'characters'),
     ('characters.edit',    'Editar personajes',      'Crear y editar personajes propios',                       'characters'),
     ('contacts.view',      'Ver contactos',          'Consultar listado y ficha de contactos',                  'contacts'),
-    ('contacts.edit',      'Editar contactos',       'Editar notas y relaciones de personas con contactos',     'contacts'),
+    ('contacts.edit',      'Editar contactos',       'Crear contactos y editar el propio vínculo de un personaje', 'contacts'),
     ('contacts.import',    'Importar contactos',     'Importar/exportar contactos desde Excel',                 'contacts'),
     ('users.manage',       'Gestionar usuarios',     'Asignar plantillas y permisos a otros usuarios (no convertir en admin)', 'admin'),
 ]

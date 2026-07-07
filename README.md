@@ -496,9 +496,9 @@ pytest --cov=app --cov-report=term-missing
 | `tests/test_auth.py` | Login, registro, logout, redirección a `next`, usuarios inactivos |
 | `tests/test_professions.py` | CRUD de profesiones, permisos, características primarias/secundarias, habilidades/talentos/enseres/salidas asociados |
 | `tests/test_skills_talents.py` | CRUD de habilidades y talentos, búsqueda/filtros, importación/exportación en texto plano, y el guardián anti-duplicados (bloquea duplicados exactos, avisa de casi-duplicados) al crear/editar/importar |
-| `tests/test_characters.py` | CRUD de personajes WFRP, aislamiento por propietario, historial de profesiones ordenado |
-| `tests/test_contacts.py` | Vista de usuario de Contactos: visibilidad, notas (privadas/globales), vínculos de "persona" propios |
-| `tests/test_admin_contacts.py` | Administración de Contactos: definición de campos EAV, gestión de vínculos, listado/alta/baja de contactos, importación/exportación Excel |
+| `tests/test_characters.py` | CRUD de personajes WFRP, aislamiento por propietario, historial de profesiones ordenado, `es_untersuchung`, salario por profesión |
+| `tests/test_contacts.py` | Vista de usuario de Contactos: visibilidad, alta de contacto + vínculo propio, aislamiento de notas/nivel/apodo entre personajes (incluso del mismo usuario), visibilidad de Untersuchung según membresía, salario |
+| `tests/test_admin_contacts.py` | Administración de Contactos: listado/alta/baja, edición del vínculo de cualquier personaje, importación/exportación Excel con columnas fijas |
 | `tests/test_pdf_import.py` | Pipeline de importación de PDF: emparejamiento de habilidades/talentos, canonicalización de chips al nombre exacto del catálogo, auto-vinculación de accesos/salidas, detección de duplicados/casi-duplicados, persistencia del caché de trabajos en disco (con expiración a las 48h), recuperación de enseres mal clasificados como talentos, corrección de nombres de carrera vía sinónimos, y el endpoint de guardado (modos crear/actualizar/omitir + el guardián anti-duplicados). Incluye tests de regresión explícitos para los bugs reales corregidos: pérdida de chips confirmados al guardar, caché no persistente entre reinicios, accesos/salidas no auto-vinculados, enseres perdidos dentro de talentos, nombres de carrera no corregidos por el diccionario de sinónimos, y habilidades/talentos casi-duplicados (p.ej. "preparar veneno" vs "Preparar venenos") |
 | `tests/test_pathfinder.py` | Construcción del grafo de carreras, búsqueda de rutas (más cortas primero, límite de resultados, ausencia de ruta), y acumulación de estadísticas (máximo por característica, deduplicación de habilidades/talentos/enseres a lo largo de la ruta) |
 | `tests/test_talent_specializations.py` | Talentos con especializaciones predefinidas (p.ej. "Especialista en armas"): carga de `talent_specializations.json`, guardado en formato de entradas (JSON) con grupos de elección, y que los talentos sin especializaciones predefinidas siguen funcionando con el campo de texto libre de siempre |
@@ -740,7 +740,7 @@ Puedes crear, editar y eliminar plantillas desde esa pantalla. Al eliminar una p
 | `characters.view` | Consultar personajes propios |
 | `characters.edit` | Crear y editar personajes propios |
 | `contacts.view` | Consultar listado y ficha de contactos |
-| `contacts.edit` | Editar notas y relaciones de personas con contactos |
+| `contacts.edit` | Crear contactos y editar el propio vínculo (nivel, notas, salario...) de un personaje |
 | `contacts.import` | Importar/exportar contactos desde Excel |
 | `users.manage` | Asignar plantillas y permisos a otros usuarios (no puede convertir en admin) |
 
@@ -806,8 +806,8 @@ Hay dos formas de crear un personaje desde **Personajes**:
 
 #### Creación rápida (manual)
 
-1. Introduce el nombre, raza y género del personaje.
-2. En la sección **Carrera Profesional**, añade las profesiones que ha tenido el personaje en orden cronológico usando el botón **Añadir profesión**.
+1. Introduce el nombre, raza y género del personaje, y marca si es **miembro de la Untersuchung** (afecta a qué contactos ven ese dato en la ficha de Contactos).
+2. En la sección **Carrera Profesional**, añade las profesiones que ha tenido el personaje en orden cronológico usando el botón **Añadir profesión**; para cada una puedes elegir además un tipo de sueldo y estado de habilidad (misma tabla de referencia que en Contactos).
 3. La última profesión añadida se marca como "Actual".
 4. Guarda el personaje.
 
@@ -842,12 +842,14 @@ Desde la ficha del personaje puedes ver las estadísticas de cada profesión en 
 
 ### Gestionar Contactos
 
-Ve a **Contactos** en el menú principal.
+Ve a **Contactos** en el menú principal. Un contacto (NPC) tiene datos **globales** (nombre, profesiones del catálogo, si pertenece a la Untersuchung) y datos **por personaje** — cada personaje ve y edita solo su propio vínculo, nunca el de otro personaje, aunque sean del mismo usuario.
 
-- El listado muestra los contactos visibles (los administradores ven también los ocultos), con buscador por valor de cualquier campo.
-- La ficha de un contacto muestra sus campos, sección de **vínculos** ("Mis vínculos" para un usuario normal — solo puede editar la relación con vínculos que el administrador ya le haya asignado, no crear vínculos nuevos) y **notas** (privadas o globales, editables por su autor o un admin).
-- Los administradores gestionan desde **Admin → Contactos**: campos personalizados (crear, renombrar, reordenar por arrastre, ocultar), vínculos (`ContactPersona`, crear/editar/asignar a un usuario), listado completo de contactos (mostrar/ocultar, eliminar) e importación/exportación Excel.
-- La importación Excel es completamente dinámica: cualquier columna del archivo que no coincida con un campo existente crea uno nuevo automáticamente; las columnas `nombre`/`apellidos` se usan como clave opcional para actualizar contactos existentes en lugar de duplicarlos.
+- **Cualquier personaje puede registrar un contacto nuevo** desde **+ Nuevo contacto**: rellena los datos globales y, en el mismo formulario, su propio vínculo (apodo(s), nivel de relación de -5 a 5, organización/secta si no es la Untersuchung, lugar de residencia, lugar de contacto, GM y misión en la que se conoció, y si viene de la creación del personaje).
+- Si el usuario tiene varios personajes, un selector **"Ver como"** en el listado y en la ficha cambia qué vínculo se muestra/edita.
+- **Untersuchung**: si el contacto pertenece a esta organización secreta, ese dato **solo se muestra si el personaje activo también es miembro** (marcado en su ficha) — un personaje no-miembro no lo ve, aunque el admin sí lo ve siempre.
+- **Salario**: si el contacto tiene una profesión, puedes elegir manualmente un tipo de sueldo (Obreros/Sirvientes/Artesanos/Profesionales/Especialistas/Artistas o ilegal 1-3) y un estado de habilidad (Mala/Normal/Buena/Excelente) de la tabla de referencia — no se calcula a partir de ninguna habilidad real. La misma tabla está disponible al asignar profesiones a tus propios personajes.
+- **Notas**: privadas de cada personaje — una nota de tu personaje A nunca aparece al ver el contacto como tu personaje B.
+- Los administradores gestionan desde **Admin → Contactos**: listado completo (mostrar/ocultar, eliminar), e importación/exportación Excel con columnas fijas (`nombre`, `es_untersuchung`, `profesiones` separadas por comas — deben existir ya en el catálogo de Profesiones). Un admin puede además editar el vínculo de cualquier personaje desde la ficha del contacto, no solo el suyo.
 
 ---
 
@@ -859,48 +861,52 @@ users
   ├─ user_permissions (M2M)               (permisos directos adicionales)
   ├─ must_change_password                 (heredado de ContactosWH, no aplicado aún en el login)
   ├─ created_by_id → users.id             (lineage: quién creó la cuenta, opcional)
-  ├─ characters                   (perfil completo: características WFRP2, trasfondo del
-  │    │                           generador — raza, signo astral, altura/peso/edad,
-  │    │                           procedencia, situación familiar, nivel social,
-  │    │                           Puntos de Historial, dinero)
-  │    ├─ character_professions   (lista ordenada de profesiones del personaje)
-  │    ├─ character_skills        (skill_id + specialization, p.ej. "Hablar idioma (Reikspiel)")
-  │    ├─ character_talents       (talent_id + specialization + times_taken)
-  │    ├─ character_traits        (estética/personalidad/desventaja rolados con Puntos de Historial)
-  │    ├─ character_acquaintances (contactos/amigos/enemigos/hermanos de los sucesos de juventud)
-  │    ├─ character_possessions   (objetos de inventario iniciales)
-  │    └─ character_magic_items   (objetos mágicos rolados con Puntos de Historial)
-  └─ contact_personas              (vínculos de Contactos asignados a este usuario)
+  └─ characters                   (perfil completo: características WFRP2, trasfondo del
+       │                           generador — raza, signo astral, altura/peso/edad,
+       │                           procedencia, situación familiar, nivel social,
+       │                           Puntos de Historial, dinero, es_untersuchung)
+       ├─ character_professions   (lista ordenada de profesiones + tipo_sueldo/estado_habilidad)
+       ├─ character_skills        (skill_id + specialization, p.ej. "Hablar idioma (Reikspiel)")
+       ├─ character_talents       (talent_id + specialization + times_taken)
+       ├─ character_traits        (estética/personalidad/desventaja rolados con Puntos de Historial)
+       ├─ character_acquaintances (contactos/amigos/enemigos/hermanos de los sucesos de juventud
+       │                           del generador — texto libre, independiente de contact_*)
+       ├─ character_possessions   (objetos de inventario iniciales)
+       ├─ character_magic_items   (objetos mágicos rolados con Puntos de Historial)
+       └─ contact_character_links (su propia visión de cada Contacto, ver más abajo)
 
 permissions                               (12 códigos de permiso disponibles)
 permission_templates                      (conjuntos reutilizables de permisos)
 template_permissions (M2M)                (permisos que incluye cada plantilla)
 
-field_definitions                 (definición dinámica de campos de Contactos, tipo EAV)
-  ├─ name, display_name, is_visible, field_order
-
-contacts
+contacts                           (hechos GLOBALES de un NPC — iguales para todo el mundo)
+  ├─ nombre
+  ├─ es_untersuchung               (solo se muestra a personajes que también sean miembros)
   ├─ is_visible                    (los no-admin solo ven contactos visibles)
   ├─ created_by_id → users.id
-  ├─ contact_values                (field_id + value — el dato EAV real)
-  ├─ persona_links → contact_persona_links
+  ├─ contact_professions           (M2M contacts ↔ professions, reutiliza el catálogo)
+  ├─ character_links → contact_character_links
   └─ notes → contact_notes
 
-contact_personas                  (antes "Character" en ContactosWH; renombrado para
-  ├─ name                          no colisionar con el Character/WFRP de esta app)
-  ├─ user_id → users.id (nullable, personas sin asignar)
-  ├─ is_active
-  └─ persona_links → contact_persona_links
-
-contact_persona_links              (M2M contact_personas ↔ contacts, antes "CharacterContact")
-  ├─ persona_id, contact_id
-  └─ relationship_note             (texto libre; antes "relationship", renombrado para
-                                     no chocar con db.relationship de SQLAlchemy)
+contact_character_links            (la visión de UN personaje sobre un Contacto —
+  ├─ character_id, contact_id      nunca visible para otro personaje, ni del mismo usuario)
+  ├─ nivel                         (-5 a 5, relación con ese personaje)
+  ├─ organizacion_secta            (si no es la Untersuchung; libre, "No/N/A" si vacío)
+  ├─ lugar_residencia, lugar_contacto  (texto libre: "Conocido"/"Desconocido"/dirección/horario)
+  ├─ creacion                      (viene de la creación del personaje)
+  ├─ gm, mision                    (con qué GM y en qué misión se conoció)
+  ├─ apodos → contact_apodos       (uno o varios, propios de este vínculo)
+  └─ salarios → contact_character_salaries  (tipo_sueldo + estado_habilidad por profesión)
 
 contact_notes
-  ├─ contact_id, author_id → users.id
-  ├─ content
-  └─ is_global                     (False = solo visible para el autor y administradores)
+  ├─ contact_id, character_id      (nota propia de un personaje, nunca de otro)
+  └─ content
+
+`salaries.json` (app/data/): tabla de referencia de sueldos (Obreros/Sirvientes/Artesanos/
+Profesionales/Especialistas/Artistas o ilegal 1-3, con sueldo semanal/anual y umbrales de
+habilidad m/n/b/ex) y multiplicadores por estado (Mala x0.5, Normal x1, Buena x2, Excelente x3) —
+elegido manualmente al asignar una profesión a un Contacto o a un Personaje, no se calcula
+a partir de ninguna habilidad real.
 
 professions
   ├─ profession_skills    (skill_id + specialization + choice_group)
@@ -986,11 +992,11 @@ WarhammerFantasyTools/
     │   ├── skill.py        # Habilidad
     │   ├── talent.py       # Talento
     │   ├── character.py    # Personaje WFRP: características, trasfondo, carrera profesional,
-    │   │                   # rasgos, contactos, posesiones y objetos mágicos
+    │   │                   # rasgos, contactos generados en creación, posesiones y objetos mágicos
     │   ├── synonym.py      # Diccionario de sinónimos para importación PDF
-    │   ├── contact.py           # FieldDefinition, Contact, ContactValue (EAV)
-    │   ├── contact_persona.py   # ContactPersona, ContactPersonaLink (vínculos)
-    │   └── contact_note.py      # ContactNote
+    │   ├── contact.py                  # Contact, ContactProfession (hechos globales del NPC)
+    │   ├── contact_character_link.py   # ContactCharacterLink, ContactApodo, ContactCharacterSalary
+    │   └── contact_note.py             # ContactNote (por personaje)
     ├── routes/
     │   ├── auth.py         # Login, registro, logout
     │   ├── main.py         # Página de inicio, errores, servicio de uploads
@@ -998,14 +1004,15 @@ WarhammerFantasyTools/
     │   ├── skills_talents.py  # CRUD de habilidades y talentos (edición requiere skills.edit)
     │   ├── pathfinder.py   # Buscador de caminos
     │   ├── characters.py   # Gestión de personajes WFRP
-    │   ├── contacts.py     # Vistas de usuario de Contactos (listado, ficha, notas, vínculos propios)
-    │   └── admin.py        # Panel admin: usuarios, permisos, plantillas, PDF, Contactos (campos/personas/import-export)
+    │   ├── contacts.py     # Vistas de usuario de Contactos (listado, ficha, vínculo/salario/notas por personaje)
+    │   └── admin.py        # Panel admin: usuarios, permisos, plantillas, PDF, Contactos (listado/import-export)
     ├── services/
     │   ├── pdf_processor.py      # OCR, traducción y parsing de PDFs
     │   ├── translation_service.py # Detección de idioma y traducción
     │   ├── import_service.py     # Importación/exportación de habilidades y talentos
     │   ├── pathfinder_service.py  # Construcción del grafo y BFS
-    │   ├── contact_import_service.py  # Importación/exportación Excel de Contactos (EAV, pandas)
+    │   ├── contact_import_service.py  # Importación/exportación Excel de Contactos (columnas fijas)
+    │   ├── salary_service.py     # Tabla de referencia de sueldos (Contactos y Personajes)
     │   └── character_creation_service.py  # Tiradas del Generador de Personaje (dados, tablas porcentuales)
     ├── templates/
     │   ├── base.html             # Layout base con nav adaptativo
@@ -1019,15 +1026,13 @@ WarhammerFantasyTools/
     │   │   ├── synonyms.html
     │   │   ├── pdf_upload.html
     │   │   ├── pdf_review.html
-    │   │   ├── contact_fields.html       # Gestión de campos EAV (drag-reorder)
-    │   │   ├── contact_personas.html     # Listado de vínculos
-    │   │   ├── contact_persona_form.html
     │   │   ├── contacts.html             # Listado/administración de contactos
     │   │   ├── contacts_import.html
     │   │   └── contacts_export.html
     │   ├── contacts/
-    │   │   ├── index.html         # Listado de contactos (respeta visibilidad)
-    │   │   └── detail.html        # Ficha: campos, vínculos, notas
+    │   │   ├── index.html         # Listado de contactos (respeta visibilidad, selector "ver como")
+    │   │   ├── detail.html        # Ficha: datos globales, vínculo del personaje activo, salario, notas
+    │   │   └── new.html           # Alta de contacto + vínculo del personaje que lo registra
     │   └── ...                   # Resto de plantillas por módulo
     └── static/
         ├── css/custom.css        # Tema oscuro medieval WH

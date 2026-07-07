@@ -1,0 +1,102 @@
+{% extends 'base.html' %}
+{% block title %}Nuevo Contacto — Warhammer Fantasy Tools{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+  <div class="d-flex justify-content-between align-items-center mb-3">
+    <h2 class="wh-heading mb-0"><i class="bi bi-person-plus me-2"></i>Nuevo Contacto</h2>
+    <a href="{{ url_for('contacts.index') }}" class="btn btn-outline-secondary btn-sm">
+      <i class="bi bi-arrow-left me-1"></i>Volver
+    </a>
+  </div>
+
+  <form method="POST">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+    <div class="card wh-card mb-4" style="max-width:700px">
+      <div class="card-header wh-card-header">Datos del contacto</div>
+      <div class="card-body">
+        <div class="row g-3">
+          <div class="col-md-8">
+            <label class="form-label wh-label">Nombre *</label>
+            <input type="text" name="nombre" class="form-control wh-input" required>
+          </div>
+          <div class="col-md-4 d-flex align-items-end">
+            <label class="d-flex align-items-center gap-2" style="cursor:pointer">
+              <input type="checkbox" name="es_untersuchung" class="form-check-input">
+              Untersuchung
+            </label>
+          </div>
+          <div class="col-12">
+            <label class="form-label wh-label">Profesiones</label>
+            <select name="profession_ids" class="form-select wh-input" multiple size="6">
+              {% for p in professions %}
+              <option value="{{ p.id }}">{{ p.name }}</option>
+              {% endfor %}
+            </select>
+            <small class="text-muted">Ctrl/Cmd + clic para elegir varias.</small>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card wh-card mb-4" style="max-width:700px">
+      <div class="card-header wh-card-header">Tu vínculo con este contacto</div>
+      <div class="card-body">
+        <div class="row g-3">
+          <div class="col-md-6">
+            <label class="form-label wh-label">Personaje que lo registra *</label>
+            <select name="personaje_id" class="form-select wh-input" required>
+              {% for c in characters %}
+              <option value="{{ c.id }}">{{ c.name }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="col-md-6">
+            <label class="form-label wh-label">Nivel de relación (-5 a 5)</label>
+            <input type="number" name="nivel" class="form-control wh-input" min="-5" max="5">
+          </div>
+          <div class="col-md-6">
+            <label class="form-label wh-label">Apodo(s)</label>
+            <input type="text" name="apodos" class="form-control wh-input" placeholder="Un apodo">
+            <input type="text" name="apodos" class="form-control wh-input mt-1" placeholder="Otro apodo (opcional)">
+          </div>
+          <div class="col-md-6">
+            <label class="form-label wh-label">Organización / secta (si no es Untersuchung)</label>
+            <input type="text" name="organizacion_secta" class="form-control wh-input" placeholder="No / N/A">
+          </div>
+          <div class="col-md-6">
+            <label class="form-label wh-label">Lugar de residencia</label>
+            <input type="text" name="lugar_residencia" class="form-control wh-input"
+                   placeholder="Conocido / Desconocido / dirección">
+          </div>
+          <div class="col-md-6">
+            <label class="form-label wh-label">Lugar de contacto</label>
+            <input type="text" name="lugar_contacto" class="form-control wh-input"
+                   placeholder="Ej. Sala de tiro de Altdorf, lunes a jueves 18:00-20:00">
+          </div>
+          <div class="col-md-4">
+            <label class="form-label wh-label">GM</label>
+            <input type="text" name="gm" class="form-control wh-input">
+          </div>
+          <div class="col-md-4">
+            <label class="form-label wh-label">Misión</label>
+            <input type="text" name="mision" class="form-control wh-input">
+          </div>
+          <div class="col-md-4 d-flex align-items-end">
+            <label class="d-flex align-items-center gap-2" style="cursor:pointer">
+              <input type="checkbox" name="creacion" class="form-check-input">
+              Viene de la creación del personaje
+            </label>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="d-flex gap-2 mb-5">
+      <button type="submit" class="btn btn-wh"><i class="bi bi-floppy me-1"></i>Guardar contacto</button>
+      <a href="{{ url_for('contacts.index') }}" class="btn btn-outline-secondary">Cancelar</a>
+    </div>
+  </form>
+</div>
+{% endblock %}

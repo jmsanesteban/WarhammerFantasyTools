@@ -113,47 +113,38 @@ def make_character(db):
 
 
 @pytest.fixture
-def make_contact_field(db):
-    def _make(name='nombre', display_name='Nombre', is_visible=True, field_order=0):
-        from app.models.contact import FieldDefinition
-        field = FieldDefinition(name=name, display_name=display_name,
-                                is_visible=is_visible, field_order=field_order)
-        db.session.add(field)
-        db.session.commit()
-        return field
-    return _make
-
-
-@pytest.fixture
 def make_contact(db):
-    def _make(is_visible=True, created_by=None, values=None):
-        from app.models.contact import Contact, ContactValue
-        contact = Contact(is_visible=is_visible, created_by_id=created_by.id if created_by else None)
+    def _make(nombre='Contacto de prueba', is_visible=True, es_untersuchung=False, created_by=None, professions=None):
+        from app.models.contact import Contact, ContactProfession
+        contact = Contact(
+            nombre=nombre, is_visible=is_visible, es_untersuchung=es_untersuchung,
+            created_by_id=created_by.id if created_by else None,
+        )
         db.session.add(contact)
         db.session.flush()
-        for field_id, value in (values or {}).items():
-            db.session.add(ContactValue(contact_id=contact.id, field_id=field_id, value=value))
+        for prof in (professions or []):
+            db.session.add(ContactProfession(contact_id=contact.id, profession_id=prof.id))
         db.session.commit()
         return contact
     return _make
 
 
 @pytest.fixture
-def make_contact_persona(db):
-    def _make(user=None, name='Persona 1', is_active=True):
-        from app.models.contact_persona import ContactPersona
-        persona = ContactPersona(name=name, user_id=user.id if user else None, is_active=is_active)
-        db.session.add(persona)
+def make_contact_link(db):
+    def _make(character, contact, **kwargs):
+        from app.models.contact_character_link import ContactCharacterLink
+        link = ContactCharacterLink(character_id=character.id, contact_id=contact.id, **kwargs)
+        db.session.add(link)
         db.session.commit()
-        return persona
+        return link
     return _make
 
 
 @pytest.fixture
 def make_contact_note(db):
-    def _make(contact, author, content='Nota', is_global=False):
+    def _make(contact, character, content='Nota'):
         from app.models.contact_note import ContactNote
-        note = ContactNote(contact_id=contact.id, author_id=author.id, content=content, is_global=is_global)
+        note = ContactNote(contact_id=contact.id, character_id=character.id, content=content)
         db.session.add(note)
         db.session.commit()
         return note

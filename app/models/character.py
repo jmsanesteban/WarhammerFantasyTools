@@ -11,6 +11,8 @@ class CharacterProfession(db.Model):
     profession_id = db.Column(db.Integer, db.ForeignKey('professions.id', ondelete='SET NULL'), nullable=True)
     order = db.Column(db.Integer, nullable=False, default=0)
     is_current = db.Column(db.Boolean, default=False)
+    tipo_sueldo = db.Column(db.String(30), nullable=True)
+    estado_habilidad = db.Column(db.String(20), nullable=True)
 
     profession = db.relationship('Profession', lazy='joined')
 
@@ -126,6 +128,10 @@ class Character(db.Model):
     dinero_coronas = db.Column(db.Integer, nullable=True, default=0)
     history_points_total = db.Column(db.Integer, nullable=False, default=0)
     history_points_spent = db.Column(db.Integer, nullable=False, default=0)
+
+    # --- Contactos: pertenencia a la Untersuchung (restringe la visibilidad
+    # del mismo dato en los contactos que este personaje conoce) ---
+    es_untersuchung = db.Column(db.Boolean, nullable=False, default=False)
 
     professions = db.relationship(
         'CharacterProfession',

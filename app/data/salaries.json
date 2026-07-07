@@ -1,0 +1,18 @@
+{
+  "tipos": [
+    {"tipo": "Obreros", "sueldo_semanal": "0CO 4c 8p", "sueldo_anual": "11CO 13c 4p", "condiciones": "Habilidad de profesión básica o característica.", "umbrales": {"mala": 25, "normal": 30, "buena": 40, "excelente": 50}},
+    {"tipo": "Sirvientes", "sueldo_semanal": "0CO 6c 0p", "sueldo_anual": "15CO 0c 0p", "condiciones": "Conc. Básico o habilidad de profesión común.", "umbrales": {"mala": 24, "normal": 34, "buena": 44, "excelente": 54}},
+    {"tipo": "Artesanos", "sueldo_semanal": "0CO 16c 0p", "sueldo_anual": "40CO 0c 0p", "condiciones": "Habilidad de profesión normal/oficios", "umbrales": {"mala": 29, "normal": 39, "buena": 49, "excelente": 59}},
+    {"tipo": "Profesionales", "sueldo_semanal": "1CO 4c 0p", "sueldo_anual": "60CO 0c 0p", "condiciones": "Sab. Acad. Especial o habilidades de +15% en la característica dependiente.", "umbrales": {"mala": 34, "normal": 44, "buena": 54, "excelente": 64}},
+    {"tipo": "Especialistas", "sueldo_semanal": "2CO 0c 0p", "sueldo_anual": "100CO 0c 0p", "condiciones": "Al menos 25% en la característica de la habilidad de profesión (sab. Académica o especial) o +30% en otra característica habilidad de profesión", "umbrales": {"mala": 42, "normal": 52, "buena": 62, "excelente": 72}},
+    {"tipo": "Artistas/ilegal 1", "sueldo_semanal": "0CO 2c 0p", "sueldo_anual": "5CO 0c 0p", "condiciones": "Habilidad de profesión con +5% en la característica", "umbrales": {"mala": 21, "normal": 31, "buena": 41, "excelente": 51}},
+    {"tipo": "Artistas/ilegal 2", "sueldo_semanal": "1CO 0c 0p", "sueldo_anual": "50CO 0c 0p", "condiciones": "Habilidad de profesión con +15% en la característica", "umbrales": {"mala": 28, "normal": 38, "buena": 48, "excelente": 58}},
+    {"tipo": "Artistas/ilegal 3", "sueldo_semanal": "1CO 13c 4p", "sueldo_anual": "83CO 6c 8p", "condiciones": "Habilidad de profesión con +25% en la característica", "umbrales": {"mala": 38, "normal": 48, "buena": 58, "excelente": 68}}
+  ],
+  "estados_habilidad": [
+    {"estado": "Mala", "multiplicador": 0.5, "descripcion": "Sin adquirir"},
+    {"estado": "Normal", "multiplicador": 1, "descripcion": "Habilidad adquirida o característica +10%"},
+    {"estado": "Buena", "multiplicador": 2, "descripcion": "Habilidad +10% o característica +25%"},
+    {"estado": "Excelente", "multiplicador": 3, "descripcion": "Habilidad +20% o característica +35%"}
+  ]
+}

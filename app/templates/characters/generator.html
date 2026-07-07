@@ -63,6 +63,12 @@
             <label class="form-label wh-label">Nivel social</label>
             <input type="number" name="nivel_social" id="f-nivel-social" class="form-control wh-input" value="1" min="-1" max="10">
           </div>
+          <div class="col-md-4 d-flex align-items-end">
+            <label class="d-flex align-items-center gap-2" style="cursor:pointer">
+              <input type="checkbox" name="es_untersuchung" class="form-check-input">
+              Miembro de la Untersuchung
+            </label>
+          </div>
           <div class="col-12">
             <label class="form-label wh-label">Notas</label>
             <textarea name="notes" rows="2" class="form-control wh-input"></textarea>
@@ -494,12 +500,24 @@
     </div>
 
     <template id="profRowTemplate">
-      <div class="d-flex align-items-center gap-2 mb-2 prof-row">
+      <div class="d-flex align-items-center gap-2 mb-2 prof-row flex-wrap">
         <span class="prof-index text-muted"></span>
-        <select name="profession_ids" class="form-select wh-input">
+        <select name="profession_ids" class="form-select wh-input" style="max-width:260px">
           <option value="">— Selecciona —</option>
           {% for p in professions %}
           <option value="{{ p.id }}">{{ p.name }}</option>
+          {% endfor %}
+        </select>
+        <select name="tipo_sueldo_list" class="form-select form-select-sm wh-input" style="max-width:210px">
+          <option value="">— Tipo de sueldo —</option>
+          {% for t in salary_table.tipos %}
+          <option value="{{ t.tipo }}">{{ t.tipo }}</option>
+          {% endfor %}
+        </select>
+        <select name="estado_habilidad_list" class="form-select form-select-sm wh-input" style="max-width:160px">
+          <option value="">— Estado —</option>
+          {% for e in salary_table.estados_habilidad %}
+          <option value="{{ e.estado }}">{{ e.estado }}</option>
           {% endfor %}
         </select>
         <button type="button" class="btn btn-outline-danger btn-sm remove-prof"><i class="bi bi-x-lg"></i></button>

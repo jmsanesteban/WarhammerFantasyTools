@@ -17,11 +17,10 @@ from app.models.skill import Skill
 from app.models.talent import Talent
 from app.models.synonym import Synonym, DEFAULT_SYNONYMS
 from app.models.permission import Permission, PermissionTemplate, ALL_PERMISSIONS
-from app.models.contact import Contact, ContactValue, FieldDefinition
-from app.models.contact_persona import ContactPersona, ContactPersonaLink
+from app.models.contact import Contact, ContactProfession
 from app.utils import admin_required, allowed_file, generate_secure_password
 from app.services.pdf_processor import process_pdf
-from app.services.contact_import_service import parse_contacts_excel, export_contacts_to_excel
+from app.services.contact_import_service import import_contacts_from_excel, export_contacts_to_excel
 
 logger = logging.getLogger(__name__)
 
@@ -130,8 +129,6 @@ def dashboard():
         'advanced': Profession.query.filter_by(type='advanced').count(),
         'total_contacts': Contact.query.count(),
         'visible_contacts': Contact.query.filter_by(is_visible=True).count(),
-        'total_fields': FieldDefinition.query.count(),
-        'total_personas': ContactPersona.query.count(),
     }
     return render_template('admin/dashboard.html', stats=stats)
 
@@ -1181,168 +1178,7 @@ def synonym_delete(syn_id):
 
 
 # ---------------------------------------------------------------------------
-# Contactos: definición de campos (EAV)
-# ---------------------------------------------------------------------------
-
-@admin_bp.route('/contactos/campos')
-@login_required
-@admin_required
-def contact_fields():
-    all_fields = FieldDefinition.query.order_by(FieldDefinition.field_order).all()
-    return render_template('admin/contact_fields.html', fields=all_fields)
-
-
-@admin_bp.route('/contactos/campos/nuevo', methods=['POST'])
-@login_required
-@admin_required
-def contact_field_new():
-    display_name = request.form.get('display_name', '').strip()
-    if not display_name or len(display_name) > 128:
-        flash('El nombre visible es obligatorio (máx. 128 caracteres).', 'danger')
-        return redirect(url_for('admin.contact_fields'))
-    name = display_name.lower().replace(' ', '_')
-    if FieldDefinition.query.filter_by(name=name).first():
-        flash(f'Ya existe un campo con el nombre interno "{name}".', 'danger')
-        return redirect(url_for('admin.contact_fields'))
-    max_order = db.session.query(db.func.max(FieldDefinition.field_order)).scalar() or 0
-    field = FieldDefinition(name=name, display_name=display_name, field_order=max_order + 1)
-    db.session.add(field)
-    db.session.commit()
-    flash(f'Campo "{display_name}" creado correctamente.', 'success')
-    return redirect(url_for('admin.contact_fields'))
-
-
-@admin_bp.route('/contactos/campos/<int:field_id>/renombrar', methods=['POST'])
-@login_required
-@admin_required
-def contact_field_rename(field_id):
-    field = FieldDefinition.query.get_or_404(field_id)
-    new_name = request.form.get('display_name', '').strip()
-    if not new_name:
-        flash('El nombre no puede estar vacío.', 'danger')
-        return redirect(url_for('admin.contact_fields'))
-    field.display_name = new_name
-    db.session.commit()
-    flash('Campo actualizado.', 'success')
-    return redirect(url_for('admin.contact_fields'))
-
-
-@admin_bp.route('/contactos/campos/<int:field_id>/toggle', methods=['POST'])
-@login_required
-@admin_required
-def contact_field_toggle(field_id):
-    field = FieldDefinition.query.get_or_404(field_id)
-    field.is_visible = not field.is_visible
-    db.session.commit()
-    return jsonify({'visible': field.is_visible})
-
-
-@admin_bp.route('/contactos/campos/<int:field_id>/eliminar', methods=['POST'])
-@login_required
-@admin_required
-def contact_field_delete(field_id):
-    field = FieldDefinition.query.get_or_404(field_id)
-    display = field.display_name
-    count = ContactValue.query.filter_by(field_id=field_id).count()
-    db.session.delete(field)
-    db.session.commit()
-    flash(f'Campo "{display}" eliminado ({count} valor(es) borrado(s)).', 'success')
-    return redirect(url_for('admin.contact_fields'))
-
-
-@admin_bp.route('/contactos/campos/reordenar', methods=['POST'])
-@login_required
-@admin_required
-def contact_fields_reorder():
-    order = request.json.get('order', [])
-    for idx, field_id in enumerate(order):
-        field = FieldDefinition.query.get(field_id)
-        if field:
-            field.field_order = idx
-    db.session.commit()
-    return jsonify({'ok': True})
-
-
-# ---------------------------------------------------------------------------
-# Contactos: vínculos (ContactPersona)
-# ---------------------------------------------------------------------------
-
-def _persona_form_choices():
-    return [(0, '— Sin asignar —')] + [
-        (u.id, u.username) for u in User.query.order_by(User.username).all()
-    ]
-
-
-@admin_bp.route('/personas')
-@login_required
-@admin_required
-def contact_personas():
-    all_personas = ContactPersona.query.order_by(ContactPersona.name).all()
-    return render_template('admin/contact_personas.html', personas=all_personas)
-
-
-@admin_bp.route('/personas/nueva', methods=['GET', 'POST'])
-@login_required
-@admin_required
-def contact_persona_create():
-    user_choices = _persona_form_choices()
-    if request.method == 'POST':
-        name = request.form.get('name', '').strip()
-        user_id = request.form.get('user_id', 0, type=int)
-        is_active = request.form.get('is_active') == 'on'
-        if not name:
-            flash('El vínculo necesita un nombre.', 'danger')
-        else:
-            persona = ContactPersona(
-                name=name,
-                user_id=user_id if user_id else None,
-                is_active=is_active,
-            )
-            db.session.add(persona)
-            db.session.commit()
-            flash(f'Vínculo "{persona.name}" creado correctamente.', 'success')
-            return redirect(url_for('admin.contact_personas'))
-    return render_template('admin/contact_persona_form.html', persona=None,
-                           user_choices=user_choices, title='Nuevo vínculo')
-
-
-@admin_bp.route('/personas/<int:persona_id>/editar', methods=['GET', 'POST'])
-@login_required
-@admin_required
-def contact_persona_edit(persona_id):
-    persona = ContactPersona.query.get_or_404(persona_id)
-    user_choices = _persona_form_choices()
-    if request.method == 'POST':
-        name = request.form.get('name', '').strip()
-        user_id = request.form.get('user_id', 0, type=int)
-        is_active = request.form.get('is_active') == 'on'
-        if not name:
-            flash('El vínculo necesita un nombre.', 'danger')
-        else:
-            persona.name = name
-            persona.user_id = user_id if user_id else None
-            persona.is_active = is_active
-            db.session.commit()
-            flash(f'Vínculo "{persona.name}" actualizado.', 'success')
-            return redirect(url_for('admin.contact_personas'))
-    return render_template('admin/contact_persona_form.html', persona=persona,
-                           user_choices=user_choices, title='Editar vínculo')
-
-
-@admin_bp.route('/personas/<int:persona_id>/eliminar', methods=['POST'])
-@login_required
-@admin_required
-def contact_persona_delete(persona_id):
-    persona = ContactPersona.query.get_or_404(persona_id)
-    name = persona.name
-    db.session.delete(persona)
-    db.session.commit()
-    flash(f'Vínculo "{name}" eliminado.', 'success')
-    return redirect(url_for('admin.contact_personas'))
-
-
-# ---------------------------------------------------------------------------
-# Contactos: administración de contactos
+# Contactos: administración
 # ---------------------------------------------------------------------------
 
 @admin_bp.route('/contactos')
@@ -1353,22 +1189,13 @@ def contacts():
     search = request.args.get('q', '').strip()
     per_page = 25
 
-    fields = FieldDefinition.query.order_by(FieldDefinition.field_order).all()
-    query = Contact.query.order_by(Contact.id.desc())
-
+    query = Contact.query.order_by(Contact.nombre)
     if search:
-        matching_ids = (
-            ContactValue.query
-            .filter(ContactValue.value.ilike(f'%{search}%'))
-            .with_entities(ContactValue.contact_id)
-            .distinct()
-        )
-        query = query.filter(Contact.id.in_(matching_ids))
+        query = query.filter(Contact.nombre.ilike(f'%{search}%'))
 
     pagination = query.paginate(page=page, per_page=per_page, error_out=False)
     return render_template('admin/contacts.html',
                            contacts=pagination.items,
-                           fields=fields,
                            pagination=pagination,
                            search=search)
 
@@ -1407,57 +1234,8 @@ def contacts_delete_selected():
 
 
 # ---------------------------------------------------------------------------
-# Contactos: gestión admin de vínculos por contacto
-# ---------------------------------------------------------------------------
-
-@admin_bp.route('/contactos/<int:contact_id>/persona/vincular', methods=['POST'])
-@login_required
-@admin_required
-def admin_link_persona(contact_id):
-    Contact.query.get_or_404(contact_id)
-    persona_id = request.form.get('persona_id', type=int)
-    relationship_note = request.form.get('relationship', '').strip()
-    if not persona_id:
-        flash('Selecciona un vínculo.', 'danger')
-        return redirect(url_for('contacts.detail', contact_id=contact_id))
-    persona = ContactPersona.query.get_or_404(persona_id)
-    link = ContactPersonaLink.query.filter_by(persona_id=persona_id, contact_id=contact_id).first()
-    if link:
-        link.relationship_note = relationship_note
-    else:
-        link = ContactPersonaLink(persona_id=persona_id, contact_id=contact_id,
-                                   relationship_note=relationship_note)
-        db.session.add(link)
-    db.session.commit()
-    flash(f'Vínculo "{persona.name}" asociado a este contacto.', 'success')
-    return redirect(url_for('contacts.detail', contact_id=contact_id))
-
-
-@admin_bp.route('/contactos/<int:contact_id>/persona/<int:persona_id>/relacion', methods=['POST'])
-@login_required
-@admin_required
-def admin_persona_relationship(contact_id, persona_id):
-    link = ContactPersonaLink.query.filter_by(persona_id=persona_id, contact_id=contact_id).first_or_404()
-    link.relationship_note = request.form.get('relationship', '').strip()
-    db.session.commit()
-    flash('Relación actualizada.', 'success')
-    return redirect(url_for('contacts.detail', contact_id=contact_id))
-
-
-@admin_bp.route('/contactos/<int:contact_id>/persona/<int:persona_id>/desvincular', methods=['POST'])
-@login_required
-@admin_required
-def admin_unlink_persona(contact_id, persona_id):
-    link = ContactPersonaLink.query.filter_by(persona_id=persona_id, contact_id=contact_id).first_or_404()
-    persona_name = link.persona.name
-    db.session.delete(link)
-    db.session.commit()
-    flash(f'Vínculo "{persona_name}" desvinculado del contacto.', 'success')
-    return redirect(url_for('contacts.detail', contact_id=contact_id))
-
-
-# ---------------------------------------------------------------------------
-# Contactos: importación / exportación Excel
+# Contactos: importación / exportación Excel (columnas fijas: nombre,
+# es_untersuchung, profesiones separadas por coma)
 # ---------------------------------------------------------------------------
 
 @admin_bp.route('/contactos/importar', methods=['GET', 'POST'])
@@ -1478,63 +1256,12 @@ def contacts_import():
         update_existing = request.form.get('update_existing') == 'on'
 
         try:
-            headers, rows = parse_contacts_excel(file.stream)
+            created, updated = import_contacts_from_excel(
+                file.stream, update_existing=update_existing, created_by_id=current_user.id,
+            )
         except Exception as e:
             flash(f'Error al leer el archivo: {str(e)}', 'danger')
             return render_template('admin/contacts_import.html')
-
-        normalised = [h.strip().lower().replace(' ', '_') for h in headers]
-
-        field_map = {}
-        max_order = db.session.query(db.func.max(FieldDefinition.field_order)).scalar() or 0
-        for idx, (raw, norm) in enumerate(zip(headers, normalised)):
-            fd = FieldDefinition.query.filter_by(name=norm).first()
-            if not fd:
-                fd = FieldDefinition(name=norm, display_name=raw.strip(),
-                                     is_visible=True, field_order=max_order + idx + 1)
-                db.session.add(fd)
-                db.session.flush()
-            field_map[norm] = fd
-
-        created = updated = 0
-
-        for row in rows:
-            key_parts = []
-            for key_field in ('nombre', 'apellidos', 'name', 'apellido'):
-                val = row.get(headers[normalised.index(key_field)]) if key_field in normalised else None
-                if val:
-                    key_parts.append(str(val).strip().lower())
-
-            existing = None
-            if update_existing and key_parts:
-                for fd_name, key_val in zip(['nombre', 'apellidos'], key_parts):
-                    if fd_name in field_map:
-                        fd = field_map[fd_name]
-                        cv = ContactValue.query.filter_by(field_id=fd.id, value=key_val).first()
-                        if cv:
-                            existing = cv.contact
-                            break
-
-            if existing:
-                contact = existing
-                updated += 1
-            else:
-                contact = Contact(is_visible=True, created_by_id=current_user.id)
-                db.session.add(contact)
-                db.session.flush()
-                created += 1
-
-            for raw_header, norm_name in zip(headers, normalised):
-                value = row.get(raw_header)
-                value = '' if value is None else str(value).strip()
-                fd = field_map.get(norm_name)
-                if not fd:
-                    continue
-                cv = ContactValue.query.filter_by(contact_id=contact.id, field_id=fd.id).first()
-                if cv:
-                    cv.value = value
-                else:
-                    db.session.add(ContactValue(contact_id=contact.id, field_id=fd.id, value=value))
 
         db.session.commit()
         flash(f'Importación completada: {created} creados, {updated} actualizados.', 'success')
@@ -1547,8 +1274,7 @@ def contacts_import():
 @login_required
 @admin_required
 def contacts_export():
-    fields = FieldDefinition.query.order_by(FieldDefinition.field_order).all()
-    contacts_list = Contact.query.order_by(Contact.id).all()
+    contacts_list = Contact.query.order_by(Contact.nombre).all()
 
     if request.method == 'POST':
         ids_raw = request.form.get('contact_ids', '').strip()
@@ -1558,10 +1284,7 @@ def contacts_export():
         else:
             selected = contacts_list
 
-        visible_fields_only = request.form.get('visible_fields_only') == 'on'
-        export_fields = [f for f in fields if f.is_visible] if visible_fields_only else fields
-
-        buffer = export_contacts_to_excel(selected, export_fields)
+        buffer = export_contacts_to_excel(selected)
         return send_file(
             buffer,
             as_attachment=True,
@@ -1569,4 +1292,4 @@ def contacts_export():
             mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
         )
 
-    return render_template('admin/contacts_export.html', fields=fields, contacts=contacts_list)
+    return render_template('admin/contacts_export.html', contacts=contacts_list)

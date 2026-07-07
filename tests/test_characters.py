@@ -76,6 +76,42 @@ def test_create_character_with_profession_history(db, client, regular_user, logi
     assert ordered[1].is_current is True
 
 
+def test_create_character_with_es_untersuchung(db, client, regular_user, login_as):
+    login_as(client, regular_user, 'userpass123')
+    resp = client.post('/personajes/nuevo', data={
+        'name': 'Agente Encubierto', 'es_untersuchung': 'on',
+    }, follow_redirects=True)
+    assert resp.status_code == 200
+
+    char = Character.query.filter_by(name='Agente Encubierto').first()
+    assert char.es_untersuchung is True
+
+
+def test_create_character_defaults_es_untersuchung_false(db, client, regular_user, login_as):
+    login_as(client, regular_user, 'userpass123')
+    client.post('/personajes/nuevo', data={'name': 'Civil'}, follow_redirects=True)
+    char = Character.query.filter_by(name='Civil').first()
+    assert char.es_untersuchung is False
+
+
+def test_create_character_with_profession_salary(db, client, regular_user, login_as, make_profession):
+    prof = make_profession(name='Herrero')
+    login_as(client, regular_user, 'userpass123')
+
+    resp = client.post('/personajes/nuevo', data={
+        'name': 'Gotrek',
+        'profession_ids': [str(prof.id)],
+        'tipo_sueldo_list': ['Artesanos'],
+        'estado_habilidad_list': ['Buena'],
+    }, follow_redirects=True)
+    assert resp.status_code == 200
+
+    char = Character.query.filter_by(name='Gotrek').first()
+    cp = char.professions[0]
+    assert cp.tipo_sueldo == 'Artesanos'
+    assert cp.estado_habilidad == 'Buena'
+
+
 def test_edit_blocks_non_owner(client, make_user, make_character, login_as):
     owner = make_user(username='owner1', password='ownerpass123')
     other = make_user(username='other1', password='otherpass123')

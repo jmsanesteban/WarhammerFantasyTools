@@ -1,5 +1,5 @@
 {% extends 'base.html' %}
-{% block title %}{{ contact.get_display_name(fields) }} — Warhammer Fantasy Tools{% endblock %}
+{% block title %}{{ contact.nombre }} — Warhammer Fantasy Tools{% endblock %}
 
 {% block content %}
 <div class="container mt-4">
@@ -8,13 +8,23 @@
     <a href="{{ url_for('contacts.index') }}" class="btn btn-outline-secondary btn-sm">
       <i class="bi bi-arrow-left me-1"></i>Volver
     </a>
+    {% if characters|length > 1 %}
+    <form method="GET" class="d-flex gap-2 align-items-center">
+      <label class="wh-label small mb-0">Ver como</label>
+      <select name="personaje_id" class="form-select form-select-sm wh-input" onchange="this.form.submit()">
+        {% for c in characters %}
+        <option value="{{ c.id }}" {% if active_character and active_character.id == c.id %}selected{% endif %}>{{ c.name }}</option>
+        {% endfor %}
+      </select>
+    </form>
+    {% endif %}
   </div>
 
-  {# ── Datos del contacto ─────────────────────────────────────────────────── #}
-  <div class="card wh-card mb-4" style="max-width:700px">
+  {# ── Datos globales del contacto ──────────────────────────────────────── #}
+  <div class="card wh-card mb-4" style="max-width:760px">
     <div class="card-header wh-card-header d-flex justify-content-between align-items-center">
       <div>
-        <h2 class="wh-heading mb-0" style="font-size:1.3rem">{{ contact.get_display_name(fields) }}</h2>
+        <h2 class="wh-heading mb-0" style="font-size:1.3rem">{{ contact.nombre }}</h2>
         <small class="text-muted">Contacto #{{ contact.id }}</small>
       </div>
       {% if current_user.is_admin %}
@@ -25,18 +35,12 @@
     </div>
     <div class="card-body">
       <dl class="row mb-0">
-        {% for field in fields %}
-        {% set value = contact.get_value(field.id) %}
-        {% if value %}
-        <dt class="col-sm-4 wh-label">
-          {{ field.display_name }}
-          {% if current_user.is_admin and not field.is_visible %}
-          <span class="badge bg-secondary" style="font-size:.65rem">Oculto</span>
-          {% endif %}
-        </dt>
-        <dd class="col-sm-8">{{ value }}</dd>
+        <dt class="col-sm-4 wh-label">Profesiones</dt>
+        <dd class="col-sm-8">{{ contact.professions|map(attribute='profession.name')|join(', ') or '—' }}</dd>
+        {% if current_user.is_admin or (active_character and active_character.es_untersuchung) %}
+        <dt class="col-sm-4 wh-label">Untersuchung</dt>
+        <dd class="col-sm-8">{{ 'Sí' if contact.es_untersuchung else 'No' }}</dd>
         {% endif %}
-        {% endfor %}
       </dl>
     </div>
     <div class="card-footer d-flex justify-content-between align-items-center">
@@ -52,159 +56,137 @@
     </div>
   </div>
 
-  {# ── Vínculos (admin) ─────────────────────────────────────────────────────── #}
-  {% if current_user.is_admin %}
-  <div class="card wh-card mb-4" style="max-width:700px">
+  {% if not active_character %}
+  <div class="alert wh-alert" style="max-width:760px">
+    Necesitas al menos un personaje para registrar tu propia visión de este contacto.
+  </div>
+  {% else %}
+
+  {# ── Vínculo del personaje activo ─────────────────────────────────────── #}
+  <div class="card wh-card mb-4" style="max-width:760px">
     <div class="card-header wh-card-header">
-      <h3 class="wh-heading mb-0" style="font-size:1.1rem">Vínculos</h3>
-      <small class="text-muted">Solo visible para administradores. Cada usuario solo ve la relación de sus propios vínculos.</small>
+      <h3 class="wh-heading mb-0" style="font-size:1.1rem">Vínculo de {{ active_character.name }}</h3>
+      <small class="text-muted">Solo tu personaje ve estos datos — otro personaje puede tener una visión distinta del mismo contacto.</small>
     </div>
-
-    {% if persona_links %}
-    <div class="table-responsive">
-      <table class="table wh-table align-middle mb-0">
-        <thead>
-          <tr>
-            <th>Vínculo</th>
-            <th>Usuario</th>
-            <th>Relación</th>
-            <th style="width:3.5rem"></th>
-          </tr>
-        </thead>
-        <tbody>
-          {% for link in persona_links %}
-          <tr>
-            <td><strong>{{ link.persona.name }}</strong></td>
-            <td class="text-muted small">{{ link.persona.user.username if link.persona.user else '—' }}</td>
-            <td>
-              <form method="POST"
-                    action="{{ url_for('admin.admin_persona_relationship', contact_id=contact.id, persona_id=link.persona_id) }}"
-                    class="d-flex gap-2 align-items-center">
-                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                <input type="text" name="relationship" value="{{ link.relationship_note or '' }}"
-                       class="form-control form-control-sm wh-input" placeholder="Sin descripción">
-                <button type="submit" class="btn btn-outline-secondary btn-sm" title="Guardar">
-                  <i class="bi bi-check-lg"></i>
-                </button>
-              </form>
-            </td>
-            <td>
-              <form method="POST"
-                    action="{{ url_for('admin.admin_unlink_persona', contact_id=contact.id, persona_id=link.persona_id) }}"
-                    onsubmit="return confirm('¿Desvincular «{{ link.persona.name }}» de este contacto?')">
-                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                <button type="submit" class="btn btn-outline-danger btn-sm" title="Desvincular">
-                  <i class="bi bi-x-lg"></i>
-                </button>
-              </form>
-            </td>
-          </tr>
-          {% endfor %}
-        </tbody>
-      </table>
-    </div>
-    {% endif %}
-
-    {% if available_personas %}
-    <div class="card-body {% if persona_links %}border-top{% endif %}">
-      <form method="POST" action="{{ url_for('admin.admin_link_persona', contact_id=contact.id) }}"
-            class="d-flex gap-2 align-items-end flex-wrap">
+    <div class="card-body">
+      <form method="POST" action="{{ url_for('contacts.link_save', contact_id=contact.id) }}">
         <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-        <div>
-          <label class="wh-label d-block">Vínculo</label>
-          <select name="persona_id" class="form-select form-select-sm wh-input" required>
-            <option value="">Selecciona…</option>
-            {% for persona in available_personas %}
-            <option value="{{ persona.id }}">
-              {{ persona.name }}{% if persona.user %} ({{ persona.user.username }}){% endif %}
-            </option>
-            {% endfor %}
-          </select>
+        <input type="hidden" name="personaje_id" value="{{ active_character.id }}">
+        <div class="row g-3">
+          <div class="col-md-6">
+            <label class="form-label wh-label">Nivel de relación (-5 a 5)</label>
+            <input type="number" name="nivel" class="form-control wh-input" min="-5" max="5"
+                   value="{{ my_link.nivel if my_link and my_link.nivel is not none else '' }}">
+          </div>
+          <div class="col-md-6">
+            <label class="form-label wh-label">Apodo(s)</label>
+            <input type="text" name="apodos" class="form-control wh-input"
+                   value="{{ my_link.apodos[0].texto if my_link and my_link.apodos|length > 0 else '' }}">
+            <input type="text" name="apodos" class="form-control wh-input mt-1"
+                   value="{{ my_link.apodos[1].texto if my_link and my_link.apodos|length > 1 else '' }}"
+                   placeholder="Otro apodo (opcional)">
+          </div>
+          <div class="col-md-6">
+            <label class="form-label wh-label">Organización / secta (si no es Untersuchung)</label>
+            <input type="text" name="organizacion_secta" class="form-control wh-input" placeholder="No / N/A"
+                   value="{{ my_link.organizacion_secta if my_link else '' }}">
+          </div>
+          <div class="col-md-6">
+            <label class="form-label wh-label">Lugar de residencia</label>
+            <input type="text" name="lugar_residencia" class="form-control wh-input"
+                   placeholder="Conocido / Desconocido / dirección"
+                   value="{{ my_link.lugar_residencia if my_link else '' }}">
+          </div>
+          <div class="col-md-6">
+            <label class="form-label wh-label">Lugar de contacto</label>
+            <input type="text" name="lugar_contacto" class="form-control wh-input"
+                   value="{{ my_link.lugar_contacto if my_link else '' }}">
+          </div>
+          <div class="col-md-4">
+            <label class="form-label wh-label">GM</label>
+            <input type="text" name="gm" class="form-control wh-input" value="{{ my_link.gm if my_link else '' }}">
+          </div>
+          <div class="col-md-4">
+            <label class="form-label wh-label">Misión</label>
+            <input type="text" name="mision" class="form-control wh-input" value="{{ my_link.mision if my_link else '' }}">
+          </div>
+          <div class="col-md-4 d-flex align-items-end">
+            <label class="d-flex align-items-center gap-2" style="cursor:pointer">
+              <input type="checkbox" name="creacion" class="form-check-input"
+                     {% if my_link and my_link.creacion %}checked{% endif %}>
+              Viene de la creación del personaje
+            </label>
+          </div>
         </div>
-        <div class="flex-grow-1" style="min-width:180px">
-          <label class="wh-label d-block">Relación (opcional)</label>
-          <input type="text" name="relationship" class="form-control form-control-sm wh-input"
-                 placeholder="Describe la relación…">
+        <div class="d-flex gap-2 mt-3">
+          <button type="submit" class="btn btn-wh btn-sm">{{ 'Actualizar vínculo' if my_link else 'Crear vínculo' }}</button>
+          {% if my_link %}
+          <button type="submit" formaction="{{ url_for('contacts.link_delete', contact_id=contact.id) }}"
+                  class="btn btn-outline-danger btn-sm"
+                  onclick="return confirm('¿Eliminar tu vínculo con este contacto?')">Eliminar vínculo</button>
+          {% endif %}
         </div>
-        <button type="submit" class="btn btn-wh btn-sm">Vincular</button>
       </form>
     </div>
-    {% elif not persona_links %}
-    <div class="card-body">
-      <small class="text-muted">
-        No hay vínculos disponibles. <a href="{{ url_for('admin.contact_personas') }}" class="wh-link">Crear vínculos</a>
-      </small>
-    </div>
-    {% else %}
-    <div class="card-body">
-      <small class="text-muted">Todos los vínculos ya están asociados a este contacto.</small>
-    </div>
-    {% endif %}
   </div>
 
-  {# ── Mis vínculos (usuario normal) ────────────────────────────────────────── #}
-  {% else %}
-  <div class="card wh-card mb-4" style="max-width:700px">
+  {# ── Salarios por profesión ───────────────────────────────────────────── #}
+  {% if my_link and contact.professions %}
+  <div class="card wh-card mb-4" style="max-width:760px">
     <div class="card-header wh-card-header">
-      <h3 class="wh-heading mb-0" style="font-size:1.1rem">Mis vínculos</h3>
+      <h3 class="wh-heading mb-0" style="font-size:1.1rem">Salario</h3>
+      <small class="text-muted">Elegido manualmente de la tabla de sueldos, no calculado automáticamente.</small>
     </div>
-    {% if my_personas %}
     <div class="table-responsive">
       <table class="table wh-table align-middle mb-0">
         <thead>
           <tr>
-            <th>Vínculo</th>
-            <th>Relación con este contacto</th>
-            <th style="width:8rem"></th>
+            <th>Profesión</th>
+            <th colspan="3">Sueldo</th>
           </tr>
         </thead>
         <tbody>
-          {% for persona in my_personas %}
-          {% set link = my_persona_links.get(persona.id) %}
+          {% for cp in contact.professions %}
+          {% set existing = (my_link.salarios|selectattr('profession_id', 'equalto', cp.profession_id)|first) %}
           <tr>
-            <td><strong>{{ persona.name }}</strong></td>
-            <td>
-              <form method="POST"
-                    action="{{ url_for('contacts.persona_relationship_save', contact_id=contact.id, persona_id=persona.id) }}"
-                    class="d-flex gap-2 align-items-center">
+            <td>{{ cp.profession.name }}</td>
+            <td colspan="3">
+              <form method="POST" action="{{ url_for('contacts.salary_save', contact_id=contact.id) }}"
+                    class="d-flex gap-2 flex-wrap align-items-center">
                 <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                <input type="text" name="relationship" value="{{ link.relationship_note if link else '' }}"
-                       class="form-control form-control-sm wh-input"
-                       placeholder="{% if link %}Sin descripción{% else %}Vincular y describir relación…{% endif %}">
-                <button type="submit" class="btn btn-outline-secondary btn-sm" title="Guardar">
-                  {% if link %}<i class="bi bi-check-lg"></i>{% else %}+ Vincular{% endif %}
-                </button>
+                <input type="hidden" name="personaje_id" value="{{ active_character.id }}">
+                <input type="hidden" name="profession_id" value="{{ cp.profession_id }}">
+                <select name="tipo_sueldo" class="form-select form-select-sm wh-input" style="max-width:220px">
+                  <option value="">— Tipo de sueldo —</option>
+                  {% for t in salary_table.tipos %}
+                  <option value="{{ t.tipo }}" {% if existing and existing.tipo_sueldo == t.tipo %}selected{% endif %}>
+                    {{ t.tipo }} ({{ t.sueldo_semanal }}/semana)
+                  </option>
+                  {% endfor %}
+                </select>
+                <select name="estado_habilidad" class="form-select form-select-sm wh-input" style="max-width:180px">
+                  <option value="">— Estado —</option>
+                  {% for e in salary_table.estados_habilidad %}
+                  <option value="{{ e.estado }}" {% if existing and existing.estado_habilidad == e.estado %}selected{% endif %}>
+                    {{ e.estado }} (x{{ e.multiplicador }})
+                  </option>
+                  {% endfor %}
+                </select>
+                <button type="submit" class="btn btn-outline-secondary btn-sm">Guardar</button>
               </form>
-            </td>
-            <td>
-              {% if link %}
-              <form method="POST"
-                    action="{{ url_for('contacts.persona_unlink', contact_id=contact.id, persona_id=persona.id) }}"
-                    onsubmit="return confirm('¿Desvincular «{{ persona.name }}» de este contacto?')">
-                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                <button type="submit" class="btn btn-outline-danger btn-sm">Desvincular</button>
-              </form>
-              {% else %}
-              <small class="text-muted">Sin vincular</small>
-              {% endif %}
             </td>
           </tr>
           {% endfor %}
         </tbody>
       </table>
     </div>
-    {% else %}
-    <div class="card-body">
-      <small class="text-muted">No tienes vínculos asignados. Contacta con el administrador.</small>
-    </div>
-    {% endif %}
   </div>
   {% endif %}
 
-  {# ── Notas ──────────────────────────────────────────────────────────────── #}
-  <div class="card wh-card mb-4" style="max-width:700px">
+  {# ── Notas (propias del personaje activo) ─────────────────────────────── #}
+  <div class="card wh-card mb-4" style="max-width:760px">
     <div class="card-header wh-card-header">
-      <h3 class="wh-heading mb-0" style="font-size:1.1rem">Notas</h3>
+      <h3 class="wh-heading mb-0" style="font-size:1.1rem">Notas de {{ active_character.name }}</h3>
     </div>
 
     {% if notes %}
@@ -213,27 +195,14 @@
       <div class="pb-3 mb-3 {% if not loop.last %}border-bottom{% endif %}" style="border-color: var(--wh-border) !important">
         <div class="d-flex justify-content-between align-items-start gap-2">
           <div class="flex-grow-1 min-w-0">
-            <div class="small text-muted mb-1 d-flex gap-2 align-items-center flex-wrap">
-              {% if current_user.is_admin %}<strong>{{ note.author.username }}</strong> ·{% endif %}
-              {{ note.created_at.strftime('%d/%m/%Y %H:%M') }}
-              {% if note.is_global %}
-              <span class="badge bg-success" style="font-size:.65rem">Global</span>
-              {% else %}
-              <span class="badge bg-secondary" style="font-size:.65rem">Privada</span>
-              {% endif %}
-            </div>
+            <div class="small text-muted mb-1">{{ note.created_at.strftime('%d/%m/%Y %H:%M') }}</div>
             <div id="note-view-{{ note.id }}">
               <p class="mb-0" style="white-space:pre-wrap;line-height:1.55">{{ note.content }}</p>
             </div>
             <div id="note-edit-{{ note.id }}" style="display:none">
-              <form method="POST"
-                    action="{{ url_for('contacts.note_edit', contact_id=contact.id, note_id=note.id) }}">
+              <form method="POST" action="{{ url_for('contacts.note_edit', contact_id=contact.id, note_id=note.id) }}">
                 <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                 <textarea name="content" class="form-control wh-input mb-2" rows="3">{{ note.content }}</textarea>
-                <label class="d-flex align-items-center gap-2 small mb-2" style="cursor:pointer">
-                  <input type="checkbox" name="is_global" class="form-check-input" {% if note.is_global %}checked{% endif %}>
-                  Nota global (visible para todos)
-                </label>
                 <div class="d-flex gap-2">
                   <button type="submit" class="btn btn-wh btn-sm">Guardar</button>
                   <button type="button" class="btn btn-outline-secondary btn-sm"
@@ -242,18 +211,15 @@
               </form>
             </div>
           </div>
-          {% if current_user.is_admin or note.author_id == current_user.id %}
           <div class="d-flex gap-1 flex-shrink-0">
             <button type="button" class="btn btn-outline-secondary btn-sm" title="Editar"
                     onclick="toggleNoteEdit({{ note.id }})"><i class="bi bi-pencil"></i></button>
-            <form method="POST"
-                  action="{{ url_for('contacts.note_delete', contact_id=contact.id, note_id=note.id) }}"
+            <form method="POST" action="{{ url_for('contacts.note_delete', contact_id=contact.id, note_id=note.id) }}"
                   onsubmit="return confirm('¿Eliminar esta nota?')">
               <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
               <button type="submit" class="btn btn-outline-danger btn-sm" title="Eliminar"><i class="bi bi-trash"></i></button>
             </form>
           </div>
-          {% endif %}
         </div>
       </div>
       {% endfor %}
@@ -263,21 +229,17 @@
     <div class="card-body {% if notes %}border-top{% endif %}">
       <form method="POST" action="{{ url_for('contacts.note_create', contact_id=contact.id) }}">
         <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <input type="hidden" name="personaje_id" value="{{ active_character.id }}">
         <div class="mb-2">
           <label class="wh-label d-block">Nueva nota</label>
           <textarea name="content" class="form-control wh-input" rows="2"
                     placeholder="Escribe una nota sobre este contacto…"></textarea>
         </div>
-        <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
-          <label class="d-flex align-items-center gap-2 small" style="cursor:pointer">
-            <input type="checkbox" name="is_global" class="form-check-input">
-            Nota global (visible para todos)
-          </label>
-          <button type="submit" class="btn btn-wh btn-sm">Añadir nota</button>
-        </div>
+        <button type="submit" class="btn btn-wh btn-sm">Añadir nota</button>
       </form>
     </div>
   </div>
+  {% endif %}
 
 </div>
 {% endblock %}

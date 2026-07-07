@@ -40,7 +40,7 @@ def create_app(config_name='default'):
     # Import models so Flask-Migrate detects them
     from app.models import (  # noqa: F401
         user, permission, profession, skill, talent, character, synonym,
-        contact, contact_persona, contact_note,
+        contact, contact_character_link, contact_note,
     )
 
     _register_cli_commands(app)
@@ -224,6 +224,74 @@ def _register_cli_commands(app):
                     if 'specialization' not in tbl_cols:
                         conn.execute(text(f'ALTER TABLE {tbl} ADD COLUMN specialization VARCHAR(150) NULL'))
                         click.echo(f'  Added {tbl}.specialization')
+
+            # Incremental column: characters.es_untersuchung
+            char_cols = {c['name'] for c in inspector.get_columns('characters')}
+            with db.engine.begin() as conn:
+                if 'es_untersuchung' not in char_cols:
+                    conn.execute(text(
+                        'ALTER TABLE characters ADD COLUMN es_untersuchung '
+                        'BOOLEAN NOT NULL DEFAULT FALSE'
+                    ))
+                    click.echo('  Added characters.es_untersuchung')
+
+            # Incremental columns: character_professions salary (tabla de sueldos,
+            # aplica también a la carrera del propio personaje, no solo a Contactos)
+            cp_cols = {c['name'] for c in inspector.get_columns('character_professions')}
+            with db.engine.begin() as conn:
+                if 'tipo_sueldo' not in cp_cols:
+                    conn.execute(text('ALTER TABLE character_professions ADD COLUMN tipo_sueldo VARCHAR(30) NULL'))
+                    click.echo('  Added character_professions.tipo_sueldo')
+                if 'estado_habilidad' not in cp_cols:
+                    conn.execute(text('ALTER TABLE character_professions ADD COLUMN estado_habilidad VARCHAR(20) NULL'))
+                    click.echo('  Added character_professions.estado_habilidad')
+
+            # Contactos: rediseño de esquema (de EAV genérico a columnas fijas).
+            # nombre/es_untersuchung son nuevas en `contacts`; se rellenan a partir
+            # de los datos EAV antiguos si existían, y las tablas EAV/persona,
+            # ya sin uso, se eliminan.
+            contact_cols = {c['name'] for c in inspector.get_columns('contacts')}
+            with db.engine.begin() as conn:
+                if 'nombre' not in contact_cols:
+                    conn.execute(text('ALTER TABLE contacts ADD COLUMN nombre VARCHAR(150) NULL'))
+                    click.echo('  Added contacts.nombre')
+                if 'es_untersuchung' not in contact_cols:
+                    conn.execute(text(
+                        'ALTER TABLE contacts ADD COLUMN es_untersuchung BOOLEAN NOT NULL DEFAULT FALSE'
+                    ))
+                    click.echo('  Added contacts.es_untersuchung')
+
+            if inspector.has_table('field_definitions') and inspector.has_table('contact_values'):
+                with db.engine.begin() as conn:
+                    rows = conn.execute(text(
+                        "SELECT cv.contact_id, fd.name, cv.value FROM contact_values cv "
+                        "JOIN field_definitions fd ON fd.id = cv.field_id "
+                        "WHERE fd.name IN ('nombre', 'apellidos')"
+                    )).fetchall()
+                    by_contact = {}
+                    for contact_id, field_name, value in rows:
+                        by_contact.setdefault(contact_id, {})[field_name] = value
+                    for contact_id, parts in by_contact.items():
+                        nombre = ' '.join(v for v in (parts.get('nombre'), parts.get('apellidos')) if v).strip()
+                        if nombre:
+                            conn.execute(
+                                text('UPDATE contacts SET nombre = :nombre WHERE id = :id'),
+                                {'nombre': nombre, 'id': contact_id},
+                            )
+                    if by_contact:
+                        click.echo(f'  Backfilled contacts.nombre for {len(by_contact)} legacy row(s)')
+
+            with db.engine.begin() as conn:
+                conn.execute(text(
+                    "UPDATE contacts SET nombre = CONCAT('Contacto #', id) WHERE nombre IS NULL OR nombre = ''"
+                ))
+                conn.execute(text('ALTER TABLE contacts MODIFY nombre VARCHAR(150) NOT NULL'))
+
+            for legacy_tbl in ('contact_values', 'field_definitions', 'contact_persona_links', 'contact_personas'):
+                if inspector.has_table(legacy_tbl):
+                    with db.engine.begin() as conn:
+                        conn.execute(text(f'DROP TABLE {legacy_tbl}'))
+                        click.echo(f'  Dropped legacy table {legacy_tbl}')
 
             click.echo('Database tables created/verified.')
 

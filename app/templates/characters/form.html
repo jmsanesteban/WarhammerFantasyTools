@@ -29,6 +29,13 @@
               <option value="Otro" {% if char and char.gender=='Otro' %}selected{% endif %}>Otro</option>
             </select>
           </div>
+          <div class="col-md-4 d-flex align-items-end">
+            <label class="d-flex align-items-center gap-2" style="cursor:pointer">
+              <input type="checkbox" name="es_untersuchung" class="form-check-input"
+                     {% if char and char.es_untersuchung %}checked{% endif %}>
+              Miembro de la Untersuchung
+            </label>
+          </div>
           <div class="col-12">
             <label class="form-label wh-label">Notas</label>
             <textarea name="notes" rows="2" class="form-control wh-input">{{ char.notes if char and char.notes else '' }}</textarea>
@@ -46,11 +53,25 @@
         </button>
       </div>
       <div class="card-body" id="profList">
+        {% macro salary_selects(cp=none) %}
+        <select name="tipo_sueldo_list" class="form-select form-select-sm wh-input" style="max-width:210px">
+          <option value="">— Tipo de sueldo —</option>
+          {% for t in salary_table.tipos %}
+          <option value="{{ t.tipo }}" {% if cp and cp.tipo_sueldo == t.tipo %}selected{% endif %}>{{ t.tipo }}</option>
+          {% endfor %}
+        </select>
+        <select name="estado_habilidad_list" class="form-select form-select-sm wh-input" style="max-width:160px">
+          <option value="">— Estado —</option>
+          {% for e in salary_table.estados_habilidad %}
+          <option value="{{ e.estado }}" {% if cp and cp.estado_habilidad == e.estado %}selected{% endif %}>{{ e.estado }}</option>
+          {% endfor %}
+        </select>
+        {% endmacro %}
         {% if char and char.professions %}
           {% for cp in char.professions %}
-          <div class="d-flex align-items-center gap-2 mb-2 prof-row">
+          <div class="d-flex align-items-center gap-2 mb-2 prof-row flex-wrap">
             <span class="text-muted">{{ loop.index }}.</span>
-            <select name="profession_ids" class="form-select wh-input">
+            <select name="profession_ids" class="form-select wh-input" style="max-width:260px">
               <option value="">— Selecciona —</option>
               {% for p in professions %}
               <option value="{{ p.id }}" {% if cp.profession and cp.profession.id == p.id %}selected{% endif %}>
@@ -58,18 +79,20 @@
               </option>
               {% endfor %}
             </select>
+            {{ salary_selects(cp) }}
             <button type="button" class="btn btn-outline-danger btn-sm remove-prof"><i class="bi bi-x-lg"></i></button>
           </div>
           {% endfor %}
         {% else %}
-        <div class="d-flex align-items-center gap-2 mb-2 prof-row">
+        <div class="d-flex align-items-center gap-2 mb-2 prof-row flex-wrap">
           <span class="text-muted">1.</span>
-          <select name="profession_ids" class="form-select wh-input">
+          <select name="profession_ids" class="form-select wh-input" style="max-width:260px">
             <option value="">— Selecciona —</option>
             {% for p in professions %}
             <option value="{{ p.id }}">{{ p.name }}</option>
             {% endfor %}
           </select>
+          {{ salary_selects() }}
           <button type="button" class="btn btn-outline-danger btn-sm remove-prof"><i class="bi bi-x-lg"></i></button>
         </div>
         {% endif %}
@@ -85,12 +108,24 @@
 
 <!-- Template for new profession row -->
 <template id="profRowTemplate">
-  <div class="d-flex align-items-center gap-2 mb-2 prof-row">
+  <div class="d-flex align-items-center gap-2 mb-2 prof-row flex-wrap">
     <span class="prof-index text-muted"></span>
-    <select name="profession_ids" class="form-select wh-input">
+    <select name="profession_ids" class="form-select wh-input" style="max-width:260px">
       <option value="">— Selecciona —</option>
       {% for p in professions %}
       <option value="{{ p.id }}">{{ p.name }}</option>
+      {% endfor %}
+    </select>
+    <select name="tipo_sueldo_list" class="form-select form-select-sm wh-input" style="max-width:210px">
+      <option value="">— Tipo de sueldo —</option>
+      {% for t in salary_table.tipos %}
+      <option value="{{ t.tipo }}">{{ t.tipo }}</option>
+      {% endfor %}
+    </select>
+    <select name="estado_habilidad_list" class="form-select form-select-sm wh-input" style="max-width:160px">
+      <option value="">— Estado —</option>
+      {% for e in salary_table.estados_habilidad %}
+      <option value="{{ e.estado }}">{{ e.estado }}</option>
       {% endfor %}
     </select>
     <button type="button" class="btn btn-outline-danger btn-sm remove-prof"><i class="bi bi-x-lg"></i></button>

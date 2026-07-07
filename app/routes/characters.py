@@ -12,6 +12,7 @@ from app.models.profession import Profession
 from app.models.skill import Skill
 from app.models.talent import Talent
 from app.services import character_creation_service as ccs
+from app.services import salary_service
 
 characters_bp = Blueprint('characters', __name__, template_folder='../templates')
 
@@ -34,6 +35,26 @@ def detail(char_id):
     return render_template('characters/detail.html', char=char)
 
 
+def _rebuild_professions(char_id):
+    """Rebuild a character's ordered profession list (with salary tier) from
+    the 3 parallel repeated form fields - profession_ids/tipo_sueldo_list/
+    estado_habilidad_list line up by DOM order, same convention already used
+    for profession_ids alone."""
+    prof_ids = request.form.getlist('profession_ids')
+    tipo_list = request.form.getlist('tipo_sueldo_list')
+    estado_list = request.form.getlist('estado_habilidad_list')
+    for order, prof_id_str in enumerate(prof_ids):
+        if prof_id_str:
+            db.session.add(CharacterProfession(
+                character_id=char_id,
+                profession_id=int(prof_id_str),
+                order=order,
+                is_current=(order == len(prof_ids) - 1),
+                tipo_sueldo=(tipo_list[order] if order < len(tipo_list) else '') or None,
+                estado_habilidad=(estado_list[order] if order < len(estado_list) else '') or None,
+            ))
+
+
 @characters_bp.route('/nuevo', methods=['GET', 'POST'])
 @login_required
 def create():
@@ -43,7 +64,8 @@ def create():
         name = request.form.get('name', '').strip()
         if not name:
             flash('El personaje necesita un nombre.', 'danger')
-            return render_template('characters/form.html', char=None, professions=professions)
+            return render_template('characters/form.html', char=None, professions=professions,
+                                   salary_table=salary_service.get_salary_table())
 
         char = Character(
             user_id=current_user.id,
@@ -51,27 +73,19 @@ def create():
             race=request.form.get('race', '').strip() or None,
             gender=request.form.get('gender', '').strip() or None,
             notes=request.form.get('notes', '').strip() or None,
+            es_untersuchung=request.form.get('es_untersuchung') == 'on',
         )
         db.session.add(char)
         db.session.flush()
 
-        # Professions ordered list
-        prof_ids = request.form.getlist('profession_ids')
-        for order, prof_id_str in enumerate(prof_ids):
-            if prof_id_str:
-                cp = CharacterProfession(
-                    character_id=char.id,
-                    profession_id=int(prof_id_str),
-                    order=order,
-                    is_current=(order == len(prof_ids) - 1),
-                )
-                db.session.add(cp)
+        _rebuild_professions(char.id)
 
         db.session.commit()
         flash(f'Personaje "{char.name}" creado.', 'success')
         return redirect(url_for('characters.detail', char_id=char.id))
 
-    return render_template('characters/form.html', char=None, professions=professions)
+    return render_template('characters/form.html', char=None, professions=professions,
+                           salary_table=salary_service.get_salary_table())
 
 
 @characters_bp.route('/<int:char_id>/editar', methods=['GET', 'POST'])
@@ -88,25 +102,18 @@ def edit(char_id):
         char.race = request.form.get('race', '').strip() or None
         char.gender = request.form.get('gender', '').strip() or None
         char.notes = request.form.get('notes', '').strip() or None
+        char.es_untersuchung = request.form.get('es_untersuchung') == 'on'
 
         # Rebuild profession list
         CharacterProfession.query.filter_by(character_id=char.id).delete()
-        prof_ids = request.form.getlist('profession_ids')
-        for order, prof_id_str in enumerate(prof_ids):
-            if prof_id_str:
-                cp = CharacterProfession(
-                    character_id=char.id,
-                    profession_id=int(prof_id_str),
-                    order=order,
-                    is_current=(order == len(prof_ids) - 1),
-                )
-                db.session.add(cp)
+        _rebuild_professions(char.id)
 
         db.session.commit()
         flash(f'Personaje "{char.name}" actualizado.', 'success')
         return redirect(url_for('characters.detail', char_id=char.id))
 
-    return render_template('characters/form.html', char=char, professions=professions)
+    return render_template('characters/form.html', char=char, professions=professions,
+                           salary_table=salary_service.get_salary_table())
 
 
 @characters_bp.route('/<int:char_id>/eliminar', methods=['POST'])
@@ -136,6 +143,7 @@ def generator():
         professions=professions,
         history_point_options=ccs.history_point_options(),
         tables=ccs.get_frontend_tables(),
+        salary_table=salary_service.get_salary_table(),
     )
 
 
@@ -227,6 +235,7 @@ def generator_save():
         dinero_coronas=_int('dinero_coronas') or 0,
         history_points_total=_int('history_points_total') or 0,
         history_points_spent=_int('history_points_spent') or 0,
+        es_untersuchung=request.form.get('es_untersuchung') == 'on',
     )
     for field in Character.PRIMARY_FIELDS + Character.SECONDARY_FIELDS:
         setattr(char, field, _int(field))
@@ -234,14 +243,7 @@ def generator_save():
     db.session.add(char)
     db.session.flush()
 
-    # Professions ordered list (reusa el mismo widget que la creación rápida)
-    prof_ids = request.form.getlist('profession_ids')
-    for order, prof_id_str in enumerate(prof_ids):
-        if prof_id_str:
-            db.session.add(CharacterProfession(
-                character_id=char.id, profession_id=int(prof_id_str),
-                order=order, is_current=(order == len(prof_ids) - 1),
-            ))
+    _rebuild_professions(char.id)
 
     # Habilidades y talentos raciales/de procedencia (nombres de texto libre -
     # se enlazan al catálogo cuando hay coincidencia exacta con el nombre base;

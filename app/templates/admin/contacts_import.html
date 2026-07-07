@@ -13,9 +13,10 @@
   <div class="card wh-card" style="max-width:560px">
     <div class="card-body">
       <p class="text-muted">
-        Sube un archivo Excel (.xlsx, .xls). La primera fila debe contener los encabezados —
-        cualquier columna nueva creará automáticamente un campo. Las columnas <code>nombre</code>/<code>apellidos</code>
-        se usan como clave para detectar contactos existentes si activas la actualización.
+        Sube un archivo Excel (.xlsx, .xls) con las columnas <code>nombre</code>, <code>es_untersuchung</code>
+        (sí/no) y <code>profesiones</code> (nombres separados por comas, deben existir ya en el catálogo de
+        Profesiones — las que no coincidan se ignoran). La columna <code>nombre</code> se usa como clave para
+        detectar contactos existentes si activas la actualización.
       </p>
       <form method="POST" enctype="multipart/form-data">
         <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
@@ -26,7 +27,7 @@
         <div class="mb-3">
           <label class="d-flex align-items-center gap-2" style="cursor:pointer">
             <input type="checkbox" name="update_existing" class="form-check-input">
-            Actualizar contactos existentes (por nombre y apellidos)
+            Actualizar contactos existentes (por nombre)
           </label>
         </div>
         <button type="submit" class="btn btn-wh">Importar</button>
