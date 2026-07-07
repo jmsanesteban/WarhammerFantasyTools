@@ -822,14 +822,14 @@ Pasos del asistente, en orden:
 1. **Raza** — tira dos veces y elige uno de los dos resultados (te da +1 Punto de Historial), o elige la raza directamente sin tirar.
 2. **Profesión** — tira tres veces (según la raza elegida) y elige un resultado (+1 PH), o selecciona la profesión directamente del catálogo. Si la profesión tirada no existe todavía en el catálogo, créala primero desde **Profesiones** y luego selecciónala aquí.
 3. **Características** — tira el perfil primario y secundario completo según la raza (incluye Bono de Fuerza/Resistencia calculados y las horas de sueño estimadas).
-4. **Signo astral** — tira el signo (da un rasgo de personalidad y modificadores), o pulsa "Omitir" para no tirarlo y ganar +1 PH en su lugar.
+4. **Signo astral** — tira el signo (da un rasgo de personalidad y modificadores, mostrados también en la tabla manual junto a cada signo), o pulsa "Omitir" para no tirarlo y ganar +1 PH en su lugar.
 5. **Altura, peso y edad** — tres tiradas encadenadas (el peso depende de la altura ya tirada).
 6. **Apariencia** — color de pelo, ojos y mano dominante.
 7. **Procedencia** — provincia y población de origen (o patria de origen para no humanos).
 8. **Situación familiar** — huérfano, hijo único o número de hermanos (con sexo y edad relativa).
-9. **Sucesos de juventud** — tira tantas veces como el grado de edad + 1 indique; los resultados de tipo contacto/amigo/enemigo se añaden automáticamente a la lista de contactos.
-10. **Puntos de Historial** — el contador de PH disponibles/gastados se actualiza automáticamente según lo tirado y elegido en los pasos anteriores. Cada opción de gasto (objeto mágico, talento aleatorio extra, posesiones, etc.) tiene su propio botón; algunas conllevan tirar también en la tabla de estética, personalidad o desventajas (el "peaje").
-11. **Habilidades y talentos raciales** — se muestran automáticamente según la raza (y la provincia, si es humano imperial), incluyendo el bono especial de provincia. El botón de talento aleatorio tira los talentos aleatorios base de la raza.
+9. **Sucesos de juventud** — tira tantas veces como el grado de edad + 1 indique; los resultados de tipo contacto/amigo/enemigo se añaden automáticamente a la lista de contactos. Los sucesos narrativos que no tiene sentido repetir (p. ej. "Madre muerta", "Padres divorciados") no pueden salir dos veces en el mismo personaje — si se repite la tirada, se vuelve a tirar automáticamente.
+10. **Puntos de Historial** — el contador de PH disponibles/gastados se actualiza automáticamente según lo tirado y elegido en los pasos anteriores (re-tirar un paso ya bonificado no vuelve a sumar el mismo bono). Cada opción de gasto (objeto mágico —dos tiradas encadenadas: tipo y luego propiedad—, talento aleatorio extra, posesiones, etc.) tiene su propio botón; algunas conllevan tirar también en la tabla de estética, personalidad o desventajas (el "peaje"). Las opciones "Misericordia de Shallya" y "+2%/+1 PV" abren un selector para elegir sobre qué característica (o Heridas) actuar.
+11. **Habilidades y talentos raciales** — se muestran automáticamente según la raza (y la provincia, si es humano imperial), incluyendo el bono especial de provincia. El botón de talento aleatorio tira los talentos aleatorios base de la raza; el mismo talento no puede salir dos veces para un mismo personaje.
 12. **Carrera profesional** — igual que en la creación rápida.
 
 Al guardar, el personaje queda con toda la ficha completa: características, trasfondo, rasgos, contactos, posesiones y objetos mágicos, visibles en su página de detalle.
