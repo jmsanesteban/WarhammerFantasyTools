@@ -113,7 +113,8 @@ class Drink(db.Model):
     origen = db.Column(db.String(50), nullable=False)  # nación/raza de origen
     disponibilidad = db.Column(db.String(20), nullable=True)
     calidad = db.Column(db.String(20), nullable=True)
-    sabor = db.Column(db.String(100), nullable=True)
+    sabor = db.Column(db.String(20), nullable=True)  # categoría base: Extraño, Fuerte, Suave, Raro, Mala, Bueno...
+    sabor_variante = db.Column(db.String(30), nullable=True)  # descriptor concreto cuando sabor es Extraño/Raro
     ui_texto = db.Column(db.String(100), nullable=True)  # cantidad para 1 Unidad de Intoxicación
     recipiente = db.Column(db.String(30), nullable=True)  # recipiente servido en taberna
     precio_taberna_peniques = db.Column(db.Integer, nullable=True)  # precio de 1 recipiente en taberna

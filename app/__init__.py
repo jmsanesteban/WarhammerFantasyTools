@@ -333,6 +333,18 @@ def _register_cli_commands(app):
                     click.echo('  Dropped legacy-shape contact_notes (recreating with character_id)')
                 db.create_all()
 
+            # drinks.sabor changed meaning (base category instead of descriptor+parens)
+            # and gained sabor_variante. It's a closed catalog seeded only from JSON
+            # (never user-edited), so a shape change just drops and reseeds it rather
+            # than migrating rows in place.
+            if inspector.has_table('drinks'):
+                drink_cols = {c['name'] for c in inspector.get_columns('drinks')}
+                if 'sabor_variante' not in drink_cols:
+                    with db.engine.begin() as conn:
+                        conn.execute(text('DROP TABLE drinks'))
+                        click.echo('  Dropped legacy-shape drinks table (recreating with sabor_variante)')
+                    db.create_all()
+
             click.echo('Database tables created/verified.')
 
             # Seed permissions and default templates (idempotent)

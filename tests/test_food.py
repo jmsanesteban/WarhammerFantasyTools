@@ -53,6 +53,57 @@ def test_drinks_list_and_filter_by_origen(app, client, regular_user, login_as):
     assert 'Cerveza negra Bugman 6X'.encode('utf-8') not in resp.data
 
 
+def test_drinks_filter_by_sabor_calidad_disponibilidad(app, client, regular_user, login_as):
+    with app.app_context():
+        seed_food_catalog()
+    login_as(client, regular_user, 'userpass123')
+
+    # 'Cerveza' (Bretonia) sabor was transcribed as 'Malo (extraño)' - split into
+    # base category 'Extraño' + variante 'Malo'.
+    resp = client.get('/comida/bebidas?sabor=Extra%C3%B1o')
+    assert resp.status_code == 200
+    assert 'Cerveza</strong>'.encode('utf-8') in resp.data
+    assert 'Malo'.encode('utf-8') in resp.data
+    assert 'Kvas'.encode('utf-8') not in resp.data
+
+    resp = client.get('/comida/bebidas?calidad=Excelente')
+    assert resp.status_code == 200
+    assert 'Cerveza negra Bugman 6X'.encode('utf-8') in resp.data
+
+    resp = client.get('/comida/bebidas?disponibilidad=Muy+rara')
+    assert resp.status_code == 200
+    assert 'Cerveza negra Bugman 6X'.encode('utf-8') in resp.data
+    assert 'Kvas'.encode('utf-8') not in resp.data
+
+
+def test_drinks_sabor_split_into_categoria_y_variante(app, db):
+    with app.app_context():
+        seed_food_catalog()
+        cerveza = Drink.query.filter_by(nombre='Cerveza', origen='Bretonia').first()
+        assert cerveza.sabor == 'Extraño'
+        assert cerveza.sabor_variante == 'Malo'
+        vino = Drink.query.filter_by(nombre='Vino', origen='Bretonia').first()
+        assert vino.sabor == 'Normal'
+        assert vino.sabor_variante is None
+
+
+def test_drinks_sort_by_precio(app, client, regular_user, login_as):
+    with app.app_context():
+        seed_food_catalog()
+    login_as(client, regular_user, 'userpass123')
+
+    resp = client.get('/comida/bebidas?origen=Imperio&sort=precio&dir=asc')
+    assert resp.status_code == 200
+    text = resp.data.decode('utf-8')
+    # Cheapest Imperio drink ('Cerveza rubia', 1p) should appear before the
+    # most expensive ones when sorted ascending by price.
+    assert text.index('Cerveza rubia') < text.index('Vino</strong>')
+
+    resp = client.get('/comida/bebidas?origen=Imperio&sort=precio&dir=desc')
+    text_desc = resp.data.decode('utf-8')
+    assert text_desc.index('Vino</strong>') < text_desc.index('Cerveza rubia')
+
+
 def test_drink_detail_shows_notes(app, client, regular_user, login_as):
     with app.app_context():
         seed_food_catalog()
@@ -77,6 +128,23 @@ def test_recipes_list_and_filter(app, client, regular_user, login_as):
     assert resp.status_code == 200
     assert 'Tributo de Manann'.encode('utf-8') in resp.data
     assert 'Chuletón a la brasa'.encode('utf-8') not in resp.data
+
+
+def test_recipes_sort_by_coste_creacion(app, client, regular_user, login_as):
+    with app.app_context():
+        seed_food_catalog()
+    login_as(client, regular_user, 'userpass123')
+
+    resp = client.get('/comida/recetas?sort=coste_creacion&dir=asc')
+    assert resp.status_code == 200
+    text = resp.data.decode('utf-8')
+    # 'Verduras secas' (coste_creacion=3) is the cheapest craftable recipe;
+    # 'Venado dulce trufado' (coste_creacion=53) is the most expensive.
+    assert text.index('Verduras secas') < text.index('Venado dulce trufado')
+
+    resp = client.get('/comida/recetas?sort=coste_creacion&dir=desc')
+    text_desc = resp.data.decode('utf-8')
+    assert text_desc.index('Venado dulce trufado') < text_desc.index('Verduras secas')
 
 
 def test_recipe_detail_shows_ingredients_and_method(app, client, regular_user, login_as):

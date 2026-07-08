@@ -1,6 +1,15 @@
 {% extends 'base.html' %}
 {% block title %}Bebidas — Warhammer Fantasy Tools{% endblock %}
 
+{% macro sort_link(field, label) %}
+{% set new_dir = 'desc' if sort == field and direction == 'asc' else 'asc' %}
+<a href="{{ url_for('food.drinks', q=search, origen=origen, sabor=sabor, calidad=calidad, disponibilidad=disponibilidad, sort=field, dir=new_dir) }}"
+   class="wh-link text-decoration-none text-nowrap">
+  {{ label }}
+  {% if sort == field %}<i class="bi bi-caret-{{ 'up' if direction == 'asc' else 'down' }}-fill"></i>{% endif %}
+</a>
+{% endmacro %}
+
 {% block content %}
 <div class="container mt-4">
   <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
@@ -10,11 +19,11 @@
     </a>
   </div>
 
-  <form method="GET" class="row g-2 mb-4">
-    <div class="col-md-6">
+  <form method="GET" class="row g-2 mb-2">
+    <div class="col-md-4">
       <input type="text" name="q" class="form-control wh-input" placeholder="Buscar por nombre…" value="{{ search }}">
     </div>
-    <div class="col-md-3">
+    <div class="col-md-2">
       <select name="origen" class="form-select wh-input">
         <option value="">Todos los orígenes</option>
         {% for o in origenes %}
@@ -23,12 +32,44 @@
       </select>
     </div>
     <div class="col-md-2">
-      <button class="btn btn-wh w-100" type="submit"><i class="bi bi-search me-1"></i>Filtrar</button>
+      <select name="sabor" class="form-select wh-input">
+        <option value="">Todos los sabores</option>
+        {% for s in sabores %}
+        <option value="{{ s }}" {% if sabor == s %}selected{% endif %}>{{ s }}</option>
+        {% endfor %}
+      </select>
     </div>
-    {% if search or origen %}
-    <div class="col-md-1">
-      <a href="{{ url_for('food.drinks') }}" class="btn btn-outline-secondary w-100" title="Limpiar">
-        <i class="bi bi-x-lg"></i>
+    <div class="col-md-2">
+      <select name="calidad" class="form-select wh-input">
+        <option value="">Todas las calidades</option>
+        {% for c in calidades %}
+        <option value="{{ c }}" {% if calidad == c %}selected{% endif %}>{{ c }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div class="col-md-2">
+      <select name="disponibilidad" class="form-select wh-input">
+        <option value="">Toda disponibilidad</option>
+        {% for d in disponibilidades %}
+        <option value="{{ d }}" {% if disponibilidad == d %}selected{% endif %}>{{ d }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div class="col-md-auto">
+      <button class="btn btn-wh" type="submit"><i class="bi bi-search me-1"></i>Filtrar</button>
+    </div>
+    {% if search or origen or sabor or calidad or disponibilidad %}
+    <div class="col-md-auto">
+      <a href="{{ url_for('food.drinks') }}" class="btn btn-outline-secondary" title="Limpiar filtros">
+        <i class="bi bi-x-lg me-1"></i>Limpiar filtros
+      </a>
+    </div>
+    {% endif %}
+    {% if sort %}
+    <div class="col-md-auto">
+      <a href="{{ url_for('food.drinks', q=search, origen=origen, sabor=sabor, calidad=calidad, disponibilidad=disponibilidad) }}"
+         class="btn btn-outline-secondary" title="Orden por defecto (origen, nombre)">
+        <i class="bi bi-arrow-counterclockwise me-1"></i>Orden por defecto
       </a>
     </div>
     {% endif %}
@@ -41,13 +82,13 @@
     <table class="table wh-table align-middle">
       <thead>
         <tr>
-          <th>Nombre</th>
-          <th>Origen</th>
-          <th>Disponibilidad</th>
-          <th>Calidad</th>
-          <th>Sabor</th>
+          <th>{{ sort_link('nombre', 'Nombre') }}</th>
+          <th>{{ sort_link('origen', 'Origen') }}</th>
+          <th>{{ sort_link('disponibilidad', 'Disponibilidad') }}</th>
+          <th>{{ sort_link('calidad', 'Calidad') }}</th>
+          <th>{{ sort_link('sabor', 'Sabor') }}</th>
           <th>Recipiente</th>
-          <th>Precio (taberna)</th>
+          <th>{{ sort_link('precio', 'Precio (taberna)') }}</th>
           <th>Cantidad</th>
           <th>Total</th>
           <th style="width:5rem"></th>
@@ -60,7 +101,10 @@
           <td>{{ drink.origen }}</td>
           <td>{{ drink.disponibilidad or '—' }}</td>
           <td>{{ drink.calidad or '—' }}</td>
-          <td>{{ drink.sabor or '—' }}</td>
+          <td>
+            {{ drink.sabor or '—' }}
+            {% if drink.sabor_variante %}<br><small class="text-muted">{{ drink.sabor_variante }}</small>{% endif %}
+          </td>
           <td>{{ drink.recipiente or '—' }}</td>
           <td data-peniques="{{ drink.precio_taberna_peniques or 0 }}" class="wh-price">
             {{ drink.precio_taberna_peniques | food_money }}

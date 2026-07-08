@@ -1,6 +1,15 @@
 {% extends 'base.html' %}
 {% block title %}Recetas — Warhammer Fantasy Tools{% endblock %}
 
+{% macro sort_link(field, label) %}
+{% set new_dir = 'desc' if sort == field and direction == 'asc' else 'asc' %}
+<a href="{{ url_for('food.recipes', q=search, metodo=metodo, calidad=calidad, sort=field, dir=new_dir) }}"
+   class="wh-link text-decoration-none text-nowrap">
+  {{ label }}
+  {% if sort == field %}<i class="bi bi-caret-{{ 'up' if direction == 'asc' else 'down' }}-fill"></i>{% endif %}
+</a>
+{% endmacro %}
+
 {% block content %}
 <div class="container mt-4">
   <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
@@ -10,7 +19,7 @@
     </a>
   </div>
 
-  <form method="GET" class="row g-2 mb-4">
+  <form method="GET" class="row g-2 mb-2">
     <div class="col-md-4">
       <input type="text" name="q" class="form-control wh-input" placeholder="Buscar por nombre…" value="{{ search }}">
     </div>
@@ -30,9 +39,17 @@
         {% endfor %}
       </select>
     </div>
-    <div class="col-md-2">
-      <button class="btn btn-wh w-100" type="submit"><i class="bi bi-search me-1"></i>Filtrar</button>
+    <div class="col-md-auto">
+      <button class="btn btn-wh" type="submit"><i class="bi bi-search me-1"></i>Filtrar</button>
     </div>
+    {% if sort %}
+    <div class="col-md-auto">
+      <a href="{{ url_for('food.recipes', q=search, metodo=metodo, calidad=calidad) }}"
+         class="btn btn-outline-secondary" title="Orden por defecto (nombre)">
+        <i class="bi bi-arrow-counterclockwise me-1"></i>Orden por defecto
+      </a>
+    </div>
+    {% endif %}
   </form>
 
   {% if not recipes %}
@@ -42,14 +59,14 @@
     <table class="table wh-table align-middle">
       <thead>
         <tr>
-          <th>Nombre</th>
-          <th>Método</th>
-          <th>Calidad</th>
-          <th>Vigor</th>
-          <th>Moral</th>
-          <th>Duración</th>
-          <th>Coste creación (12 raciones)</th>
-          <th>Compra (1 ración)</th>
+          <th>{{ sort_link('nombre', 'Nombre') }}</th>
+          <th>{{ sort_link('metodo', 'Método') }}</th>
+          <th>{{ sort_link('calidad', 'Calidad') }}</th>
+          <th>{{ sort_link('vigor', 'Vigor') }}</th>
+          <th>{{ sort_link('moral', 'Moral') }}</th>
+          <th>{{ sort_link('duracion', 'Duración') }}</th>
+          <th>{{ sort_link('coste_creacion', 'Coste creación (12 raciones)') }}</th>
+          <th>{{ sort_link('precio_compra', 'Compra (1 ración)') }}</th>
           <th style="width:5rem"></th>
         </tr>
       </thead>

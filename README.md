@@ -508,7 +508,7 @@ pytest --cov=app --cov-report=term-missing
 | `tests/test_character_creation_service.py` | Servicio de tiradas del generador de personajes: parseo de fórmulas de dados, barrido completo 1-100 de cada tabla porcentual para las 5 razas (detecta huecos en los datos), agrupación de razas (Elfo Silvano/Alto Elfo comparten tablas de características/altura/peso/edad), y cada función `roll_*` individual |
 | `tests/test_character_generator_routes.py` | Rutas del asistente de creación guiada: página del generador, endpoint de tirada por AJAX (`/generador/tirar`) para cada paso, y el guardado final (ficha completa con características, trasfondo, rasgos, contactos, posesiones y objetos mágicos) |
 | `tests/test_wsgi_prefix.py` | `PrefixMiddleware` (servir la app bajo `URL_PREFIX`, p.ej. `/wft`): recorte de prefijo + `SCRIPT_NAME`, tolerancia con peticiones sin prefijo, y generación de URLs correctas de extremo a extremo con `url_for()` |
-| `tests/test_food.py` | Comida y bebida (Fase 1 — catálogos): siembra idempotente del catálogo (`seed_food_catalog`), conversión/formateo de moneda (`currency_service`), listado y filtro de bebidas/recetas, ficha de bebida (calculadora de precio, notas) y de receta (ingredientes/condimentos, recetas "solo compra"), páginas de referencia de ingredientes/métodos de cocina, y que todas las rutas exigen login |
+| `tests/test_food.py` | Comida y bebida (Fase 1 — catálogos): siembra idempotente del catálogo (`seed_food_catalog`), conversión/formateo de moneda (`currency_service`), listado/filtro (incluidos sabor/calidad/disponibilidad) y ordenación por columna (incluidos los costes) de bebidas/recetas, la división de `sabor` en categoría base + variante, ficha de bebida (calculadora de precio, notas) y de receta (ingredientes/condimentos, recetas "solo compra"), páginas de referencia de ingredientes/métodos de cocina, y que todas las rutas exigen login |
 
 ### Notas de diseño
 
@@ -881,8 +881,8 @@ Ve a **Contactos** en el menú principal. Un contacto (NPC) tiene datos **global
 
 Ve a **Comida y bebida** en el menú principal. Por ahora (Fase 1) es un módulo de solo consulta — no se crean bebidas ni recetas nuevas desde la web todavía.
 
-- **Bebidas**: catálogo completo por nación de origen (Bretonia, Enana, Elfica, Tilea, Estalia, Imperio, Kislev/Norsca, Arabia), con disponibilidad, calidad, sabor y precio en taberna. Filtra por nombre o por origen. En el listado y en la ficha de cada bebida hay una **calculadora de precio**: indica cuántas unidades quieres comprar y el total se calcula al momento (en Coronas de oro / Chelines de plata / Peniques). El dato de "Por mayor" es informativo (% de descuento comprando el tonel completo a un comerciante o productor).
-- **Recetas**: catálogo de las recetas ya elaboradas del libro, con su método de cocina, calidad, vigor, moral, duración, si se puede recalentar, coste de creación (12 raciones) y precio de compra (1 ración). Filtra por método o calidad. Tres recetas especiales (Empanadilla Halfling, Pan de piedra, Lágrimas de Isha) están marcadas como **"Solo compra"**: no se pueden elaborar, solo adquirir ya hechas.
+- **Bebidas**: catálogo completo por nación de origen (Bretonia, Enana, Elfica, Tilea, Estalia, Imperio, Kislev/Norsca, Arabia), con disponibilidad, calidad, sabor y precio en taberna. Filtra por nombre, origen, sabor, calidad o disponibilidad; pulsa en cualquier cabecera de columna para ordenar por ese campo (vuelve a pulsar para invertir el sentido) y usa **"Orden por defecto"** para volver al orden inicial (origen, nombre). En el listado y en la ficha de cada bebida hay una **calculadora de precio**: indica cuántas unidades quieres comprar y el total se calcula al momento (en Coronas de oro / Chelines de plata / Peniques). El dato de "Por mayor" es informativo (% de descuento comprando el tonel completo a un comerciante o productor). El campo **Sabor** tiene una categoría base (Extraño, Fuerte, Suave, Raro, Mala, Bueno, Muy buena, Dulce, Normal...) y, cuando el libro lo especifica, una **variante** más concreta debajo (p.ej. sabor "Extraño", variante "Picante" o "Amargo"; sabor "Raro", variante "Metálico" o "Café").
+- **Recetas**: catálogo de las recetas ya elaboradas del libro, con su método de cocina, calidad, vigor, moral, duración, si se puede recalentar, coste de creación (12 raciones) y precio de compra (1 ración). Filtra por nombre, método o calidad, y ordena por cualquier columna (incluidos ambos costes) igual que en Bebidas. Tres recetas especiales (Empanadilla Halfling, Pan de piedra, Lágrimas de Isha) están marcadas como **"Solo compra"**: no se pueden elaborar, solo adquirir ya hechas.
 - **Ingredientes**: tabla de referencia con el vigor/moral/coste por docena de cada familia de ingrediente, y su compatibilidad con cada método de cocina (Sí / Condimento / No).
 - **Métodos de cocina**: tabla de referencia (Crudo, Ahumado, Secado, Salado, Almíbar, Brasa, Cocido, Guisado, Asar, Hornear) con su vigor/moral/coste/duración base y cuántos ingredientes y condimentos admite cada uno.
 - **Normas**: página de referencia con las reglas de intoxicación por bebidas espirituosas (Achispado/Ebrio/Borracho) y las reglas de vigor y moral diarios. Se muestran tal cual las describe el libro, a título informativo — el sistema de cartas de estado (Fatigado, Motivado, Exhausto, Distraído...) que estas reglas mencionan **todavía no está implementado**; por ahora esos efectos se llevan a mano en partida.
@@ -998,7 +998,10 @@ recipes                     (recetas ya elaboradas del libro; Fase 1 no permite 
 
 drinks                      (catálogo cerrado — "no se van a crear bebidas nuevas")
   ├─ origen                  (nación: Bretonia, Enana, Elfica, Tilea, Estalia, Imperio, Kislev/Norsca, Arabia)
-  ├─ disponibilidad, calidad, sabor, ui_texto, recipiente
+  ├─ disponibilidad, calidad, ui_texto, recipiente
+  ├─ sabor                    (categoría base del libro: Extraño, Fuerte, Suave, Raro, Mala, Bueno...)
+  ├─ sabor_variante           (descriptor concreto, solo si el libro lo daba entre paréntesis: p.ej.
+  │                            sabor="Extraño" + variante="Picante", sabor="Raro" + variante="Café")
   ├─ precio_taberna_peniques, por_mayor_pct
   └─ notas                   (efectos especiales de bebidas concretas)
 ```
