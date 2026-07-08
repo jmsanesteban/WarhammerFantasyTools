@@ -1,0 +1,84 @@
+{% extends 'base.html' %}
+{% block title %}Revisar receta — Warhammer Fantasy Tools{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+  <nav aria-label="breadcrumb">
+    <ol class="breadcrumb wh-breadcrumb">
+      <li class="breadcrumb-item"><a href="{{ url_for('admin.recipes_pending') }}" class="wh-link">Recetas pendientes</a></li>
+      <li class="breadcrumb-item active">{{ recipe.nombre }}</li>
+    </ol>
+  </nav>
+
+  <h2 class="wh-title"><i class="bi bi-egg-fried me-2"></i>{{ recipe.nombre }}</h2>
+  <p class="text-muted">
+    Propuesta por <strong>{{ recipe.created_by.username if recipe.created_by else '—' }}</strong>
+    el {{ recipe.requested_at.strftime('%d/%m/%Y %H:%M') if recipe.requested_at else '—' }}
+    — estado:
+    {% if recipe.status == 'pendiente' %}<span class="badge bg-warning text-dark">Pendiente</span>
+    {% elif recipe.status == 'aprobada' %}<span class="badge bg-success">Aprobada</span>
+    {% else %}<span class="badge bg-danger">Rechazada</span>{% endif %}
+  </p>
+
+  {% if recipe.image_path %}
+  <img src="{{ url_for('main.uploaded_file', filename=recipe.image_path) }}" class="img-fluid rounded mb-3" style="max-height:250px" alt="{{ recipe.nombre }}">
+  {% endif %}
+
+  <div class="card wh-card mb-3">
+    <div class="card-header wh-card-header">Valores calculados</div>
+    <div class="card-body">
+      <dl class="row mb-0">
+        <dt class="col-sm-3">Método de cocina</dt><dd class="col-sm-9">{{ recipe.cooking_method.nombre if recipe.cooking_method else '—' }}</dd>
+        <dt class="col-sm-3">Calidad</dt><dd class="col-sm-9">{{ recipe.calidad or '—' }}</dd>
+        <dt class="col-sm-3">Vigor</dt><dd class="col-sm-9">{{ recipe.vigor }}</dd>
+        <dt class="col-sm-3">Moral</dt><dd class="col-sm-9">{{ recipe.moral }}</dd>
+        <dt class="col-sm-3">Duración</dt><dd class="col-sm-9">{{ recipe.duracion_dias }} días</dd>
+        <dt class="col-sm-3">Se puede recalentar</dt><dd class="col-sm-9">{{ 'Sí' if recipe.recalentar else 'No' }}</dd>
+        <dt class="col-sm-3">Complejidad</dt><dd class="col-sm-9">{{ recipe.complejidad if recipe.complejidad is not none else '—' }}</dd>
+        <dt class="col-sm-3">Coste creación (12 raciones)</dt><dd class="col-sm-9">{{ recipe.coste_creacion_peniques | food_money }}</dd>
+        <dt class="col-sm-3">Precio de compra (1 ración)</dt><dd class="col-sm-9">{{ recipe.precio_compra_peniques | food_money }}</dd>
+        <dt class="col-sm-3">Ingredientes</dt>
+        <dd class="col-sm-9">{{ recipe.ingredientes | map(attribute='nombre') | join(', ') or '—' }}</dd>
+        <dt class="col-sm-3">Condimentos</dt>
+        <dd class="col-sm-9">{{ recipe.condimentos | map(attribute='nombre') | join(', ') or '—' }}</dd>
+        {% if recipe.notas %}
+        <dt class="col-sm-3">Notas</dt><dd class="col-sm-9">{{ recipe.notas }}</dd>
+        {% endif %}
+        {% if recipe.rejection_reason %}
+        <dt class="col-sm-3">Motivo de rechazo</dt><dd class="col-sm-9">{{ recipe.rejection_reason }}</dd>
+        {% endif %}
+      </dl>
+    </div>
+  </div>
+
+  {% if recipe.status == 'pendiente' %}
+  <div class="row g-3">
+    <div class="col-md-6">
+      <form method="POST" action="{{ url_for('admin.recipe_approve', recipe_id=recipe.id) }}"
+            enctype="multipart/form-data" class="card wh-card">
+        <div class="card-body">
+          <h6>Aprobar</h6>
+          <p class="text-muted small">
+            {% if recipe.image_path %}Ya tiene una imagen; puedes subir otra para reemplazarla.
+            {% else %}Hace falta subir una imagen antes de poder aprobarla.{% endif %}
+          </p>
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+          <input type="file" name="imagen" accept="image/png,image/jpeg,image/webp,image/gif" class="form-control form-control-sm mb-2">
+          <button class="btn btn-wh btn-sm"><i class="bi bi-check-circle me-1"></i>Aprobar</button>
+        </div>
+      </form>
+    </div>
+    <div class="col-md-6">
+      <form method="POST" action="{{ url_for('admin.recipe_reject', recipe_id=recipe.id) }}" class="card wh-card">
+        <div class="card-body">
+          <h6>Rechazar</h6>
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+          <textarea name="motivo" class="form-control form-control-sm mb-2" rows="2" placeholder="Motivo (opcional)"></textarea>
+          <button class="btn btn-outline-danger btn-sm"><i class="bi bi-x-circle me-1"></i>Rechazar</button>
+        </div>
+      </form>
+    </div>
+  </div>
+  {% endif %}
+</div>
+{% endblock %}

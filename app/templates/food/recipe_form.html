@@ -1,0 +1,150 @@
+{% extends 'base.html' %}
+{% block title %}Proponer receta — Warhammer Fantasy Tools{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+  <nav aria-label="breadcrumb">
+    <ol class="breadcrumb wh-breadcrumb">
+      <li class="breadcrumb-item"><a href="{{ url_for('food.recipes') }}" class="wh-link">Recetas</a></li>
+      <li class="breadcrumb-item active">Proponer receta</li>
+    </ol>
+  </nav>
+
+  <h2 class="wh-heading mb-3"><i class="bi bi-egg-fried me-2"></i>Proponer una receta nueva</h2>
+  <div class="alert alert-info wh-alert">
+    Vigor, Moral, Coste, Duración, Recalentar y Complejidad se calculan automáticamente a partir del método y los
+    ingredientes/condimentos elegidos. Tu receta quedará <strong>pendiente de revisión</strong> hasta que un
+    administrador la apruebe (y le añada una imagen si hace falta).
+  </div>
+
+  <form method="POST" enctype="multipart/form-data" class="card wh-card">
+    <div class="card-body">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+      <div class="mb-3">
+        <label class="wh-label">Nombre</label>
+        <input type="text" name="nombre" class="form-control wh-input" value="{{ form.get('nombre', '') }}" required>
+      </div>
+
+      <div class="row g-3">
+        <div class="col-md-6">
+          <label class="wh-label">Método de cocina</label>
+          <select name="cooking_method_id" id="cooking-method-select" class="form-select wh-input" required>
+            <option value="">— Elige un método —</option>
+            {% for m in cooking_methods %}
+            <option value="{{ m.id }}" data-ingredientes="{{ m.ingredientes_permitidos }}"
+                    data-condimentos="{{ m.condimentos_permitidos }}"
+                    {% if form.get('cooking_method_id')|string == m.id|string %}selected{% endif %}>
+              {{ m.nombre }}
+            </option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="col-md-6">
+          <label class="wh-label">Calidad</label>
+          <select name="calidad" class="form-select wh-input" required>
+            <option value="">— Elige una calidad —</option>
+            {% for c in calidades %}
+            <option value="{{ c }}" {% if form.get('calidad') == c %}selected{% endif %}>{{ c }}</option>
+            {% endfor %}
+          </select>
+        </div>
+      </div>
+
+      <hr class="my-3">
+      <h6>Ingredientes (hasta 4, según lo que permita el método)</h6>
+      <div class="row g-2 mb-3">
+        {% for slot in (1, 2, 3, 4) %}
+        <div class="col-md-3 wh-ingredient-slot" data-slot="{{ slot }}">
+          <select name="ingrediente_{{ slot }}" class="form-select form-select-sm wh-input wh-ingredient-select">
+            <option value="">— Nada —</option>
+            {% for ing in ingredients %}
+            <option value="{{ ing.id }}" {% if form.get('ingrediente_' ~ slot)|string == ing.id|string %}selected{% endif %}>
+              {{ ing.nombre }}
+            </option>
+            {% endfor %}
+          </select>
+        </div>
+        {% endfor %}
+      </div>
+
+      <h6>Condimentos (hasta 2, según lo que permita el método)</h6>
+      <div class="row g-2 mb-3">
+        {% for slot in (1, 2) %}
+        <div class="col-md-3 wh-condiment-slot" data-slot="{{ slot }}">
+          <select name="condimento_{{ slot }}" class="form-select form-select-sm wh-input wh-condiment-select">
+            <option value="">— Nada —</option>
+            {% for ing in ingredients %}
+            <option value="{{ ing.id }}" {% if form.get('condimento_' ~ slot)|string == ing.id|string %}selected{% endif %}>
+              {{ ing.nombre }}
+            </option>
+            {% endfor %}
+          </select>
+        </div>
+        {% endfor %}
+      </div>
+
+      <div class="mb-3">
+        <label class="wh-label">Notas (opcional)</label>
+        <textarea name="notas" class="form-control wh-input" rows="2">{{ form.get('notas', '') }}</textarea>
+      </div>
+
+      <div class="mb-3">
+        <label class="wh-label">Imagen (opcional — PNG, JPG, WEBP o GIF)</label>
+        <input type="file" name="imagen" accept="image/png,image/jpeg,image/webp,image/gif" class="form-control wh-input">
+      </div>
+
+      <button type="submit" class="btn btn-wh"><i class="bi bi-send me-1"></i>Enviar para revisión</button>
+    </div>
+  </form>
+</div>
+
+<script id="food-compat-data" type="application/json">{{ compat | tojson }}</script>
+<script>
+(function () {
+  var compat = JSON.parse(document.getElementById('food-compat-data').textContent);
+  var methodSelect = document.getElementById('cooking-method-select');
+  var ingredientSlots = document.querySelectorAll('.wh-ingredient-slot');
+  var condimentSlots = document.querySelectorAll('.wh-condiment-slot');
+
+  function applyMethod() {
+    var option = methodSelect.options[methodSelect.selectedIndex];
+    var methodId = option ? option.value : '';
+    var maxIngredientes = option ? parseInt(option.dataset.ingredientes || '0', 10) : 0;
+    var maxCondimentos = option ? parseInt(option.dataset.condimentos || '0', 10) : 0;
+    var methodCompat = (compat && compat[methodId]) || {};
+
+    ingredientSlots.forEach(function (slot) {
+      var visible = parseInt(slot.dataset.slot, 10) <= maxIngredientes;
+      slot.style.display = visible ? '' : 'none';
+      var select = slot.querySelector('select');
+      Array.prototype.forEach.call(select.options, function (opt) {
+        if (!opt.value) return;
+        var estado = methodCompat[opt.value];
+        opt.disabled = estado !== 'si';
+      });
+      if (!visible || (select.value && select.options[select.selectedIndex].disabled)) {
+        select.value = '';
+      }
+    });
+
+    condimentSlots.forEach(function (slot) {
+      var visible = parseInt(slot.dataset.slot, 10) <= maxCondimentos;
+      slot.style.display = visible ? '' : 'none';
+      var select = slot.querySelector('select');
+      Array.prototype.forEach.call(select.options, function (opt) {
+        if (!opt.value) return;
+        var estado = methodCompat[opt.value];
+        opt.disabled = estado !== 'condimento';
+      });
+      if (!visible || (select.value && select.options[select.selectedIndex].disabled)) {
+        select.value = '';
+      }
+    });
+  }
+
+  methodSelect.addEventListener('change', applyMethod);
+  applyMethod();
+})();
+</script>
+{% endblock %}

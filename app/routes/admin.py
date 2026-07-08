@@ -6,6 +6,7 @@ import re
 import threading
 import time
 import uuid
+from datetime import datetime
 from markupsafe import Markup
 from flask import (Blueprint, render_template, redirect, url_for,
                    flash, request, current_app, jsonify, send_file)
@@ -21,6 +22,7 @@ from app.models.contact import Contact, ContactProfession
 from app.models.contact_character_link import ContactCharacterLink, ContactCharacterVisibility
 from app.models.contact_note import ContactNote
 from app.models.character import Character
+from app.models.food import Recipe
 from app.utils import admin_required, allowed_file, generate_secure_password
 from app.services.pdf_processor import process_pdf
 from app.services.contact_import_service import import_contacts_from_excel, export_contacts_to_excel
@@ -133,6 +135,7 @@ def dashboard():
         'total_contacts': Contact.query.count(),
         'visible_contacts': Contact.query.filter_by(is_visible=True).count(),
         'characters': Character.query.count(),
+        'recipes_pending': Recipe.query.filter_by(status='pendiente').count(),
     }
     return render_template('admin/dashboard.html', stats=stats)
 
@@ -1388,3 +1391,70 @@ def contact_links():
         visibility_map=visibility_map,
         note_counts=note_counts,
     )
+
+
+# ---------------------------------------------------------------------------
+# Comida y bebida: revisión de recetas propuestas por usuarios
+# ---------------------------------------------------------------------------
+
+_RECIPE_IMAGE_EXTENSIONS = {'png', 'jpg', 'jpeg', 'webp', 'gif'}
+
+
+@admin_bp.route('/recetas')
+@login_required
+@admin_required
+def recipes_pending():
+    items = Recipe.query.filter_by(status='pendiente').order_by(Recipe.requested_at).all()
+    return render_template('admin/recipes_pending.html', recipes=items)
+
+
+@admin_bp.route('/recetas/<int:recipe_id>')
+@login_required
+@admin_required
+def recipe_review(recipe_id):
+    recipe = Recipe.query.get_or_404(recipe_id)
+    return render_template('admin/recipe_review.html', recipe=recipe)
+
+
+@admin_bp.route('/recetas/<int:recipe_id>/aprobar', methods=['POST'])
+@login_required
+@admin_required
+def recipe_approve(recipe_id):
+    recipe = Recipe.query.get_or_404(recipe_id)
+    file = request.files.get('imagen')
+    if file and file.filename:
+        ext = file.filename.rsplit('.', 1)[-1].lower() if '.' in file.filename else ''
+        if ext not in _RECIPE_IMAGE_EXTENSIONS:
+            flash('La imagen debe ser PNG, JPG, WEBP o GIF.', 'danger')
+            return redirect(url_for('admin.recipe_review', recipe_id=recipe.id))
+        filename = f'{recipe.id}_{int(time.time())}.{ext}'
+        save_path = os.path.join(current_app.config['UPLOAD_FOLDER'], 'recetas', filename)
+        os.makedirs(os.path.dirname(save_path), exist_ok=True)
+        file.save(save_path)
+        recipe.image_path = os.path.join('recetas', filename)
+
+    if not recipe.image_path:
+        flash('La receta necesita una imagen antes de poder aprobarla.', 'danger')
+        return redirect(url_for('admin.recipe_review', recipe_id=recipe.id))
+
+    recipe.status = 'aprobada'
+    recipe.approved_by_id = current_user.id
+    recipe.approved_at = datetime.utcnow()
+    recipe.rejection_reason = None
+    db.session.commit()
+    flash(f'Receta "{recipe.nombre}" aprobada.', 'success')
+    return redirect(url_for('admin.recipes_pending'))
+
+
+@admin_bp.route('/recetas/<int:recipe_id>/rechazar', methods=['POST'])
+@login_required
+@admin_required
+def recipe_reject(recipe_id):
+    recipe = Recipe.query.get_or_404(recipe_id)
+    recipe.status = 'rechazada'
+    recipe.rejection_reason = request.form.get('motivo', '').strip() or None
+    recipe.approved_by_id = current_user.id
+    recipe.approved_at = datetime.utcnow()
+    db.session.commit()
+    flash(f'Receta "{recipe.nombre}" rechazada.', 'warning')
+    return redirect(url_for('admin.recipes_pending'))

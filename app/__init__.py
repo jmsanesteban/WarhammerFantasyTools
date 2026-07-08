@@ -345,6 +345,25 @@ def _register_cli_commands(app):
                         click.echo('  Dropped legacy-shape drinks table (recreating with sabor_variante)')
                     db.create_all()
 
+            # Incremental columns: recipes (Fase 2 - propuestas de usuarios en revisión)
+            if inspector.has_table('recipes'):
+                recipe_cols = {c['name'] for c in inspector.get_columns('recipes')}
+                recipe_new_columns = [
+                    ('complejidad', 'INT NULL'),
+                    ('status', "VARCHAR(20) NOT NULL DEFAULT 'aprobada'"),
+                    ('image_path', 'VARCHAR(300) NULL'),
+                    ('created_by_id', 'INT NULL REFERENCES users(id) ON DELETE SET NULL'),
+                    ('requested_at', 'DATETIME NULL'),
+                    ('approved_by_id', 'INT NULL REFERENCES users(id) ON DELETE SET NULL'),
+                    ('approved_at', 'DATETIME NULL'),
+                    ('rejection_reason', 'TEXT NULL'),
+                ]
+                with db.engine.begin() as conn:
+                    for col_name, col_def in recipe_new_columns:
+                        if col_name not in recipe_cols:
+                            conn.execute(text(f'ALTER TABLE recipes ADD COLUMN {col_name} {col_def}'))
+                            click.echo(f'  Added recipes.{col_name}')
+
             click.echo('Database tables created/verified.')
 
             # Seed permissions and default templates (idempotent)

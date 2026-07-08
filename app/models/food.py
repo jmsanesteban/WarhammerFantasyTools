@@ -74,8 +74,23 @@ class Recipe(db.Model):
     recalentar = db.Column(db.Boolean, nullable=False, default=False)
     coste_creacion_peniques = db.Column(db.Integer, nullable=True)  # 12 raciones
     precio_compra_peniques = db.Column(db.Integer, nullable=True)  # 1 ración ya cocinada
+    # complejidad_base del método + 1 por ingrediente relleno + 2 por condimento relleno
+    complejidad = db.Column(db.Integer, nullable=True)
     solo_compra = db.Column(db.Boolean, nullable=False, default=False)
     notas = db.Column(db.Text, nullable=True)
+
+    # Fase 2: propuestas de usuarios en revisión. Las recetas del libro (sembradas
+    # por food_seed_service) quedan 'aprobada' con created_by_id=None.
+    status = db.Column(db.String(20), nullable=False, default='aprobada')  # 'pendiente' | 'aprobada' | 'rechazada'
+    image_path = db.Column(db.String(300), nullable=True)
+    created_by_id = db.Column(db.Integer, db.ForeignKey('users.id', ondelete='SET NULL'), nullable=True)
+    requested_at = db.Column(db.DateTime, nullable=True)
+    approved_by_id = db.Column(db.Integer, db.ForeignKey('users.id', ondelete='SET NULL'), nullable=True)
+    approved_at = db.Column(db.DateTime, nullable=True)
+    rejection_reason = db.Column(db.Text, nullable=True)
+
+    created_by = db.relationship('User', foreign_keys=[created_by_id])
+    approved_by = db.relationship('User', foreign_keys=[approved_by_id])
 
     ingrediente_1_id = db.Column(db.Integer, db.ForeignKey('ingredients.id'), nullable=True)
     ingrediente_2_id = db.Column(db.Integer, db.ForeignKey('ingredients.id'), nullable=True)

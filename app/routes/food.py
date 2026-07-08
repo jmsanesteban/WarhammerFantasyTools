@@ -1,10 +1,19 @@
-from flask import Blueprint, render_template, request
-from flask_login import login_required
+import os
+from datetime import datetime
+
+from flask import Blueprint, render_template, request, redirect, url_for, flash, current_app, abort
+from flask_login import login_required, current_user
+from werkzeug.utils import secure_filename
+
+from app.extensions import db
 from app.models.food import CookingMethod, Ingredient, IngredientCookingMethod, Recipe, Drink
+from app.services.recipe_calc_service import validate_and_calculate, RecipeCompositionError
 
 food_bp = Blueprint('food', __name__, template_folder='../templates')
 
 _METHOD_ORDER = ['Crudo', 'Ahumado', 'Secado', 'Salado', 'Almíbar', 'Brasa', 'Cocido', 'Guisado', 'Asar', 'Hornear']
+_ALLOWED_IMAGE_EXTENSIONS = {'png', 'jpg', 'jpeg', 'webp', 'gif'}
+_CALIDADES = ('Mala', 'Normal', 'Buena', 'Excelente')
 
 _DRINK_SORT_COLUMNS = {
     'nombre': Drink.nombre, 'origen': Drink.origen, 'disponibilidad': Drink.disponibilidad,
@@ -21,6 +30,19 @@ _RECIPE_SORT_COLUMNS = {
 def _distinct_values(model, column):
     return [v for (v,) in model.query.with_entities(column).filter(column.isnot(None))
             .distinct().order_by(column).all()]
+
+
+def _save_recipe_image(recipe, file_storage):
+    if not file_storage or not file_storage.filename:
+        return
+    ext = file_storage.filename.rsplit('.', 1)[-1].lower() if '.' in file_storage.filename else ''
+    if ext not in _ALLOWED_IMAGE_EXTENSIONS:
+        raise RecipeCompositionError('La imagen debe ser PNG, JPG, WEBP o GIF.')
+    filename = secure_filename(file_storage.filename)
+    save_path = os.path.join(current_app.config['UPLOAD_FOLDER'], 'recetas', filename)
+    os.makedirs(os.path.dirname(save_path), exist_ok=True)
+    file_storage.save(save_path)
+    recipe.image_path = os.path.join('recetas', filename)
 
 
 @food_bp.route('/bebidas')
@@ -81,6 +103,8 @@ def recipes():
     direction = 'desc' if request.args.get('dir') == 'desc' else 'asc'
 
     query = Recipe.query.outerjoin(CookingMethod)
+    if not current_user.is_admin:
+        query = query.filter(Recipe.status == 'aprobada')
     if search:
         query = query.filter(Recipe.nombre.ilike(f'%{search}%'))
     if metodo:
@@ -108,7 +132,89 @@ def recipes():
 @login_required
 def recipe_detail(recipe_id):
     recipe = Recipe.query.get_or_404(recipe_id)
+    if recipe.status != 'aprobada' and not current_user.is_admin and recipe.created_by_id != current_user.id:
+        abort(404)
     return render_template('food/recipe_detail.html', recipe=recipe)
+
+
+@food_bp.route('/recetas/nueva', methods=['GET', 'POST'])
+@login_required
+def propose_recipe():
+    cooking_methods_list = CookingMethod.query.order_by(CookingMethod.id).all()
+    ingredients_list = Ingredient.query.filter(Ingredient.nombre != 'Nada').order_by(Ingredient.nombre).all()
+    compat = {}
+    for row in IngredientCookingMethod.query.all():
+        compat.setdefault(row.cooking_method_id, {})[row.ingredient_id] = row.estado
+
+    if request.method == 'POST':
+        f = request.form
+        nombre = f.get('nombre', '').strip()
+        method = CookingMethod.query.get(f.get('cooking_method_id', type=int))
+        calidad = f.get('calidad', '').strip()
+
+        def _ingredient(field):
+            raw = f.get(field, type=int)
+            return Ingredient.query.get(raw) if raw else None
+
+        ingredientes = [i for i in (_ingredient('ingrediente_1'), _ingredient('ingrediente_2'),
+                                     _ingredient('ingrediente_3'), _ingredient('ingrediente_4')) if i]
+        condimentos = [c for c in (_ingredient('condimento_1'), _ingredient('condimento_2')) if c]
+
+        error = None
+        if not nombre:
+            error = 'El nombre es obligatorio.'
+        elif Recipe.query.filter_by(nombre=nombre).first():
+            error = f'Ya existe una receta llamada "{nombre}".'
+        elif method is None:
+            error = 'Elige un método de cocina.'
+        elif calidad not in _CALIDADES:
+            error = 'Elige una calidad válida.'
+
+        if error is None:
+            try:
+                computed = validate_and_calculate(method, ingredientes, condimentos)
+            except RecipeCompositionError as exc:
+                error = str(exc)
+
+        if error:
+            flash(error, 'danger')
+            return render_template('food/recipe_form.html', cooking_methods=cooking_methods_list,
+                                   ingredients=ingredients_list, compat=compat, calidades=_CALIDADES,
+                                   form=f)
+
+        recipe = Recipe(
+            nombre=nombre, cooking_method_id=method.id, calidad=calidad,
+            notas=f.get('notas', '').strip() or None, solo_compra=False,
+            status='pendiente', created_by_id=current_user.id, requested_at=datetime.utcnow(),
+            ingrediente_1_id=ingredientes[0].id if len(ingredientes) > 0 else None,
+            ingrediente_2_id=ingredientes[1].id if len(ingredientes) > 1 else None,
+            ingrediente_3_id=ingredientes[2].id if len(ingredientes) > 2 else None,
+            ingrediente_4_id=ingredientes[3].id if len(ingredientes) > 3 else None,
+            condimento_1_id=condimentos[0].id if len(condimentos) > 0 else None,
+            condimento_2_id=condimentos[1].id if len(condimentos) > 1 else None,
+            **computed,
+        )
+        try:
+            _save_recipe_image(recipe, request.files.get('imagen'))
+        except RecipeCompositionError as exc:
+            flash(str(exc), 'danger')
+            return render_template('food/recipe_form.html', cooking_methods=cooking_methods_list,
+                                   ingredients=ingredients_list, compat=compat, calidades=_CALIDADES,
+                                   form=f)
+        db.session.add(recipe)
+        db.session.commit()
+        flash('Tu receta se ha enviado para revisión. Un administrador la aprobará en cuanto la revise.', 'success')
+        return redirect(url_for('food.my_recipes'))
+
+    return render_template('food/recipe_form.html', cooking_methods=cooking_methods_list,
+                           ingredients=ingredients_list, compat=compat, calidades=_CALIDADES, form={})
+
+
+@food_bp.route('/recetas/mias')
+@login_required
+def my_recipes():
+    items = Recipe.query.filter_by(created_by_id=current_user.id).order_by(Recipe.requested_at.desc()).all()
+    return render_template('food/my_recipes.html', recipes=items)
 
 
 @food_bp.route('/ingredientes')

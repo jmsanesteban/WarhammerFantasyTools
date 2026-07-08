@@ -31,7 +31,7 @@ Aplicación web para gestionar profesiones, habilidades, talentos y personajes d
 | **Personajes** | Creación rápida (manual) o mediante el **Generador de Personaje**: asistente con tiradas guiadas (raza, profesión, características, trasfondo completo) siguiendo las reglas caseras de creación de personajes jugadores. Carrera profesional con múltiples profesiones en orden |
 | **Contactos** | Agenda de contactos con campos personalizables (EAV), notas, vínculos con "personas" propias de cada usuario, visibilidad por contacto/campo, e importación/exportación Excel. Módulo integrado a partir del proyecto independiente [ContactosWH](https://github.com/jmsanesteban/ContactosWH) (ahora archivado, ver nota histórica en su README) |
 | **Sistema de permisos** | Control granular por función: plantillas de permisos reutilizables + asignaciones directas por usuario; los administradores tienen acceso total |
-| **Comida y bebida** (Fase 1: catálogos) | Catálogo de bebidas por nación con calculadora de precio por cantidad; catálogo de recetas ya hechas (vigor/moral/coste/duración); tablas de referencia de ingredientes y métodos de cocina; página de normas de intoxicación y de vigor/moral diario |
+| **Comida y bebida** | Catálogo de bebidas por nación con calculadora de precio por cantidad; catálogo de recetas (vigor/moral/coste/duración/complejidad); tablas de referencia de ingredientes y métodos de cocina; página de normas de intoxicación y de vigor/moral diario; cualquier usuario puede proponer una receta nueva (cálculo automático de sus valores), que queda pendiente hasta que un administrador la revisa y aprueba |
 
 ---
 
@@ -508,7 +508,8 @@ pytest --cov=app --cov-report=term-missing
 | `tests/test_character_creation_service.py` | Servicio de tiradas del generador de personajes: parseo de fórmulas de dados, barrido completo 1-100 de cada tabla porcentual para las 5 razas (detecta huecos en los datos), agrupación de razas (Elfo Silvano/Alto Elfo comparten tablas de características/altura/peso/edad), y cada función `roll_*` individual |
 | `tests/test_character_generator_routes.py` | Rutas del asistente de creación guiada: página del generador, endpoint de tirada por AJAX (`/generador/tirar`) para cada paso, y el guardado final (ficha completa con características, trasfondo, rasgos, contactos, posesiones y objetos mágicos) |
 | `tests/test_wsgi_prefix.py` | `PrefixMiddleware` (servir la app bajo `URL_PREFIX`, p.ej. `/wft`): recorte de prefijo + `SCRIPT_NAME`, tolerancia con peticiones sin prefijo, y generación de URLs correctas de extremo a extremo con `url_for()` |
-| `tests/test_food.py` | Comida y bebida (Fase 1 — catálogos): siembra idempotente del catálogo (`seed_food_catalog`), conversión/formateo de moneda (`currency_service`), listado/filtro (incluidos sabor/calidad/disponibilidad) y ordenación por columna (incluidos los costes) de bebidas/recetas, la división de `sabor` en categoría base + variante, ficha de bebida (calculadora de precio, notas) y de receta (ingredientes/condimentos, recetas "solo compra"), páginas de referencia de ingredientes/métodos de cocina, y que todas las rutas exigen login |
+| `tests/test_food.py` | Comida y bebida: siembra idempotente del catálogo (`seed_food_catalog`), conversión/formateo de moneda (`currency_service`), listado/filtro (incluidos sabor/calidad/disponibilidad) y ordenación por columna (incluidos los costes) de bebidas/recetas, la división de `sabor` en categoría base + variante, ficha de bebida (calculadora de precio, notas) y de receta (ingredientes/condimentos, recetas "solo compra"), páginas de referencia de ingredientes/métodos de cocina, el servicio de cálculo automático de una receta (`recipe_calc_service`, con "Olla podrida" como caso de regresión exacto contra el libro, y el rechazo de combinaciones incompatibles o con demasiados ingredientes/condimentos), el flujo de propuesta de receta nueva (queda pendiente, oculta del catálogo público y de otros usuarios, visible en "Mis recetas"), y que todas las rutas exigen login |
+| `tests/test_admin_recipes.py` | Revisión admin de recetas propuestas: acceso restringido a administradores, aprobar exige subir una imagen si no la tenía, aprobar publica la receta en el catálogo con la etiqueta "Comunidad" y registra quién/cuándo, rechazar guarda el motivo y el proponente lo ve en "Mis recetas" |
 
 ### Notas de diseño
 
@@ -762,6 +763,16 @@ Puedes crear, editar y eliminar plantillas desde esa pantalla. Al eliminar una p
 
 ---
 
+### Revisar recetas propuestas
+
+Ve a **Admin → Recetas pendientes** (o al indicador "Recetas pendientes" del panel de administración). Cada receta propuesta por un usuario muestra quién la pidió y cuándo, y todos sus valores ya calculados (vigor, moral, coste, precio, duración, complejidad, ingredientes/condimentos) — son de solo lectura, no se editan aquí.
+
+- **Aprobar**: sube una imagen (obligatoria si la receta todavía no tiene una) y pulsa Aprobar. La receta pasa a `aprobada`, se registra qué administrador la aprobó y cuándo, y desde ese momento aparece en el catálogo público de Recetas con la etiqueta "Comunidad".
+- **Rechazar**: puedes indicar un motivo (opcional pero recomendado); el proponente lo verá en su página "Mis recetas".
+- Si algo de la composición está mal (un ingrediente que no pega, un nombre confuso...), la opción más simple es rechazarla con un motivo explicando qué corregir — quien la propuso puede volver a enviarla.
+
+---
+
 ## Guía de operación — Usuario
 
 ### Registro e inicio de sesión
@@ -879,10 +890,11 @@ Ve a **Contactos** en el menú principal. Un contacto (NPC) tiene datos **global
 
 ### Explorar Comida y bebida
 
-Ve a **Comida y bebida** en el menú principal. Por ahora (Fase 1) es un módulo de solo consulta — no se crean bebidas ni recetas nuevas desde la web todavía.
+Ve a **Comida y bebida** en el menú principal.
 
-- **Bebidas**: catálogo completo por nación de origen (Bretonia, Enana, Elfica, Tilea, Estalia, Imperio, Kislev/Norsca, Arabia), con disponibilidad, calidad, sabor y precio en taberna. Filtra por nombre, origen, sabor, calidad o disponibilidad; pulsa en cualquier cabecera de columna para ordenar por ese campo (vuelve a pulsar para invertir el sentido) y usa **"Orden por defecto"** para volver al orden inicial (origen, nombre). En el listado y en la ficha de cada bebida hay una **calculadora de precio**: indica cuántas unidades quieres comprar y el total se calcula al momento (en Coronas de oro / Chelines de plata / Peniques). El dato de "Por mayor" es informativo (% de descuento comprando el tonel completo a un comerciante o productor). El campo **Sabor** tiene una categoría base (Extraño, Fuerte, Suave, Raro, Mala, Bueno, Muy buena, Dulce, Normal...) y, cuando el libro lo especifica, una **variante** más concreta debajo (p.ej. sabor "Extraño", variante "Picante" o "Amargo"; sabor "Raro", variante "Metálico" o "Café").
-- **Recetas**: catálogo de las recetas ya elaboradas del libro, con su método de cocina, calidad, vigor, moral, duración, si se puede recalentar, coste de creación (12 raciones) y precio de compra (1 ración). Filtra por nombre, método o calidad, y ordena por cualquier columna (incluidos ambos costes) igual que en Bebidas. Tres recetas especiales (Empanadilla Halfling, Pan de piedra, Lágrimas de Isha) están marcadas como **"Solo compra"**: no se pueden elaborar, solo adquirir ya hechas.
+- **Bebidas**: catálogo completo por nación de origen (Bretonia, Enana, Elfica, Tilea, Estalia, Imperio, Kislev/Norsca, Arabia), con disponibilidad, calidad, sabor y precio en taberna. Filtra por nombre, origen, sabor, calidad o disponibilidad; pulsa en cualquier cabecera de columna para ordenar por ese campo (vuelve a pulsar para invertir el sentido) y usa **"Orden por defecto"** para volver al orden inicial (origen, nombre). En el listado y en la ficha de cada bebida hay una **calculadora de precio**: indica cuántas unidades quieres comprar y el total se calcula al momento (en Coronas de oro / Chelines de plata / Peniques). El dato de "Por mayor" es informativo (% de descuento comprando el tonel completo a un comerciante o productor). El campo **Sabor** tiene una categoría base (Extraño, Fuerte, Suave, Raro, Mala, Bueno, Muy buena, Dulce, Normal...) y, cuando el libro lo especifica, una **variante** más concreta debajo (p.ej. sabor "Extraño", variante "Picante" o "Amargo"; sabor "Raro", variante "Metálico" o "Café"). No se crean bebidas nuevas — es un catálogo cerrado.
+- **Recetas**: catálogo de recetas, con su método de cocina, calidad, vigor, moral, duración, si se puede recalentar, complejidad, coste de creación (12 raciones) y precio de compra (1 ración). Filtra por nombre, método o calidad, y ordena por cualquier columna (incluidos ambos costes) igual que en Bebidas. Tres recetas especiales (Empanadilla Halfling, Pan de piedra, Lágrimas de Isha) están marcadas como **"Solo compra"**: no se pueden elaborar, solo adquirir ya hechas. Las recetas propuestas por usuarios y ya aprobadas llevan una etiqueta **"Comunidad"**.
+- **Proponer una receta nueva**: cualquier usuario puede proponer una receta desde **Comida y bebida → Proponer receta**. Eliges el método de cocina, hasta 4 ingredientes y 2 condimentos (el formulario solo deja elegir combinaciones válidas para ese método, según la tabla de compatibilidad) y una calidad; Vigor, Moral, Coste, Precio de compra, Duración, Recalentar y Complejidad se **calculan automáticamente** con las mismas fórmulas del libro — no hay que rellenarlos a mano. La receta queda en estado **pendiente** y no aparece en el catálogo público hasta que un administrador la revisa, le añade una imagen y la aprueba (o la rechaza, con un motivo). Desde **Comida y bebida → Mis recetas** puedes ver el estado de todo lo que has propuesto (pendiente/aprobada/rechazada, con el motivo si aplica).
 - **Ingredientes**: tabla de referencia con el vigor/moral/coste por docena de cada familia de ingrediente, y su compatibilidad con cada método de cocina (Sí / Condimento / No).
 - **Métodos de cocina**: tabla de referencia (Crudo, Ahumado, Secado, Salado, Almíbar, Brasa, Cocido, Guisado, Asar, Hornear) con su vigor/moral/coste/duración base y cuántos ingredientes y condimentos admite cada uno.
 - **Normas**: página de referencia con las reglas de intoxicación por bebidas espirituosas (Achispado/Ebrio/Borracho) y las reglas de vigor y moral diarios. Se muestran tal cual las describe el libro, a título informativo — el sistema de cartas de estado (Fatigado, Motivado, Exhausto, Distraído...) que estas reglas mencionan **todavía no está implementado**; por ahora esos efectos se llevan a mano en partida.
@@ -989,12 +1001,17 @@ ingredients                 (Nada, Raíces, Verduras... Aceites — 20 familias 
   ├─ vigor, moral, coste_docena
   └─ ingredient_cooking_methods → compatibilidad con cada método ('si' | 'no' | 'condimento')
 
-recipes                     (recetas ya elaboradas del libro; Fase 1 no permite crear nuevas)
+recipes                     (recetas del libro + propuestas de usuarios, ver app/services/recipe_calc_service.py)
   ├─ cooking_method_id → cooking_methods   (null si solo_compra)
-  ├─ vigor, moral, calidad, duracion_dias, recalentar
+  ├─ vigor, moral, calidad, duracion_dias, recalentar, complejidad
   ├─ coste_creacion_peniques (12 raciones), precio_compra_peniques (1 ración)
   ├─ solo_compra              (True = las 3 recetas especiales que no se pueden elaborar)
-  └─ ingrediente_1..4_id, condimento_1/2_id → ingredients  (slots fijos, como en la tabla del libro)
+  ├─ ingrediente_1..4_id, condimento_1/2_id → ingredients  (slots fijos, como en la tabla del libro)
+  ├─ status                   ('pendiente' | 'aprobada' | 'rechazada' — el libro siembra 'aprobada')
+  ├─ image_path               (igual que Profession.image_path; obligatoria para aprobar una propuesta)
+  ├─ created_by_id, requested_at → users   (quién la propuso y cuándo; null en las del libro)
+  ├─ approved_by_id, approved_at → users   (quién la aprobó/rechazó y cuándo)
+  └─ rejection_reason         (motivo opcional cuando se rechaza)
 
 drinks                      (catálogo cerrado — "no se van a crear bebidas nuevas")
   ├─ origen                  (nación: Bretonia, Enana, Elfica, Tilea, Estalia, Imperio, Kislev/Norsca, Arabia)
@@ -1097,7 +1114,8 @@ WarhammerFantasyTools/
     │   ├── salary_service.py     # Tabla de referencia de sueldos (Contactos y Personajes)
     │   ├── character_creation_service.py  # Tiradas del Generador de Personaje (dados, tablas porcentuales)
     │   ├── currency_service.py   # Conversión/formateo Coronas de oro / Chelines de plata / Peniques
-    │   └── food_seed_service.py  # Siembra idempotente del catálogo de Comida y bebida desde app/data/food/
+    │   ├── food_seed_service.py  # Siembra idempotente del catálogo de Comida y bebida desde app/data/food/
+    │   └── recipe_calc_service.py  # Cálculo de vigor/moral/coste/precio/duración/complejidad de una receta
     ├── templates/
     │   ├── base.html             # Layout base con nav adaptativo
     │   ├── admin/
@@ -1113,7 +1131,12 @@ WarhammerFantasyTools/
     │   │   ├── contacts.html             # Listado/administración de contactos
     │   │   ├── contacts_import.html
     │   │   ├── contacts_export.html
-    │   │   └── contact_links.html         # Directorio Vínculos: contacto↔personaje + usuario propietario
+    │   │   ├── contact_links.html         # Directorio Vínculos: contacto↔personaje + usuario propietario
+    │   │   ├── recipes_pending.html        # Cola de recetas propuestas pendientes de revisión
+    │   │   └── recipe_review.html          # Ficha de revisión: valores calculados + subir imagen + aprobar/rechazar
+    │   ├── food/
+    │   │   ├── recipe_form.html    # Proponer receta: método/ingredientes/condimentos filtrados por compatibilidad
+    │   │   └── my_recipes.html     # Estado (pendiente/aprobada/rechazada) de las propias propuestas
     │   ├── contacts/
     │   │   ├── index.html         # Listado de contactos (respeta visibilidad, selector "ver como")
     │   │   ├── detail.html        # Ficha: datos globales, vínculo del personaje activo, salario, notas

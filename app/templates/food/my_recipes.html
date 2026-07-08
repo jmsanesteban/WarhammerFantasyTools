@@ -1,0 +1,53 @@
+{% extends 'base.html' %}
+{% block title %}Mis recetas — Warhammer Fantasy Tools{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+  <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+    <h2 class="wh-heading mb-0"><i class="bi bi-person-lines-fill me-2"></i>Mis recetas propuestas</h2>
+    <a href="{{ url_for('food.propose_recipe') }}" class="btn btn-wh btn-sm">
+      <i class="bi bi-plus-circle me-1"></i>Proponer otra receta
+    </a>
+  </div>
+
+  {% if not recipes %}
+  <div class="alert wh-alert">
+    Todavía no has propuesto ninguna receta. <a href="{{ url_for('food.propose_recipe') }}" class="wh-link">Propón la primera</a>.
+  </div>
+  {% else %}
+  <div class="table-responsive">
+    <table class="table wh-table align-middle">
+      <thead>
+        <tr>
+          <th>Nombre</th>
+          <th>Método</th>
+          <th>Estado</th>
+          <th>Fecha de solicitud</th>
+          <th style="width:5rem"></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for recipe in recipes %}
+        <tr>
+          <td><strong>{{ recipe.nombre }}</strong></td>
+          <td>{{ recipe.cooking_method.nombre if recipe.cooking_method else '—' }}</td>
+          <td>
+            {% if recipe.status == 'pendiente' %}<span class="badge bg-warning text-dark">Pendiente</span>
+            {% elif recipe.status == 'aprobada' %}<span class="badge bg-success">Aprobada</span>
+            {% else %}<span class="badge bg-danger">Rechazada</span>{% endif %}
+            {% if recipe.status == 'rechazada' and recipe.rejection_reason %}
+            <div class="small text-muted">{{ recipe.rejection_reason }}</div>
+            {% endif %}
+          </td>
+          <td>{{ recipe.requested_at.strftime('%d/%m/%Y %H:%M') if recipe.requested_at else '—' }}</td>
+          <td>
+            <a href="{{ url_for('food.recipe_detail', recipe_id=recipe.id) }}" class="btn btn-outline-secondary btn-sm">Ver</a>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% endif %}
+</div>
+{% endblock %}

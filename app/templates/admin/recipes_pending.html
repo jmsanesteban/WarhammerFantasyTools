@@ -1,0 +1,44 @@
+{% extends 'base.html' %}
+{% block title %}Recetas pendientes — Warhammer Fantasy Tools{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+  <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+    <h2 class="wh-heading mb-0"><i class="bi bi-egg-fried me-2"></i>Recetas pendientes de revisión</h2>
+    <a href="{{ url_for('admin.dashboard') }}" class="btn btn-outline-secondary btn-sm">
+      <i class="bi bi-arrow-left me-1"></i>Panel
+    </a>
+  </div>
+
+  {% if not recipes %}
+  <div class="alert wh-alert">No hay ninguna receta pendiente de revisión.</div>
+  {% else %}
+  <div class="table-responsive">
+    <table class="table wh-table align-middle">
+      <thead>
+        <tr>
+          <th>Nombre</th>
+          <th>Método</th>
+          <th>Propuesta por</th>
+          <th>Fecha de solicitud</th>
+          <th style="width:7rem"></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for recipe in recipes %}
+        <tr>
+          <td><strong>{{ recipe.nombre }}</strong></td>
+          <td>{{ recipe.cooking_method.nombre if recipe.cooking_method else '—' }}</td>
+          <td>{{ recipe.created_by.username if recipe.created_by else '—' }}</td>
+          <td>{{ recipe.requested_at.strftime('%d/%m/%Y %H:%M') if recipe.requested_at else '—' }}</td>
+          <td>
+            <a href="{{ url_for('admin.recipe_review', recipe_id=recipe.id) }}" class="btn btn-outline-secondary btn-sm">Revisar</a>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% endif %}
+</div>
+{% endblock %}

@@ -61,6 +61,16 @@
         </div>
       </div>
     </div>
+    <div class="col-md-2">
+      <a href="{{ url_for('admin.recipes_pending') }}" class="text-decoration-none">
+        <div class="card wh-card text-center">
+          <div class="card-body">
+            <div class="wh-stat-number">{{ stats.recipes_pending }}</div>
+            <small>Recetas pendientes</small>
+          </div>
+        </div>
+      </a>
+    </div>
   </div>
 
   {% if stats.skills == 0 or stats.talents == 0 %}
