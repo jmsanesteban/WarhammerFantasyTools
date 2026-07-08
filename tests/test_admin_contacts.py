@@ -92,6 +92,47 @@ def test_visibility_save_empty_nivel_revokes_access(db, client, admin_user, regu
     assert ContactCharacterVisibility.query.filter_by(contact_id=contact.id, character_id=char.id).first() is None
 
 
+# ── Vínculos (directorio admin contacto↔personaje) ──────────────────────────
+
+def test_contact_links_requires_admin(client, regular_user, login_as):
+    login_as(client, regular_user, 'userpass123')
+    resp = client.get('/admin/vinculos')
+    assert resp.status_code == 403
+
+
+def test_contact_links_shows_owner_username_and_level(client, admin_user, regular_user, make_character,
+                                                       make_contact, make_contact_link, make_contact_visibility,
+                                                       login_as):
+    char = make_character(regular_user, name='Karl-Heinz')
+    contact = make_contact(nombre='Wilhelm el tabernero')
+    make_contact_link(char, contact, nivel=3)
+    make_contact_visibility(char, contact, 'parcial')
+    login_as(client, admin_user, 'adminpass123')
+
+    resp = client.get('/admin/vinculos')
+    assert resp.status_code == 200
+    assert b'Wilhelm el tabernero' in resp.data
+    assert b'Karl-Heinz' in resp.data
+    assert regular_user.username.encode('utf-8') in resp.data
+    assert b'Parcial' in resp.data
+
+
+def test_contact_links_search_filters_by_username(client, admin_user, make_user, make_character,
+                                                   make_contact, make_contact_link, login_as):
+    user_a = make_user(username='searchableuser', password='passa12345')
+    user_b = make_user(username='otheruser', password='passb12345')
+    char_a = make_character(user_a, name='Personaje A')
+    char_b = make_character(user_b, name='Personaje B')
+    contact = make_contact()
+    make_contact_link(char_a, contact)
+    make_contact_link(char_b, contact)
+    login_as(client, admin_user, 'adminpass123')
+
+    resp = client.get('/admin/vinculos?q=searchableuser')
+    assert b'Personaje A' in resp.data
+    assert b'Personaje B' not in resp.data
+
+
 def test_admin_contacts_listing_shows_nombre(client, admin_user, login_as, make_contact):
     contact = make_contact(nombre='Gotrek Gurnisson')
     login_as(client, admin_user, 'adminpass123')

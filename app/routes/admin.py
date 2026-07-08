@@ -18,6 +18,9 @@ from app.models.talent import Talent
 from app.models.synonym import Synonym, DEFAULT_SYNONYMS
 from app.models.permission import Permission, PermissionTemplate, ALL_PERMISSIONS
 from app.models.contact import Contact, ContactProfession
+from app.models.contact_character_link import ContactCharacterLink, ContactCharacterVisibility
+from app.models.contact_note import ContactNote
+from app.models.character import Character
 from app.utils import admin_required, allowed_file, generate_secure_password
 from app.services.pdf_processor import process_pdf
 from app.services.contact_import_service import import_contacts_from_excel, export_contacts_to_excel
@@ -129,6 +132,7 @@ def dashboard():
         'advanced': Profession.query.filter_by(type='advanced').count(),
         'total_contacts': Contact.query.count(),
         'visible_contacts': Contact.query.filter_by(is_visible=True).count(),
+        'characters': Character.query.count(),
     }
     return render_template('admin/dashboard.html', stats=stats)
 
@@ -1324,3 +1328,63 @@ def contacts_export():
         )
 
     return render_template('admin/contacts_export.html', contacts=contacts_list)
+
+
+# ---------------------------------------------------------------------------
+# Vínculos: directorio de todas las relaciones contacto↔personaje, con el
+# usuario propietario de cada personaje - de solo lectura, enlaza a la ficha
+# del contacto ya filtrada como ese personaje (donde viven notas/vínculo
+# completos) y a la edición del propio personaje.
+# ---------------------------------------------------------------------------
+
+@admin_bp.route('/vinculos')
+@login_required
+@admin_required
+def contact_links():
+    page = request.args.get('page', 1, type=int)
+    search = request.args.get('q', '').strip()
+    per_page = 30
+
+    query = (
+        ContactCharacterLink.query
+        .join(Contact, Contact.id == ContactCharacterLink.contact_id)
+        .join(Character, Character.id == ContactCharacterLink.character_id)
+        .join(User, User.id == Character.user_id)
+        .order_by(Contact.nombre, Character.name)
+    )
+    if search:
+        like = f'%{search}%'
+        query = query.filter(db.or_(
+            Contact.nombre.ilike(like),
+            Character.name.ilike(like),
+            User.username.ilike(like),
+        ))
+
+    pagination = query.paginate(page=page, per_page=per_page, error_out=False)
+    links = pagination.items
+
+    contact_ids = [l.contact_id for l in links]
+    visibility_map = {}
+    note_counts = {}
+    if contact_ids:
+        grants = ContactCharacterVisibility.query.filter(
+            ContactCharacterVisibility.contact_id.in_(contact_ids),
+        ).all()
+        visibility_map = {(g.contact_id, g.character_id): g.nivel for g in grants}
+
+        rows = (
+            db.session.query(ContactNote.contact_id, ContactNote.character_id, db.func.count(ContactNote.id))
+            .filter(ContactNote.contact_id.in_(contact_ids))
+            .group_by(ContactNote.contact_id, ContactNote.character_id)
+            .all()
+        )
+        note_counts = {(cid, chid): cnt for cid, chid, cnt in rows}
+
+    return render_template(
+        'admin/contact_links.html',
+        links=links,
+        pagination=pagination,
+        search=search,
+        visibility_map=visibility_map,
+        note_counts=note_counts,
+    )

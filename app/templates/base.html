@@ -22,17 +22,21 @@
     </button>
     <div class="collapse navbar-collapse" id="navMain">
       <ul class="navbar-nav me-auto">
-        <li class="nav-item">
-          <a class="nav-link {% if request.blueprint == 'professions' %}active{% endif %}"
-             href="{{ url_for('professions.list_professions') }}">
+        <li class="nav-item dropdown">
+          <a class="nav-link dropdown-toggle {% if request.blueprint in ('professions', 'pathfinder') %}active{% endif %}"
+             href="#" data-bs-toggle="dropdown">
             <i class="bi bi-person-badge me-1"></i>Profesiones
           </a>
-        </li>
-        <li class="nav-item">
-          <a class="nav-link {% if request.blueprint == 'pathfinder' %}active{% endif %}"
-             href="{{ url_for('pathfinder.index') }}">
-            <i class="bi bi-signpost-split me-1"></i>Buscador
-          </a>
+          <ul class="dropdown-menu dropdown-menu-dark">
+            <li><a class="dropdown-item {% if request.blueprint == 'professions' %}active{% endif %}"
+                   href="{{ url_for('professions.list_professions') }}">
+              <i class="bi bi-person-badge me-2"></i>Ver profesiones
+            </a></li>
+            <li><a class="dropdown-item {% if request.blueprint == 'pathfinder' %}active{% endif %}"
+                   href="{{ url_for('pathfinder.index') }}">
+              <i class="bi bi-signpost-split me-2"></i>Buscador de caminos
+            </a></li>
+          </ul>
         </li>
         <li class="nav-item">
           <a class="nav-link {% if request.endpoint == 'skills_talents.list_skills' %}active{% endif %}"
@@ -74,11 +78,13 @@
               <li><a class="dropdown-item" href="{{ url_for('admin.synonyms') }}"><i class="bi bi-translate me-2"></i>Diccionario</a></li>
               <li><a class="dropdown-item" href="{{ url_for('admin.users') }}"><i class="bi bi-people me-2"></i>Usuarios</a></li>
               <li><a class="dropdown-item" href="{{ url_for('admin.permission_templates') }}"><i class="bi bi-collection me-2"></i>Plantillas de permisos</a></li>
+              <li><a class="dropdown-item" href="{{ url_for('characters.list_characters') }}"><i class="bi bi-people-fill me-2"></i>Personajes</a></li>
               <li><hr class="dropdown-divider"></li>
               <li><a class="dropdown-item" href="{{ url_for('admin.contacts') }}"><i class="bi bi-person-lines-fill me-2"></i>Contactos</a></li>
               <li><a class="dropdown-item" href="{{ url_for('contacts.new') }}"><i class="bi bi-plus-circle me-2"></i>Nuevo Contacto</a></li>
               <li><a class="dropdown-item" href="{{ url_for('admin.contacts_import') }}"><i class="bi bi-upload me-2"></i>Importar Contactos</a></li>
               <li><a class="dropdown-item" href="{{ url_for('admin.contacts_export') }}"><i class="bi bi-download me-2"></i>Exportar Contactos</a></li>
+              <li><a class="dropdown-item" href="{{ url_for('admin.contact_links') }}"><i class="bi bi-diagram-3 me-2"></i>Vínculos</a></li>
               <li><hr class="dropdown-divider"></li>
               <li><a class="dropdown-item" href="{{ url_for('professions.create') }}"><i class="bi bi-plus-circle me-2"></i>Nueva Profesión</a></li>
               <li><a class="dropdown-item" href="{{ url_for('skills_talents.create_skill') }}"><i class="bi bi-plus-circle me-2"></i>Nueva Habilidad</a></li>

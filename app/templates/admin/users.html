@@ -69,7 +69,7 @@
             <div class="d-flex gap-1">
               <a href="{{ url_for('admin.user_edit', user_id=user.id) }}"
                  class="btn btn-sm btn-outline-secondary" title="Gestionar permisos">
-                <i class="bi bi-key"></i>
+                <i class="bi bi-shield-lock"></i>
               </a>
               <form method="POST" action="{{ url_for('admin.user_reset_password', user_id=user.id) }}"
                     class="d-inline"

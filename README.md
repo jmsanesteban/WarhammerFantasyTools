@@ -500,7 +500,7 @@ pytest --cov=app --cov-report=term-missing
 | `tests/test_skills_talents.py` | CRUD de habilidades y talentos, búsqueda/filtros, importación/exportación en texto plano, y el guardián anti-duplicados (bloquea duplicados exactos, avisa de casi-duplicados) al crear/editar/importar |
 | `tests/test_characters.py` | CRUD de personajes WFRP, aislamiento por propietario (admin ve todos, jugador solo los suyos), historial de profesiones ordenado, `es_untersuchung`, salario por profesión |
 | `tests/test_contacts.py` | Vista de usuario de Contactos: permiso de visibilidad por personaje (sin concesión no se ve, total/parcial oculta profesiones), concesión automática al crear, alta de contacto + vínculo propio, aislamiento de notas/nivel/apodo entre personajes (incluso del mismo usuario), visibilidad de Untersuchung según membresía, salario |
-| `tests/test_admin_contacts.py` | Administración de Contactos: listado/alta/baja, edición de datos globales, concesión/revocación de visibilidad por personaje, edición del vínculo de cualquier personaje, importación/exportación Excel con columnas fijas |
+| `tests/test_admin_contacts.py` | Administración de Contactos: listado/alta/baja, edición de datos globales, concesión/revocación de visibilidad por personaje, edición del vínculo de cualquier personaje, importación/exportación Excel con columnas fijas, y el directorio de Vínculos (usuario propietario visible, búsqueda) |
 | `tests/test_pdf_import.py` | Pipeline de importación de PDF: emparejamiento de habilidades/talentos, canonicalización de chips al nombre exacto del catálogo, auto-vinculación de accesos/salidas, detección de duplicados/casi-duplicados, persistencia del caché de trabajos en disco (con expiración a las 48h), recuperación de enseres mal clasificados como talentos, corrección de nombres de carrera vía sinónimos, y el endpoint de guardado (modos crear/actualizar/omitir + el guardián anti-duplicados). Incluye tests de regresión explícitos para los bugs reales corregidos: pérdida de chips confirmados al guardar, caché no persistente entre reinicios, accesos/salidas no auto-vinculados, enseres perdidos dentro de talentos, nombres de carrera no corregidos por el diccionario de sinónimos, y habilidades/talentos casi-duplicados (p.ej. "preparar veneno" vs "Preparar venenos") |
 | `tests/test_pathfinder.py` | Construcción del grafo de carreras, búsqueda de rutas (más cortas primero, límite de resultados, ausencia de ruta), y acumulación de estadísticas (máximo por característica, deduplicación de habilidades/talentos/enseres a lo largo de la ruta) |
 | `tests/test_talent_specializations.py` | Talentos con especializaciones predefinidas (p.ej. "Especialista en armas"): carga de `talent_specializations.json`, guardado en formato de entradas (JSON) con grupos de elección, y que los talentos sin especializaciones predefinidas siguen funcionando con el campo de texto libre de siempre |
@@ -520,7 +520,13 @@ pytest --cov=app --cov-report=term-missing
 
 ### Acceso al panel de administración
 
-Inicia sesión con las credenciales de administrador y accede desde el menú **Admin → Panel**.
+Inicia sesión con las credenciales de administrador y accede desde el menú **Admin → Panel**. El menú desplegable "Admin" del navbar tiene los accesos directos más habituales; el **Panel** en sí es el punto central que reúne *todo* lo administrable de la aplicación (estadísticas + una tarjeta por área: habilidades, talentos, importar PDF, profesiones, usuarios, contactos, vínculos, personajes, plantillas de permisos, diccionario de sinónimos), para no depender de recordar en qué desplegable vive cada cosa.
+
+#### Vínculos (`/admin/vinculos`)
+
+Directorio de solo lectura con **todas** las relaciones contacto↔personaje: contacto, personaje, **usuario propietario del personaje**, nivel de visibilidad concedido (Total/Parcial/Sin concesión), nivel de relación y número de notas. Busca por nombre de contacto, de personaje o de usuario. Desde cada fila puedes:
+- **Ver contacto** — abre la ficha del contacto ya filtrada como ese personaje concreto (ahí están el vínculo completo, el salario y las notas).
+- **Editar personaje** — va directo a la edición rápida de ese personaje.
 
 ---
 
@@ -784,7 +790,7 @@ Ve a **Profesiones** en el menú principal.
 
 ### Usar el Buscador de caminos
 
-Ve a **Buscador** en el menú principal.
+Ve a **Profesiones → Buscador de caminos** en el menú principal (vive bajo Profesiones porque depende directamente de su catálogo).
 
 1. Selecciona la **profesión de inicio** (la que tiene el personaje ahora o la inicial).
 2. Selecciona la **profesión de destino** (la que se quiere alcanzar).
@@ -1054,7 +1060,8 @@ WarhammerFantasyTools/
     │   │   ├── pdf_review.html
     │   │   ├── contacts.html             # Listado/administración de contactos
     │   │   ├── contacts_import.html
-    │   │   └── contacts_export.html
+    │   │   ├── contacts_export.html
+    │   │   └── contact_links.html         # Directorio Vínculos: contacto↔personaje + usuario propietario
     │   ├── contacts/
     │   │   ├── index.html         # Listado de contactos (respeta visibilidad, selector "ver como")
     │   │   ├── detail.html        # Ficha: datos globales, vínculo del personaje activo, salario, notas
