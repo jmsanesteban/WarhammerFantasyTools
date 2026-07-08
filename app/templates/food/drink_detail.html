@@ -1,0 +1,79 @@
+{% extends 'base.html' %}
+{% block title %}{{ drink.nombre }} — Warhammer Fantasy Tools{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+  <nav aria-label="breadcrumb">
+    <ol class="breadcrumb wh-breadcrumb">
+      <li class="breadcrumb-item"><a href="{{ url_for('food.drinks') }}" class="wh-link">Bebidas</a></li>
+      <li class="breadcrumb-item active">{{ drink.nombre }}</li>
+    </ol>
+  </nav>
+
+  <h2 class="wh-title"><i class="bi bi-cup-straw me-2"></i>{{ drink.nombre }}</h2>
+  <p class="text-muted mb-3">{{ drink.origen }}</p>
+
+  <div class="card wh-card mb-3">
+    <div class="card-header wh-card-header">Características</div>
+    <div class="card-body">
+      <dl class="row mb-0">
+        <dt class="col-sm-3">Disponibilidad</dt><dd class="col-sm-9">{{ drink.disponibilidad or '—' }}</dd>
+        <dt class="col-sm-3">Calidad</dt><dd class="col-sm-9">{{ drink.calidad or '—' }}</dd>
+        <dt class="col-sm-3">Sabor</dt><dd class="col-sm-9">{{ drink.sabor or '—' }}</dd>
+        <dt class="col-sm-3">1 Unidad de Intoxicación</dt><dd class="col-sm-9">{{ drink.ui_texto or '—' }}</dd>
+        <dt class="col-sm-3">Recipiente (taberna)</dt><dd class="col-sm-9">{{ drink.recipiente or '—' }}</dd>
+        <dt class="col-sm-3">Precio (taberna)</dt><dd class="col-sm-9">{{ drink.precio_taberna_peniques | food_money }}</dd>
+        <dt class="col-sm-3">Por mayor</dt>
+        <dd class="col-sm-9">
+          {% if drink.por_mayor_pct is not none %}
+            {{ drink.por_mayor_pct }}% de descuento comprando el tonel completo a un comerciante o productor
+          {% else %}No disponible por mayor{% endif %}
+        </dd>
+      </dl>
+    </div>
+  </div>
+
+  {% if drink.notas %}
+  <div class="card wh-card mb-3">
+    <div class="card-header wh-card-header">Notas / efectos</div>
+    <div class="card-body">{{ drink.notas }}</div>
+  </div>
+  {% endif %}
+
+  <div class="card wh-card">
+    <div class="card-header wh-card-header">Calculadora de precio</div>
+    <div class="card-body">
+      <div class="row g-2 align-items-center">
+        <label class="col-auto wh-label mb-0">Cantidad de {{ drink.recipiente or 'unidades' }}</label>
+        <div class="col-auto">
+          <input type="number" min="1" value="1" id="wh-drink-qty" class="form-control form-control-sm" style="width:6rem">
+        </div>
+        <div class="col-auto">
+          <strong>Total: <span id="wh-drink-total">{{ drink.precio_taberna_peniques | food_money }}</span></strong>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+(function () {
+  var unitPeniques = {{ (drink.precio_taberna_peniques or 0) | int }};
+  var input = document.getElementById('wh-drink-qty');
+  var total = document.getElementById('wh-drink-total');
+  input.addEventListener('input', function () {
+    var qty = parseInt(input.value, 10) || 0;
+    var value = unitPeniques * qty;
+    var coronas = Math.floor(value / 240);
+    var resto = value % 240;
+    var chelines = Math.floor(resto / 12);
+    var peniques = resto % 12;
+    var parts = [];
+    if (coronas) parts.push(coronas + ' Co');
+    if (chelines) parts.push(chelines + ' C');
+    if (peniques || parts.length === 0) parts.push(peniques + ' Pe');
+    total.textContent = parts.join(' ');
+  });
+})();
+</script>
+{% endblock %}

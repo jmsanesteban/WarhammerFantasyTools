@@ -1,0 +1,80 @@
+{% extends 'base.html' %}
+{% block title %}Recetas — Warhammer Fantasy Tools{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+  <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+    <h2 class="wh-heading mb-0"><i class="bi bi-egg-fried me-2"></i>Recetas</h2>
+    <a href="{{ url_for('food.normas') }}" class="btn btn-outline-secondary btn-sm">
+      <i class="bi bi-journal-text me-1"></i>Normas de vigor y moral
+    </a>
+  </div>
+
+  <form method="GET" class="row g-2 mb-4">
+    <div class="col-md-4">
+      <input type="text" name="q" class="form-control wh-input" placeholder="Buscar por nombre…" value="{{ search }}">
+    </div>
+    <div class="col-md-3">
+      <select name="metodo" class="form-select wh-input">
+        <option value="">Todos los métodos</option>
+        {% for m in metodos %}
+        <option value="{{ m }}" {% if metodo == m %}selected{% endif %}>{{ m }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div class="col-md-3">
+      <select name="calidad" class="form-select wh-input">
+        <option value="">Todas las calidades</option>
+        {% for c in ('Mala', 'Normal', 'Buena', 'Excelente') %}
+        <option value="{{ c }}" {% if calidad == c %}selected{% endif %}>{{ c }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div class="col-md-2">
+      <button class="btn btn-wh w-100" type="submit"><i class="bi bi-search me-1"></i>Filtrar</button>
+    </div>
+  </form>
+
+  {% if not recipes %}
+  <div class="alert alert-info wh-alert">No se encontraron recetas.</div>
+  {% else %}
+  <div class="table-responsive">
+    <table class="table wh-table align-middle">
+      <thead>
+        <tr>
+          <th>Nombre</th>
+          <th>Método</th>
+          <th>Calidad</th>
+          <th>Vigor</th>
+          <th>Moral</th>
+          <th>Duración</th>
+          <th>Coste creación (12 raciones)</th>
+          <th>Compra (1 ración)</th>
+          <th style="width:5rem"></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for recipe in recipes %}
+        <tr>
+          <td>
+            <strong>{{ recipe.nombre }}</strong>
+            {% if recipe.solo_compra %}<span class="badge bg-secondary">Solo compra</span>{% endif %}
+          </td>
+          <td>{{ recipe.cooking_method.nombre if recipe.cooking_method else '—' }}</td>
+          <td>{{ recipe.calidad or '—' }}</td>
+          <td>{{ recipe.vigor }}</td>
+          <td>{{ recipe.moral }}</td>
+          <td>{{ recipe.duracion_dias ~ ' días' if recipe.duracion_dias is not none else '—' }}</td>
+          <td>{{ recipe.coste_creacion_peniques | food_money if recipe.coste_creacion_peniques is not none else '—' }}</td>
+          <td>{{ recipe.precio_compra_peniques | food_money }}</td>
+          <td>
+            <a href="{{ url_for('food.recipe_detail', recipe_id=recipe.id) }}" class="btn btn-outline-secondary btn-sm">Ver</a>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% endif %}
+</div>
+{% endblock %}

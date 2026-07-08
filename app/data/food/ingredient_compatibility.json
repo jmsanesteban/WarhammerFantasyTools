@@ -1,0 +1,1002 @@
+[
+  {
+    "ingrediente": "Nada",
+    "metodo": "Crudo",
+    "estado": "si"
+  },
+  {
+    "ingrediente": "Nada",
+    "metodo": "Ahumado",
+    "estado": "si"
+  },
+  {
+    "ingrediente": "Nada",
+    "metodo": "Secado",
+    "estado": "si"
+  },
+  {
+    "ingrediente": "Nada",
+    "metodo": "Salado",
+    "estado": "si"
+  },
+  {
+    "ingrediente": "Nada",
+    "metodo": "Almíbar",
+    "estado": "si"
+  },
+  {
+    "ingrediente": "Nada",
+    "metodo": "Brasa",
+    "estado": "si"
+  },
+  {
+    "ingrediente": "Nada",
+    "metodo": "Cocido",
+    "estado": "si"
+  },
+  {
+    "ingrediente": "Nada",
+    "metodo": "Guisado",
+    "estado": "si"
+  },
+  {
+    "ingrediente": "Nada",
+    "metodo": "Asar",
+    "estado": "si"
+  },
+  {
+    "ingrediente": "Nada",
+    "metodo": "Hornear",
+    "estado": "si"
+  },
+  {
+    "ingrediente": "Raíces",
+    "metodo": "Crudo",
+    "estado": "si"
+  },
+  {
+    "ingrediente": "Raíces",
+    "metodo": "Ahumado",
+    "estado": "no"
+  },
+  {
+    "ingrediente": "Raíces",
+    "metodo": "Secado",
+    "estado": "no"
+  },
+  {
+    "ingrediente": "Raíces",
+    "metodo": "Salado",
+    "estado": "no"
+  },
+  {
+    "ingrediente": "Raíces",
+    "metodo": "Almíbar",
+    "estado": "no"
+  },
+  {
+    "ingrediente": "Raíces",
+    "metodo": "Brasa",
+    "estado": "no"
+  },
+  {
+    "ingrediente": "Raíces",
+    "metodo": "Cocido",
+    "estado": "condimento"
+  },
+  {
+    "ingrediente": "Raíces",
+    "metodo": "Guisado",
+    "estado": "condimento"
+  },
+  {
+    "ingrediente": "Raíces",
+    "metodo": "Asar",
+    "estado": "condimento"
+  },
+  {
+    "ingrediente": "Raíces",
+    "metodo": "Hornear",
+    "estado": "condimento"
+  },
+  {
+    "ingrediente": "Verduras",
+    "metodo": "Crudo",
+    "estado": "si"
+  },
+  {
+    "ingrediente": "Verduras",
+    "metodo": "Ahumado",
+    "estado": "no"
+  },
+  {
+    "ingrediente": "Verduras",
+    "metodo": "Secado",
+    "estado": "si"
+  },
+  {
+    "ingrediente": "Verduras",
+    "metodo": "Salado",
+    "estado": "no"
+  },
+  {
+    "ingrediente": "Verduras",
+    "metodo": "Almíbar",
+    "estado": "no"
+  },
+  {
+    "ingrediente": "Verduras",
+    "metodo": "Brasa",
+    "estado": "si"
+  },
+  {
+    "ingrediente": "Verduras",
+    "metodo": "Cocido",
+    "estado": "si"
+  },
+  {
+    "ingrediente": "Verduras",
+    "metodo": "Guisado",
+    "estado": "si"
+  },
+  {
+    "ingrediente": "Verduras",
+    "metodo": "Asar",
+    "estado": "si"
+  },
+  {
+    "ingrediente": "Verduras",
+    "metodo": "Hornear",
+    "estado": "si"
+  },
+  {
+    "ingrediente": "Tubérculos",
+    "metodo": "Crudo",
+    "estado": "no"
+  },
+  {
+    "ingrediente": "Tubérculos",
+    "metodo": "Ahumado",
+    "estado": "no"
+  },
+  {
+    "ingrediente": "Tubérculos",
+    "metodo": "Secado",
+    "estado": "no"
+  },
+  {
+    "ingrediente": "Tubérculos",
+    "metodo": "Salado",
+    "estado": "no"
+  },
+  {
+    "ingrediente": "Tubérculos",
+    "metodo": "Almíbar",
+    "estado": "no"
+  },
+  {
+    "ingrediente": "Tubérculos",
+    "metodo": "Brasa",
+    "estado": "si"
+  },
+  {
+    "ingrediente": "Tubérculos",
+    "metodo": "Cocido",
+    "estado": "si"
+  },
+  {
+    "ingrediente": "Tubérculos",
+    "metodo": "Guisado",
+    "estado": "si"
+  },
+  {
+    "ingrediente": "Tubérculos",
+    "metodo": "Asar",
+    "estado": "si"
+  },
+  {
+    "ingrediente": "Tubérculos",
+    "metodo": "Hornear",
+    "estado": "si"
+  },
+  {
+    "ingrediente": "Cereales",
+    "metodo": "Crudo",
+    "estado": "no"
+  },
+  {
+    "ingrediente": "Cereales",
+    "metodo": "Ahumado",
+    "estado": "no"
+  },
+  {
+    "ingrediente": "Cereales",
+    "metodo": "Secado",
+    "estado": "no"
+  },
+  {
+    "ingrediente": "Cereales",
+    "metodo": "Salado",
+    "estado": "no"
+  },
+  {
+    "ingrediente": "Cereales",
+    "metodo": "Almíbar",
+    "estado": "no"
+  },
+  {
+    "ingrediente": "Cereales",
+    "metodo": "Brasa",
+    "estado": "no"
+  },
+  {
+    "ingrediente": "Cereales",
+    "metodo": "Cocido",
+    "estado": "si"
+  },
+  {
+    "ingrediente": "Cereales",
+    "metodo": "Guisado",
+    "estado": "si"
+  },
+  {
+    "ingrediente": "Cereales",
+    "metodo": "Asar",
+    "estado": "si"
+  },
+  {
+    "ingrediente": "Cereales",
+    "metodo": "Hornear",
+    "estado": "si"
+  },
+  {
+    "ingrediente": "Crustáceos",
+    "metodo": "Crudo",
+    "estado": "no"
+  },
+  {
+    "ingrediente": "Crustáceos",
+    "metodo": "Ahumado",
+    "estado": "si"
+  },
+  {
+    "ingrediente": "Crustáceos",
+    "metodo": "Secado",
+    "estado": "no"
+  },
+  {
+    "ingrediente": "Crustáceos",
+    "metodo": "Salado",
+    "estado": "si"
+  },
+  {
+    "ingrediente": "Crustáceos",
+    "metodo": "Almíbar",
+    "estado": "no"
+  },
+  {
+    "ingrediente": "Crustáceos",
+    "metodo": "Brasa",
+    "estado": "si"
+  },
+  {
+    "ingrediente": "Crustáceos",
+    "metodo": "Cocido",
+    "estado": "si"
+  },
+  {
+    "ingrediente": "Crustáceos",
+    "metodo": "Guisado",
+    "estado": "si"
+  },
+  {
+    "ingrediente": "Crustáceos",
+    "metodo": "Asar",
+    "estado": "si"
+  },
+  {
+    "ingrediente": "Crustáceos",
+    "metodo": "Hornear",
+    "estado": "si"
+  },
+  {
+    "ingrediente": "Legumbres",
+    "metodo": "Crudo",
+    "estado": "no"
+  },
+  {
+    "ingrediente": "Legumbres",
+    "metodo": "Ahumado",
+    "estado": "no"
+  },
+  {
+    "ingrediente": "Legumbres",
+    "metodo": "Secado",
+    "estado": "no"
+  },
+  {
+    "ingrediente": "Legumbres",
+    "metodo": "Salado",
+    "estado": "no"
+  },
+  {
+    "ingrediente": "Legumbres",
+    "metodo": "Almíbar",
+    "estado": "no"
+  },
+  {
+    "ingrediente": "Legumbres",
+    "metodo": "Brasa",
+    "estado": "si"
+  },
+  {
+    "ingrediente": "Legumbres",
+    "metodo": "Cocido",
+    "estado": "si"
+  },
+  {
+    "ingrediente": "Legumbres",
+    "metodo": "Guisado",
+    "estado": "si"
+  },
+  {
+    "ingrediente": "Legumbres",
+    "metodo": "Asar",
+    "estado": "si"
+  },
+  {
+    "ingrediente": "Legumbres",
+    "metodo": "Hornear",
+    "estado": "si"
+  },
+  {
+    "ingrediente": "Frutos secos",
+    "metodo": "Crudo",
+    "estado": "si"
+  },
+  {
+    "ingrediente": "Frutos secos",
+    "metodo": "Ahumado",
+    "estado": "no"
+  },
+  {
+    "ingrediente": "Frutos secos",
+    "metodo": "Secado",
+    "estado": "no"
+  },
+  {
+    "ingrediente": "Frutos secos",
+    "metodo": "Salado",
+    "estado": "no"
+  },
+  {
+    "ingrediente": "Frutos secos",
+    "metodo": "Almíbar",
+    "estado": "si"
+  },
+  {
+    "ingrediente": "Frutos secos",
+    "metodo": "Brasa",
+    "estado": "no"
+  },
+  {
+    "ingrediente": "Frutos secos",
+    "metodo": "Cocido",
+    "estado": "no"
+  },
+  {
+    "ingrediente": "Frutos secos",
+    "metodo": "Guisado",
+    "estado": "si"
+  },
+  {
+    "ingrediente": "Frutos secos",
+    "metodo": "Asar",
+    "estado": "si"
+  },
+  {
+    "ingrediente": "Frutos secos",
+    "metodo": "Hornear",
+    "estado": "si"
+  },
+  {
+    "ingrediente": "Pescado inferior",
+    "metodo": "Crudo",
+    "estado": "no"
+  },
+  {
+    "ingrediente": "Pescado inferior",
+    "metodo": "Ahumado",
+    "estado": "si"
+  },
+  {
+    "ingrediente": "Pescado inferior",
+    "metodo": "Secado",
+    "estado": "si"
+  },
+  {
+    "ingrediente": "Pescado inferior",
+    "metodo": "Salado",
+    "estado": "si"
+  },
+  {
+    "ingrediente": "Pescado inferior",
+    "metodo": "Almíbar",
+    "estado": "si"
+  },
+  {
+    "ingrediente": "Pescado inferior",
+    "metodo": "Brasa",
+    "estado": "si"
+  },
+  {
+    "ingrediente": "Pescado inferior",
+    "metodo": "Cocido",
+    "estado": "si"
+  },
+  {
+    "ingrediente": "Pescado inferior",
+    "metodo": "Guisado",
+    "estado": "si"
+  },
+  {
+    "ingrediente": "Pescado inferior",
+    "metodo": "Asar",
+    "estado": "si"
+  },
+  {
+    "ingrediente": "Pescado inferior",
+    "metodo": "Hornear",
+    "estado": "si"
+  },
+  {
+    "ingrediente": "Carne inferior",
+    "metodo": "Crudo",
+    "estado": "no"
+  },
+  {
+    "ingrediente": "Carne inferior",
+    "metodo": "Ahumado",
+    "estado": "si"
+  },
+  {
+    "ingrediente": "Carne inferior",
+    "metodo": "Secado",
+    "estado": "si"
+  },
+  {
+    "ingrediente": "Carne inferior",
+    "metodo": "Salado",
+    "estado": "si"
+  },
+  {
+    "ingrediente": "Carne inferior",
+    "metodo": "Almíbar",
+    "estado": "si"
+  },
+  {
+    "ingrediente": "Carne inferior",
+    "metodo": "Brasa",
+    "estado": "si"
+  },
+  {
+    "ingrediente": "Carne inferior",
+    "metodo": "Cocido",
+    "estado": "si"
+  },
+  {
+    "ingrediente": "Carne inferior",
+    "metodo": "Guisado",
+    "estado": "si"
+  },
+  {
+    "ingrediente": "Carne inferior",
+    "metodo": "Asar",
+    "estado": "si"
+  },
+  {
+    "ingrediente": "Carne inferior",
+    "metodo": "Hornear",
+    "estado": "si"
+  },
+  {
+    "ingrediente": "Pescado superior",
+    "metodo": "Crudo",
+    "estado": "no"
+  },
+  {
+    "ingrediente": "Pescado superior",
+    "metodo": "Ahumado",
+    "estado": "si"
+  },
+  {
+    "ingrediente": "Pescado superior",
+    "metodo": "Secado",
+    "estado": "si"
+  },
+  {
+    "ingrediente": "Pescado superior",
+    "metodo": "Salado",
+    "estado": "si"
+  },
+  {
+    "ingrediente": "Pescado superior",
+    "metodo": "Almíbar",
+    "estado": "si"
+  },
+  {
+    "ingrediente": "Pescado superior",
+    "metodo": "Brasa",
+    "estado": "si"
+  },
+  {
+    "ingrediente": "Pescado superior",
+    "metodo": "Cocido",
+    "estado": "si"
+  },
+  {
+    "ingrediente": "Pescado superior",
+    "metodo": "Guisado",
+    "estado": "si"
+  },
+  {
+    "ingrediente": "Pescado superior",
+    "metodo": "Asar",
+    "estado": "si"
+  },
+  {
+    "ingrediente": "Pescado superior",
+    "metodo": "Hornear",
+    "estado": "si"
+  },
+  {
+    "ingrediente": "Carne superior",
+    "metodo": "Crudo",
+    "estado": "no"
+  },
+  {
+    "ingrediente": "Carne superior",
+    "metodo": "Ahumado",
+    "estado": "si"
+  },
+  {
+    "ingrediente": "Carne superior",
+    "metodo": "Secado",
+    "estado": "si"
+  },
+  {
+    "ingrediente": "Carne superior",
+    "metodo": "Salado",
+    "estado": "si"
+  },
+  {
+    "ingrediente": "Carne superior",
+    "metodo": "Almíbar",
+    "estado": "si"
+  },
+  {
+    "ingrediente": "Carne superior",
+    "metodo": "Brasa",
+    "estado": "si"
+  },
+  {
+    "ingrediente": "Carne superior",
+    "metodo": "Cocido",
+    "estado": "si"
+  },
+  {
+    "ingrediente": "Carne superior",
+    "metodo": "Guisado",
+    "estado": "si"
+  },
+  {
+    "ingrediente": "Carne superior",
+    "metodo": "Asar",
+    "estado": "si"
+  },
+  {
+    "ingrediente": "Carne superior",
+    "metodo": "Hornear",
+    "estado": "si"
+  },
+  {
+    "ingrediente": "Frutas",
+    "metodo": "Crudo",
+    "estado": "si"
+  },
+  {
+    "ingrediente": "Frutas",
+    "metodo": "Ahumado",
+    "estado": "no"
+  },
+  {
+    "ingrediente": "Frutas",
+    "metodo": "Secado",
+    "estado": "si"
+  },
+  {
+    "ingrediente": "Frutas",
+    "metodo": "Salado",
+    "estado": "no"
+  },
+  {
+    "ingrediente": "Frutas",
+    "metodo": "Almíbar",
+    "estado": "si"
+  },
+  {
+    "ingrediente": "Frutas",
+    "metodo": "Brasa",
+    "estado": "no"
+  },
+  {
+    "ingrediente": "Frutas",
+    "metodo": "Cocido",
+    "estado": "no"
+  },
+  {
+    "ingrediente": "Frutas",
+    "metodo": "Guisado",
+    "estado": "si"
+  },
+  {
+    "ingrediente": "Frutas",
+    "metodo": "Asar",
+    "estado": "si"
+  },
+  {
+    "ingrediente": "Frutas",
+    "metodo": "Hornear",
+    "estado": "si"
+  },
+  {
+    "ingrediente": "Hongos",
+    "metodo": "Crudo",
+    "estado": "no"
+  },
+  {
+    "ingrediente": "Hongos",
+    "metodo": "Ahumado",
+    "estado": "si"
+  },
+  {
+    "ingrediente": "Hongos",
+    "metodo": "Secado",
+    "estado": "si"
+  },
+  {
+    "ingrediente": "Hongos",
+    "metodo": "Salado",
+    "estado": "no"
+  },
+  {
+    "ingrediente": "Hongos",
+    "metodo": "Almíbar",
+    "estado": "no"
+  },
+  {
+    "ingrediente": "Hongos",
+    "metodo": "Brasa",
+    "estado": "si"
+  },
+  {
+    "ingrediente": "Hongos",
+    "metodo": "Cocido",
+    "estado": "si"
+  },
+  {
+    "ingrediente": "Hongos",
+    "metodo": "Guisado",
+    "estado": "si"
+  },
+  {
+    "ingrediente": "Hongos",
+    "metodo": "Asar",
+    "estado": "si"
+  },
+  {
+    "ingrediente": "Hongos",
+    "metodo": "Hornear",
+    "estado": "si"
+  },
+  {
+    "ingrediente": "Leches",
+    "metodo": "Crudo",
+    "estado": "si"
+  },
+  {
+    "ingrediente": "Leches",
+    "metodo": "Ahumado",
+    "estado": "no"
+  },
+  {
+    "ingrediente": "Leches",
+    "metodo": "Secado",
+    "estado": "no"
+  },
+  {
+    "ingrediente": "Leches",
+    "metodo": "Salado",
+    "estado": "no"
+  },
+  {
+    "ingrediente": "Leches",
+    "metodo": "Almíbar",
+    "estado": "no"
+  },
+  {
+    "ingrediente": "Leches",
+    "metodo": "Brasa",
+    "estado": "no"
+  },
+  {
+    "ingrediente": "Leches",
+    "metodo": "Cocido",
+    "estado": "condimento"
+  },
+  {
+    "ingrediente": "Leches",
+    "metodo": "Guisado",
+    "estado": "condimento"
+  },
+  {
+    "ingrediente": "Leches",
+    "metodo": "Asar",
+    "estado": "condimento"
+  },
+  {
+    "ingrediente": "Leches",
+    "metodo": "Hornear",
+    "estado": "condimento"
+  },
+  {
+    "ingrediente": "Miel",
+    "metodo": "Crudo",
+    "estado": "si"
+  },
+  {
+    "ingrediente": "Miel",
+    "metodo": "Ahumado",
+    "estado": "no"
+  },
+  {
+    "ingrediente": "Miel",
+    "metodo": "Secado",
+    "estado": "no"
+  },
+  {
+    "ingrediente": "Miel",
+    "metodo": "Salado",
+    "estado": "no"
+  },
+  {
+    "ingrediente": "Miel",
+    "metodo": "Almíbar",
+    "estado": "condimento"
+  },
+  {
+    "ingrediente": "Miel",
+    "metodo": "Brasa",
+    "estado": "no"
+  },
+  {
+    "ingrediente": "Miel",
+    "metodo": "Cocido",
+    "estado": "no"
+  },
+  {
+    "ingrediente": "Miel",
+    "metodo": "Guisado",
+    "estado": "condimento"
+  },
+  {
+    "ingrediente": "Miel",
+    "metodo": "Asar",
+    "estado": "condimento"
+  },
+  {
+    "ingrediente": "Miel",
+    "metodo": "Hornear",
+    "estado": "condimento"
+  },
+  {
+    "ingrediente": "Huevos",
+    "metodo": "Crudo",
+    "estado": "si"
+  },
+  {
+    "ingrediente": "Huevos",
+    "metodo": "Ahumado",
+    "estado": "no"
+  },
+  {
+    "ingrediente": "Huevos",
+    "metodo": "Secado",
+    "estado": "no"
+  },
+  {
+    "ingrediente": "Huevos",
+    "metodo": "Salado",
+    "estado": "no"
+  },
+  {
+    "ingrediente": "Huevos",
+    "metodo": "Almíbar",
+    "estado": "no"
+  },
+  {
+    "ingrediente": "Huevos",
+    "metodo": "Brasa",
+    "estado": "no"
+  },
+  {
+    "ingrediente": "Huevos",
+    "metodo": "Cocido",
+    "estado": "si"
+  },
+  {
+    "ingrediente": "Huevos",
+    "metodo": "Guisado",
+    "estado": "si"
+  },
+  {
+    "ingrediente": "Huevos",
+    "metodo": "Asar",
+    "estado": "si"
+  },
+  {
+    "ingrediente": "Huevos",
+    "metodo": "Hornear",
+    "estado": "si"
+  },
+  {
+    "ingrediente": "Especias",
+    "metodo": "Crudo",
+    "estado": "no"
+  },
+  {
+    "ingrediente": "Especias",
+    "metodo": "Ahumado",
+    "estado": "no"
+  },
+  {
+    "ingrediente": "Especias",
+    "metodo": "Secado",
+    "estado": "no"
+  },
+  {
+    "ingrediente": "Especias",
+    "metodo": "Salado",
+    "estado": "no"
+  },
+  {
+    "ingrediente": "Especias",
+    "metodo": "Almíbar",
+    "estado": "no"
+  },
+  {
+    "ingrediente": "Especias",
+    "metodo": "Brasa",
+    "estado": "condimento"
+  },
+  {
+    "ingrediente": "Especias",
+    "metodo": "Cocido",
+    "estado": "condimento"
+  },
+  {
+    "ingrediente": "Especias",
+    "metodo": "Guisado",
+    "estado": "condimento"
+  },
+  {
+    "ingrediente": "Especias",
+    "metodo": "Asar",
+    "estado": "condimento"
+  },
+  {
+    "ingrediente": "Especias",
+    "metodo": "Hornear",
+    "estado": "condimento"
+  },
+  {
+    "ingrediente": "Sal",
+    "metodo": "Crudo",
+    "estado": "no"
+  },
+  {
+    "ingrediente": "Sal",
+    "metodo": "Ahumado",
+    "estado": "no"
+  },
+  {
+    "ingrediente": "Sal",
+    "metodo": "Secado",
+    "estado": "no"
+  },
+  {
+    "ingrediente": "Sal",
+    "metodo": "Salado",
+    "estado": "condimento"
+  },
+  {
+    "ingrediente": "Sal",
+    "metodo": "Almíbar",
+    "estado": "no"
+  },
+  {
+    "ingrediente": "Sal",
+    "metodo": "Brasa",
+    "estado": "condimento"
+  },
+  {
+    "ingrediente": "Sal",
+    "metodo": "Cocido",
+    "estado": "condimento"
+  },
+  {
+    "ingrediente": "Sal",
+    "metodo": "Guisado",
+    "estado": "condimento"
+  },
+  {
+    "ingrediente": "Sal",
+    "metodo": "Asar",
+    "estado": "condimento"
+  },
+  {
+    "ingrediente": "Sal",
+    "metodo": "Hornear",
+    "estado": "condimento"
+  },
+  {
+    "ingrediente": "Aceites",
+    "metodo": "Crudo",
+    "estado": "no"
+  },
+  {
+    "ingrediente": "Aceites",
+    "metodo": "Ahumado",
+    "estado": "no"
+  },
+  {
+    "ingrediente": "Aceites",
+    "metodo": "Secado",
+    "estado": "no"
+  },
+  {
+    "ingrediente": "Aceites",
+    "metodo": "Salado",
+    "estado": "no"
+  },
+  {
+    "ingrediente": "Aceites",
+    "metodo": "Almíbar",
+    "estado": "no"
+  },
+  {
+    "ingrediente": "Aceites",
+    "metodo": "Brasa",
+    "estado": "no"
+  },
+  {
+    "ingrediente": "Aceites",
+    "metodo": "Cocido",
+    "estado": "condimento"
+  },
+  {
+    "ingrediente": "Aceites",
+    "metodo": "Guisado",
+    "estado": "condimento"
+  },
+  {
+    "ingrediente": "Aceites",
+    "metodo": "Asar",
+    "estado": "condimento"
+  },
+  {
+    "ingrediente": "Aceites",
+    "metodo": "Hornear",
+    "estado": "condimento"
+  }
+]

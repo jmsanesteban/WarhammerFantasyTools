@@ -31,6 +31,7 @@ Aplicación web para gestionar profesiones, habilidades, talentos y personajes d
 | **Personajes** | Creación rápida (manual) o mediante el **Generador de Personaje**: asistente con tiradas guiadas (raza, profesión, características, trasfondo completo) siguiendo las reglas caseras de creación de personajes jugadores. Carrera profesional con múltiples profesiones en orden |
 | **Contactos** | Agenda de contactos con campos personalizables (EAV), notas, vínculos con "personas" propias de cada usuario, visibilidad por contacto/campo, e importación/exportación Excel. Módulo integrado a partir del proyecto independiente [ContactosWH](https://github.com/jmsanesteban/ContactosWH) (ahora archivado, ver nota histórica en su README) |
 | **Sistema de permisos** | Control granular por función: plantillas de permisos reutilizables + asignaciones directas por usuario; los administradores tienen acceso total |
+| **Comida y bebida** (Fase 1: catálogos) | Catálogo de bebidas por nación con calculadora de precio por cantidad; catálogo de recetas ya hechas (vigor/moral/coste/duración); tablas de referencia de ingredientes y métodos de cocina; página de normas de intoxicación y de vigor/moral diario |
 
 ---
 
@@ -467,7 +468,7 @@ docker image prune -f
 
 ## Tests automatizados
 
-Suite de tests unitarios y de integración con **pytest**, ejecutada contra una base de datos **SQLite en memoria** (no hace falta un servidor MySQL para correrla) y el test client de Flask. Cubre permisos, autenticación, profesiones, habilidades/talentos, personajes WFRP, contactos (incluida la parte de administración), el buscador de caminos, y — con especial atención, por ser el área con más incidencias reales en producción — todo el pipeline de importación de PDF.
+Suite de tests unitarios y de integración con **pytest**, ejecutada contra una base de datos **SQLite en memoria** (no hace falta un servidor MySQL para correrla) y el test client de Flask. Cubre permisos, autenticación, profesiones, habilidades/talentos, personajes WFRP, contactos (incluida la parte de administración), comida y bebida, el buscador de caminos, y — con especial atención, por ser el área con más incidencias reales en producción — todo el pipeline de importación de PDF.
 
 ### Ejecutar los tests
 
@@ -507,6 +508,7 @@ pytest --cov=app --cov-report=term-missing
 | `tests/test_character_creation_service.py` | Servicio de tiradas del generador de personajes: parseo de fórmulas de dados, barrido completo 1-100 de cada tabla porcentual para las 5 razas (detecta huecos en los datos), agrupación de razas (Elfo Silvano/Alto Elfo comparten tablas de características/altura/peso/edad), y cada función `roll_*` individual |
 | `tests/test_character_generator_routes.py` | Rutas del asistente de creación guiada: página del generador, endpoint de tirada por AJAX (`/generador/tirar`) para cada paso, y el guardado final (ficha completa con características, trasfondo, rasgos, contactos, posesiones y objetos mágicos) |
 | `tests/test_wsgi_prefix.py` | `PrefixMiddleware` (servir la app bajo `URL_PREFIX`, p.ej. `/wft`): recorte de prefijo + `SCRIPT_NAME`, tolerancia con peticiones sin prefijo, y generación de URLs correctas de extremo a extremo con `url_for()` |
+| `tests/test_food.py` | Comida y bebida (Fase 1 — catálogos): siembra idempotente del catálogo (`seed_food_catalog`), conversión/formateo de moneda (`currency_service`), listado y filtro de bebidas/recetas, ficha de bebida (calculadora de precio, notas) y de receta (ingredientes/condimentos, recetas "solo compra"), páginas de referencia de ingredientes/métodos de cocina, y que todas las rutas exigen login |
 
 ### Notas de diseño
 
@@ -875,6 +877,18 @@ Ve a **Contactos** en el menú principal. Un contacto (NPC) tiene datos **global
 
 ---
 
+### Explorar Comida y bebida
+
+Ve a **Comida y bebida** en el menú principal. Por ahora (Fase 1) es un módulo de solo consulta — no se crean bebidas ni recetas nuevas desde la web todavía.
+
+- **Bebidas**: catálogo completo por nación de origen (Bretonia, Enana, Elfica, Tilea, Estalia, Imperio, Kislev/Norsca, Arabia), con disponibilidad, calidad, sabor y precio en taberna. Filtra por nombre o por origen. En el listado y en la ficha de cada bebida hay una **calculadora de precio**: indica cuántas unidades quieres comprar y el total se calcula al momento (en Coronas de oro / Chelines de plata / Peniques). El dato de "Por mayor" es informativo (% de descuento comprando el tonel completo a un comerciante o productor).
+- **Recetas**: catálogo de las recetas ya elaboradas del libro, con su método de cocina, calidad, vigor, moral, duración, si se puede recalentar, coste de creación (12 raciones) y precio de compra (1 ración). Filtra por método o calidad. Tres recetas especiales (Empanadilla Halfling, Pan de piedra, Lágrimas de Isha) están marcadas como **"Solo compra"**: no se pueden elaborar, solo adquirir ya hechas.
+- **Ingredientes**: tabla de referencia con el vigor/moral/coste por docena de cada familia de ingrediente, y su compatibilidad con cada método de cocina (Sí / Condimento / No).
+- **Métodos de cocina**: tabla de referencia (Crudo, Ahumado, Secado, Salado, Almíbar, Brasa, Cocido, Guisado, Asar, Hornear) con su vigor/moral/coste/duración base y cuántos ingredientes y condimentos admite cada uno.
+- **Normas**: página de referencia con las reglas de intoxicación por bebidas espirituosas (Achispado/Ebrio/Borracho) y las reglas de vigor y moral diarios. Se muestran tal cual las describe el libro, a título informativo — el sistema de cartas de estado (Fatigado, Motivado, Exhausto, Distraído...) que estas reglas mencionan **todavía no está implementado**; por ahora esos efectos se llevan a mano en partida.
+
+---
+
 ## Modelo de datos
 
 ```
@@ -965,7 +979,36 @@ synonyms                   (diccionario para importación de PDFs)
   ├─ target  (nombre oficial en WFRP2 ES)
   ├─ is_prefix  (True = aplica también a "source (especialización)")
   └─ notes
+
+cooking_methods             (Crudo, Ahumado, Secado, Salado, Almíbar, Brasa, Cocido, Guisado, Asar, Hornear)
+  ├─ vigor, moral, coste, duracion_dias, complejidad_base
+  ├─ ingredientes_permitidos, condimentos_permitidos   (cuántos slots admite una receta con este método)
+  └─ elementos_necesarios, habilidad, recalentar
+
+ingredients                 (Nada, Raíces, Verduras... Aceites — 20 familias del libro)
+  ├─ vigor, moral, coste_docena
+  └─ ingredient_cooking_methods → compatibilidad con cada método ('si' | 'no' | 'condimento')
+
+recipes                     (recetas ya elaboradas del libro; Fase 1 no permite crear nuevas)
+  ├─ cooking_method_id → cooking_methods   (null si solo_compra)
+  ├─ vigor, moral, calidad, duracion_dias, recalentar
+  ├─ coste_creacion_peniques (12 raciones), precio_compra_peniques (1 ración)
+  ├─ solo_compra              (True = las 3 recetas especiales que no se pueden elaborar)
+  └─ ingrediente_1..4_id, condimento_1/2_id → ingredients  (slots fijos, como en la tabla del libro)
+
+drinks                      (catálogo cerrado — "no se van a crear bebidas nuevas")
+  ├─ origen                  (nación: Bretonia, Enana, Elfica, Tilea, Estalia, Imperio, Kislev/Norsca, Arabia)
+  ├─ disponibilidad, calidad, sabor, ui_texto, recipiente
+  ├─ precio_taberna_peniques, por_mayor_pct
+  └─ notas                   (efectos especiales de bebidas concretas)
 ```
+
+`app/data/food/*.json` (`cooking_methods.json`, `ingredients.json`, `ingredient_compatibility.json`,
+`recipes.json`, `drinks.json`): transcripción de las tablas del libro "Comida y bebida", usada como semilla
+idempotente por `app/services/food_seed_service.py` (misma estrategia que el seed de `synonyms`: comprueba lo
+que ya existe por nombre e inserta solo lo que falte, así que ampliar el catálogo en el futuro no duplica filas).
+Los precios se guardan en peniques (`app/services/currency_service.py`: 1 Corona de oro = 20 Chelines de plata =
+240 Peniques; 1 Chelín = 12 Peniques) y se formatean para mostrarse con el filtro de plantilla `food_money`.
 
 ### Regla de acumulación de características en el Buscador
 
@@ -1014,8 +1057,10 @@ WarhammerFantasyTools/
     ├── data/
     │   ├── skill_specializations.json   # Especializaciones predefinidas por habilidad
     │   ├── talent_specializations.json  # Especializaciones predefinidas por talento
-    │   └── character_creation/          # Tablas de tiradas del Generador de Personaje (raza,
-    │       └── *.json                   # profesión, características, procedencia, PH, etc.)
+    │   ├── character_creation/          # Tablas de tiradas del Generador de Personaje (raza,
+    │   │   └── *.json                   # profesión, características, procedencia, PH, etc.)
+    │   └── food/                        # Semilla del catálogo de Comida y bebida (bebidas,
+    │       └── *.json                   # ingredientes, métodos de cocina, recetas)
     ├── models/
     │   ├── __init__.py     # Exporta todos los modelos para Flask-Migrate
     │   ├── permission.py   # Permission, PermissionTemplate + tablas M2M + seed data
@@ -1028,7 +1073,8 @@ WarhammerFantasyTools/
     │   ├── synonym.py      # Diccionario de sinónimos para importación PDF
     │   ├── contact.py                  # Contact, ContactProfession (hechos globales del NPC)
     │   ├── contact_character_link.py   # ContactCharacterLink, ContactApodo, ContactCharacterSalary
-    │   └── contact_note.py             # ContactNote (por personaje)
+    │   ├── contact_note.py             # ContactNote (por personaje)
+    │   └── food.py                     # CookingMethod, Ingredient, IngredientCookingMethod, Recipe, Drink
     ├── routes/
     │   ├── auth.py         # Login, registro, logout
     │   ├── main.py         # Página de inicio, errores, servicio de uploads
@@ -1037,7 +1083,8 @@ WarhammerFantasyTools/
     │   ├── pathfinder.py   # Buscador de caminos
     │   ├── characters.py   # Gestión de personajes WFRP
     │   ├── contacts.py     # Vistas de usuario de Contactos (listado, ficha, vínculo/salario/notas por personaje)
-    │   └── admin.py        # Panel admin: usuarios, permisos, plantillas, PDF, Contactos (listado/import-export)
+    │   ├── admin.py        # Panel admin: usuarios, permisos, plantillas, PDF, Contactos (listado/import-export)
+    │   └── food.py         # Comida y bebida: bebidas, recetas, ingredientes, métodos de cocina, normas
     ├── services/
     │   ├── pdf_processor.py      # OCR, traducción y parsing de PDFs
     │   ├── translation_service.py # Detección de idioma y traducción
@@ -1045,7 +1092,9 @@ WarhammerFantasyTools/
     │   ├── pathfinder_service.py  # Construcción del grafo y BFS
     │   ├── contact_import_service.py  # Importación/exportación Excel de Contactos (columnas fijas)
     │   ├── salary_service.py     # Tabla de referencia de sueldos (Contactos y Personajes)
-    │   └── character_creation_service.py  # Tiradas del Generador de Personaje (dados, tablas porcentuales)
+    │   ├── character_creation_service.py  # Tiradas del Generador de Personaje (dados, tablas porcentuales)
+    │   ├── currency_service.py   # Conversión/formateo Coronas de oro / Chelines de plata / Peniques
+    │   └── food_seed_service.py  # Siembra idempotente del catálogo de Comida y bebida desde app/data/food/
     ├── templates/
     │   ├── base.html             # Layout base con nav adaptativo
     │   ├── admin/

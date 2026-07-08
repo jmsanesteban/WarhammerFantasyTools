@@ -1,0 +1,142 @@
+[
+  {
+    "nombre": "Nada",
+    "vigor": 0,
+    "moral": 0,
+    "coste_docena": 0,
+    "descripcion": "Sin ingrediente."
+  },
+  {
+    "nombre": "Raíces",
+    "vigor": 2,
+    "moral": -20,
+    "coste_docena": 0,
+    "descripcion": "Cualquier tipo de raíz, insecto o elemento natural que se puede comer directamente en última instancia."
+  },
+  {
+    "nombre": "Verduras",
+    "vigor": 5,
+    "moral": 0,
+    "coste_docena": 2,
+    "descripcion": "Acelgas, calabacín, cardo, borraja."
+  },
+  {
+    "nombre": "Tubérculos",
+    "vigor": 9,
+    "moral": 0,
+    "coste_docena": 3,
+    "descripcion": "Patatas, zanahorias, nabo, remolacha."
+  },
+  {
+    "nombre": "Cereales",
+    "vigor": 12,
+    "moral": 0,
+    "coste_docena": 4,
+    "descripcion": "Arroz, trigo, avena, cebada."
+  },
+  {
+    "nombre": "Crustáceos",
+    "vigor": 6,
+    "moral": 0,
+    "coste_docena": 3,
+    "descripcion": "Cangrejos, langostas, camarones, percebes."
+  },
+  {
+    "nombre": "Legumbres",
+    "vigor": 13,
+    "moral": 0,
+    "coste_docena": 4,
+    "descripcion": "Guisantes, alubias, lentejas, garbanzos."
+  },
+  {
+    "nombre": "Frutos secos",
+    "vigor": 17,
+    "moral": -5,
+    "coste_docena": 5,
+    "descripcion": "Almendras, avellanas, piñones, nueces."
+  },
+  {
+    "nombre": "Pescado inferior",
+    "vigor": 9,
+    "moral": 3,
+    "coste_docena": 6,
+    "descripcion": "Pescados de peces pequeños, alimañas o restos de otras partes menos apetitosas (entrañas, piel, etc)."
+  },
+  {
+    "nombre": "Carne inferior",
+    "vigor": 10,
+    "moral": 5,
+    "coste_docena": 6,
+    "descripcion": "Carnes de animales pequeños, alimañas o restos de otras partes menos apetitosas (entrañas, piel, etc)."
+  },
+  {
+    "nombre": "Pescado superior",
+    "vigor": 14,
+    "moral": 8,
+    "coste_docena": 12,
+    "descripcion": "Los trozos y cortes más sabrosos y nutritivos de peces comestibles."
+  },
+  {
+    "nombre": "Carne superior",
+    "vigor": 16,
+    "moral": 10,
+    "coste_docena": 15,
+    "descripcion": "Los trozos y cortes más sabrosos y nutritivos de animales comestibles."
+  },
+  {
+    "nombre": "Frutas",
+    "vigor": 7,
+    "moral": 0,
+    "coste_docena": 6,
+    "descripcion": "Manzanas, fresas, peras, uva."
+  },
+  {
+    "nombre": "Hongos",
+    "vigor": 4,
+    "moral": 3,
+    "coste_docena": 3,
+    "descripcion": "Setas y hongos comestibles."
+  },
+  {
+    "nombre": "Leches",
+    "vigor": 8,
+    "moral": 3,
+    "coste_docena": 5,
+    "descripcion": "Ordeñada de diversos animales."
+  },
+  {
+    "nombre": "Miel",
+    "vigor": 8,
+    "moral": 8,
+    "coste_docena": 10,
+    "descripcion": "Miel y azúcar de caña u otras plantas azucareras."
+  },
+  {
+    "nombre": "Huevos",
+    "vigor": 11,
+    "moral": 3,
+    "coste_docena": 7,
+    "descripcion": "Huevos de ave."
+  },
+  {
+    "nombre": "Especias",
+    "vigor": 1,
+    "moral": 10,
+    "coste_docena": 18,
+    "descripcion": "Especias variadas usadas para condimentar."
+  },
+  {
+    "nombre": "Sal",
+    "vigor": 1,
+    "moral": 5,
+    "coste_docena": 4,
+    "descripcion": "Sal común."
+  },
+  {
+    "nombre": "Aceites",
+    "vigor": 2,
+    "moral": 5,
+    "coste_docena": 6,
+    "descripcion": "Aceites vegetales o animales usados para condimentar."
+  }
+]

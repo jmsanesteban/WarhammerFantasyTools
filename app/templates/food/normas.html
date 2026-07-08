@@ -1,0 +1,104 @@
+{% extends 'base.html' %}
+{% block title %}Normas de comida y bebida — Warhammer Fantasy Tools{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+  <h2 class="wh-heading mb-3"><i class="bi bi-journal-text me-2"></i>Normas de comida y bebida</h2>
+
+  <div class="card wh-card mb-3">
+    <div class="card-header wh-card-header">Intoxicación por bebidas espirituosas</div>
+    <div class="card-body">
+      <p>El nivel de efecto del alcohol (u otras sustancias similares) se mide en <strong>Unidades de Intoxicación
+        (UI)</strong>. El <strong>Nivel de Aguante (NA)</strong> de un personaje frente a las UI es la decena de su
+        habilidad de Consumir Alcohol (un personaje con 34% tiene NA 3; sin la habilidad adquirida, se tira a -10%).
+        Las UI bajan a 1 por hora, o a 0 directamente si se descansa el tiempo normal del personaje.</p>
+
+      <h6 class="mt-3">Achispado</h6>
+      <p class="mb-1">Se alcanza al consumir un nivel de UI igual al NA. No hace falta tirar. Para recuperar el
+        estado normal debe pasar la mitad del descanso normal desde la última ingesta.</p>
+      <ul>
+        <li>El personaje está levemente animado.</li>
+        <li>+5% a Intimidar, Tortura, Cotilleo y VOL contra miedo/terror.</li>
+        <li>-5% al resto de pruebas de características/habilidades.</li>
+        <li>-2 a lanzar hechizos.</li>
+        <li>-5% a las pruebas de VOL contra la tentación de seguir consumiendo.</li>
+      </ul>
+
+      <h6 class="mt-3">Ebrio</h6>
+      <p class="mb-1">Se alcanza cuando NA ≥ 2×UI. No hace falta tirar. Para recuperar el estado normal debe pasar
+        el descanso normal completo desde la última ingesta.</p>
+      <ul>
+        <li>El personaje está animado.</li>
+        <li>+10% a Intimidar, Cotilleo, Tortura y VOL contra miedo/terror.</li>
+        <li>-10% al resto de pruebas de características/habilidades.</li>
+        <li>-4 a lanzar hechizos.</li>
+        <li>-10% a las pruebas de VOL contra la tentación de seguir consumiendo.</li>
+      </ul>
+
+      <h6 class="mt-3">Borracho</h6>
+      <p class="mb-1">Se puede alcanzar al consumir cualquier UI por encima del límite de Ebrio: se tira Consumir
+        Alcohol por cada UI consumida; si se falla, se pasa a Borracho. Para recuperar el estado normal debe pasar
+        el doble del descanso normal desde la última ingesta.</p>
+      <div class="table-responsive mb-2">
+        <table class="table table-sm wh-stat-table text-center mb-0">
+          <thead><tr><th>UI</th><th>1</th><th>2</th><th>3</th><th>4</th><th>5</th><th>6</th><th>7+</th></tr></thead>
+          <tbody><tr><th>Dificultad</th><td>+30%</td><td>+20%</td><td>+10%</td><td>+0%</td><td>-10%</td><td>-20%</td><td>-30%</td></tr></tbody>
+        </table>
+      </div>
+      <ul>
+        <li>El personaje está muy animado.</li>
+        <li>-20% al resto de pruebas de características/habilidades.</li>
+        <li>-6 a lanzar hechizos, +1d10 solo para la maldición de Tzeentch.</li>
+        <li>-20% a las pruebas de VOL contra la tentación de seguir consumiendo.</li>
+        <li>Por cada ingesta en este estado (incluida la que lo provoca) se tira en la tabla "Cosas de Borrachos"
+          (1d10 + UI consumidas totales).</li>
+      </ul>
+
+      <h6 class="mt-3">Calidad y sabor</h6>
+      <p class="mb-1">La calidad de una bebida modifica la Moral obtenida: Mala -3, Normal +0, Buena +3, Excelente
+        +10 (si está aguada, baja dos niveles de calidad). El sabor también modifica la Moral: -10 si es un sabor
+        odiado por el bebedor, +10 si es su preferido; -2% adicional si la bebida no es de la misma raza o nación
+        del bebedor.</p>
+    </div>
+  </div>
+
+  <div class="card wh-card">
+    <div class="card-header wh-card-header">Vigor y Moral diarios</div>
+    <div class="card-body">
+      <p>Todo personaje tiene dos valores asociados: <strong>Vigor</strong> (igual a su Fuerza; su resistencia de
+        Vigor es igual a su Resistencia) y <strong>Moral</strong> (igual a su Voluntad, con modificador racial:
+        Halfling +15, Elfo +10, Humano -5, Enano -10). Los personajes pueden consumir 3 raciones y 2 bebidas al
+        día (los Halfling, 4 raciones y 3 bebidas).</p>
+
+      <h6 class="mt-3">Vigor</h6>
+      <ul>
+        <li>Vigor consumido ≥ FUE: el personaje está bien alimentado, retira cartas de fatiga/exhausto con
+          normalidad.</li>
+        <li>Vigor consumido ≥ 2×FUE: el personaje está muy bien alimentado, recibe 1 carta de Vigor.</li>
+        <li>Vigor consumido ≥ 3×FUE: el personaje está lleno de energía, recibe 2 cartas de Vigor.</li>
+        <li>Vigor consumido &lt; FUE: el personaje sufre deficiencia de alimentación; el valor que falta se acumula
+          como negativo cada día. Cuando el negativo acumulado ≥ RES, recibe 1 carta de Fatigado (no se puede
+          retirar mientras siga en negativo); si no puede recibir más fatigas, recibe Exhausto; si tampoco, muere
+          de hambre.</li>
+        <li>Si no se consume al menos 1 ración en el día, se recibe un -30% a Moral.</li>
+      </ul>
+
+      <h6 class="mt-3">Moral</h6>
+      <ul>
+        <li>Moral consumida ≥ VOL: el personaje está contento y piensa con claridad, recibe 1 carta de Motivado.</li>
+        <li>Moral consumida ≥ 2×VOL: el personaje está inspirado, recibe 2 cartas de Motivado.</li>
+        <li>Moral consumida negativa: el personaje está disgustado, recibe 1 carta de Distraído (vigente solo ese
+          día, no se puede retirar salvo por pociones, magia, etc).</li>
+        <li>La Moral positiva y negativa no se acumula de un día a otro; solo afecta al día siguiente.</li>
+        <li>Si no se consume al menos 1 bebida en el día, se recibe un -10% a Moral.</li>
+      </ul>
+
+      <div class="alert alert-info wh-alert mb-0">
+        <i class="bi bi-info-circle me-2"></i>Esta página muestra las normas tal como están en el libro, a título de
+        referencia. El sistema de cartas de estado (Fatigado, Motivado, Exhausto, Distraído...) todavía no está
+        implementado en la aplicación — por ahora, la aplicación de estos efectos día a día se lleva a mano.
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,71 @@
+{% extends 'base.html' %}
+{% block title %}{{ recipe.nombre }} — Warhammer Fantasy Tools{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+  <nav aria-label="breadcrumb">
+    <ol class="breadcrumb wh-breadcrumb">
+      <li class="breadcrumb-item"><a href="{{ url_for('food.recipes') }}" class="wh-link">Recetas</a></li>
+      <li class="breadcrumb-item active">{{ recipe.nombre }}</li>
+    </ol>
+  </nav>
+
+  <h2 class="wh-title"><i class="bi bi-egg-fried me-2"></i>{{ recipe.nombre }}</h2>
+  {% if recipe.solo_compra %}
+  <span class="badge bg-secondary mb-3">Solo se puede comprar, no se puede elaborar</span>
+  {% endif %}
+
+  <div class="card wh-card mb-3">
+    <div class="card-header wh-card-header">Valores</div>
+    <div class="card-body">
+      <dl class="row mb-0">
+        <dt class="col-sm-3">Vigor</dt><dd class="col-sm-9">{{ recipe.vigor }}</dd>
+        <dt class="col-sm-3">Moral</dt><dd class="col-sm-9">{{ recipe.moral }}</dd>
+        <dt class="col-sm-3">Método de cocina</dt>
+        <dd class="col-sm-9">
+          {% if recipe.cooking_method %}
+          <a href="{{ url_for('food.cooking_methods') }}" class="wh-link">{{ recipe.cooking_method.nombre }}</a>
+          {% else %}—{% endif %}
+        </dd>
+        <dt class="col-sm-3">Calidad</dt><dd class="col-sm-9">{{ recipe.calidad or '—' }}</dd>
+        <dt class="col-sm-3">Duración</dt>
+        <dd class="col-sm-9">{{ recipe.duracion_dias ~ ' días' if recipe.duracion_dias is not none else '—' }}</dd>
+        <dt class="col-sm-3">Se puede recalentar</dt><dd class="col-sm-9">{{ 'Sí' if recipe.recalentar else 'No' }}</dd>
+        <dt class="col-sm-3">Coste creación (12 raciones)</dt>
+        <dd class="col-sm-9">{{ recipe.coste_creacion_peniques | food_money if recipe.coste_creacion_peniques is not none else '—' }}</dd>
+        <dt class="col-sm-3">Precio de compra (1 ración)</dt>
+        <dd class="col-sm-9">{{ recipe.precio_compra_peniques | food_money }}</dd>
+      </dl>
+    </div>
+  </div>
+
+  {% if recipe.ingredientes or recipe.condimentos %}
+  <div class="card wh-card mb-3">
+    <div class="card-header wh-card-header">Ingredientes</div>
+    <div class="card-body">
+      {% if recipe.ingredientes %}
+      <p class="mb-2"><strong>Ingredientes:</strong>
+        {% for i in recipe.ingredientes %}
+        <a href="{{ url_for('food.ingredients') }}" class="wh-link">{{ i.nombre }}</a>{% if not loop.last %}, {% endif %}
+        {% endfor %}
+      </p>
+      {% endif %}
+      {% if recipe.condimentos %}
+      <p class="mb-0"><strong>Condimentos:</strong>
+        {% for c in recipe.condimentos %}
+        <a href="{{ url_for('food.ingredients') }}" class="wh-link">{{ c.nombre }}</a>{% if not loop.last %}, {% endif %}
+        {% endfor %}
+      </p>
+      {% endif %}
+    </div>
+  </div>
+  {% endif %}
+
+  {% if recipe.notas %}
+  <div class="card wh-card">
+    <div class="card-header wh-card-header">Notas</div>
+    <div class="card-body">{{ recipe.notas }}</div>
+  </div>
+  {% endif %}
+</div>
+{% endblock %}

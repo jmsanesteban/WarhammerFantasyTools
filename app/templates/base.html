@@ -63,6 +63,34 @@
             <i class="bi bi-person-lines-fill me-1"></i>Contactos
           </a>
         </li>
+        <li class="nav-item dropdown">
+          <a class="nav-link dropdown-toggle {% if request.blueprint == 'food' %}active{% endif %}"
+             href="#" data-bs-toggle="dropdown">
+            <i class="bi bi-cup-straw me-1"></i>Comida y bebida
+          </a>
+          <ul class="dropdown-menu dropdown-menu-dark">
+            <li><a class="dropdown-item {% if request.endpoint == 'food.drinks' %}active{% endif %}"
+                   href="{{ url_for('food.drinks') }}">
+              <i class="bi bi-cup-straw me-2"></i>Bebidas
+            </a></li>
+            <li><a class="dropdown-item {% if request.endpoint == 'food.recipes' %}active{% endif %}"
+                   href="{{ url_for('food.recipes') }}">
+              <i class="bi bi-egg-fried me-2"></i>Recetas
+            </a></li>
+            <li><a class="dropdown-item {% if request.endpoint == 'food.ingredients' %}active{% endif %}"
+                   href="{{ url_for('food.ingredients') }}">
+              <i class="bi bi-basket me-2"></i>Ingredientes
+            </a></li>
+            <li><a class="dropdown-item {% if request.endpoint == 'food.cooking_methods' %}active{% endif %}"
+                   href="{{ url_for('food.cooking_methods') }}">
+              <i class="bi bi-fire me-2"></i>Métodos de cocina
+            </a></li>
+            <li><a class="dropdown-item {% if request.endpoint == 'food.normas' %}active{% endif %}"
+                   href="{{ url_for('food.normas') }}">
+              <i class="bi bi-journal-text me-2"></i>Normas
+            </a></li>
+          </ul>
+        </li>
         {% endif %}
       </ul>
       <ul class="navbar-nav ms-auto">

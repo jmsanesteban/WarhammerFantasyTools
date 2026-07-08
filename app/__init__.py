@@ -33,6 +33,7 @@ def create_app(config_name='default'):
     from app.routes.characters import characters_bp
     from app.routes.contacts import contacts_bp
     from app.routes.admin import admin_bp
+    from app.routes.food import food_bp
 
     app.register_blueprint(auth_bp, url_prefix='/auth')
     app.register_blueprint(main_bp)
@@ -42,12 +43,16 @@ def create_app(config_name='default'):
     app.register_blueprint(characters_bp, url_prefix='/personajes')
     app.register_blueprint(contacts_bp, url_prefix='/contactos')
     app.register_blueprint(admin_bp, url_prefix='/admin')
+    app.register_blueprint(food_bp, url_prefix='/comida')
 
     # Import models so Flask-Migrate detects them
     from app.models import (  # noqa: F401
         user, permission, profession, skill, talent, character, synonym,
-        contact, contact_character_link, contact_note,
+        contact, contact_character_link, contact_note, food,
     )
+
+    from app.services.currency_service import format_peniques
+    app.jinja_env.filters['food_money'] = format_peniques
 
     _register_cli_commands(app)
     _register_error_handlers(app)
@@ -350,6 +355,12 @@ def _register_cli_commands(app):
             if added:
                 db.session.commit()
                 click.echo(f'  Seeded {added} new default synonym(s).')
+
+            # Seed the Comida y bebida catalog (idempotent)
+            from app.services.food_seed_service import seed_food_catalog
+            food_added = seed_food_catalog()
+            if food_added:
+                click.echo(f'  Seeded {food_added} new comida/bebida catalog row(s).')
 
     @app.cli.command('create-admin')
     def create_admin_cmd():

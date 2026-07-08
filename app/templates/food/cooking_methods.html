@@ -1,0 +1,53 @@
+{% extends 'base.html' %}
+{% block title %}Métodos de cocina — Warhammer Fantasy Tools{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+  <h2 class="wh-heading mb-3"><i class="bi bi-fire me-2"></i>Métodos de cocina</h2>
+
+  <div class="table-responsive">
+    <table class="table wh-table align-middle">
+      <thead>
+        <tr>
+          <th>Método</th>
+          <th>Vigor</th>
+          <th>Moral</th>
+          <th>Coste</th>
+          <th>Duración</th>
+          <th>Complejidad base</th>
+          <th>Ingredientes permitidos</th>
+          <th>Condimentos permitidos</th>
+          <th>Elementos necesarios</th>
+          <th>Habilidad</th>
+          <th>Recalentar</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for m in methods %}
+        <tr>
+          <td>
+            <strong>{{ m.nombre }}</strong>
+            {% if m.descripcion %}<br><small class="text-muted">{{ m.descripcion }}</small>{% endif %}
+          </td>
+          <td>{{ m.vigor }}</td>
+          <td>{{ m.moral }}</td>
+          <td>{{ m.coste | food_money }}</td>
+          <td>{{ m.duracion_dias }} días</td>
+          <td>{{ m.complejidad_base }}</td>
+          <td>{{ m.ingredientes_permitidos }}</td>
+          <td>{{ m.condimentos_permitidos }}</td>
+          <td>{{ m.elementos_necesarios or '—' }}</td>
+          <td>{{ m.habilidad or '—' }}</td>
+          <td>{{ 'Sí' if m.recalentar else 'No' }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+  <p class="text-muted small mt-2">
+    La complejidad de una receta se calcula como: complejidad base del método + 1 por cada ingrediente usado + 2 por
+    cada condimento usado.
+  </p>
+</div>
+{% endblock %}

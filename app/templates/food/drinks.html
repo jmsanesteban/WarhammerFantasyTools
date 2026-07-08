@@ -1,0 +1,109 @@
+{% extends 'base.html' %}
+{% block title %}Bebidas — Warhammer Fantasy Tools{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+  <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+    <h2 class="wh-heading mb-0"><i class="bi bi-cup-straw me-2"></i>Bebidas</h2>
+    <a href="{{ url_for('food.normas') }}" class="btn btn-outline-secondary btn-sm">
+      <i class="bi bi-journal-text me-1"></i>Normas de consumo
+    </a>
+  </div>
+
+  <form method="GET" class="row g-2 mb-4">
+    <div class="col-md-6">
+      <input type="text" name="q" class="form-control wh-input" placeholder="Buscar por nombre…" value="{{ search }}">
+    </div>
+    <div class="col-md-3">
+      <select name="origen" class="form-select wh-input">
+        <option value="">Todos los orígenes</option>
+        {% for o in origenes %}
+        <option value="{{ o }}" {% if origen == o %}selected{% endif %}>{{ o }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div class="col-md-2">
+      <button class="btn btn-wh w-100" type="submit"><i class="bi bi-search me-1"></i>Filtrar</button>
+    </div>
+    {% if search or origen %}
+    <div class="col-md-1">
+      <a href="{{ url_for('food.drinks') }}" class="btn btn-outline-secondary w-100" title="Limpiar">
+        <i class="bi bi-x-lg"></i>
+      </a>
+    </div>
+    {% endif %}
+  </form>
+
+  {% if not drinks %}
+  <div class="alert alert-info wh-alert">No se encontraron bebidas.</div>
+  {% else %}
+  <div class="table-responsive">
+    <table class="table wh-table align-middle">
+      <thead>
+        <tr>
+          <th>Nombre</th>
+          <th>Origen</th>
+          <th>Disponibilidad</th>
+          <th>Calidad</th>
+          <th>Sabor</th>
+          <th>Recipiente</th>
+          <th>Precio (taberna)</th>
+          <th>Cantidad</th>
+          <th>Total</th>
+          <th style="width:5rem"></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for drink in drinks %}
+        <tr>
+          <td><strong>{{ drink.nombre }}</strong></td>
+          <td>{{ drink.origen }}</td>
+          <td>{{ drink.disponibilidad or '—' }}</td>
+          <td>{{ drink.calidad or '—' }}</td>
+          <td>{{ drink.sabor or '—' }}</td>
+          <td>{{ drink.recipiente or '—' }}</td>
+          <td data-peniques="{{ drink.precio_taberna_peniques or 0 }}" class="wh-price">
+            {{ drink.precio_taberna_peniques | food_money }}
+          </td>
+          <td style="width:6rem">
+            <input type="number" min="1" value="1" class="form-control form-control-sm wh-qty-input">
+          </td>
+          <td class="wh-qty-total">{{ drink.precio_taberna_peniques | food_money }}</td>
+          <td>
+            <a href="{{ url_for('food.drink_detail', drink_id=drink.id) }}" class="btn btn-outline-secondary btn-sm">Ver</a>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% endif %}
+</div>
+
+<script>
+document.querySelectorAll('tr').forEach(function (row) {
+  var input = row.querySelector('.wh-qty-input');
+  var priceCell = row.querySelector('.wh-price');
+  var totalCell = row.querySelector('.wh-qty-total');
+  if (!input || !priceCell || !totalCell) return;
+  var unitPeniques = parseInt(priceCell.dataset.peniques, 10) || 0;
+  input.addEventListener('input', function () {
+    var qty = parseInt(input.value, 10) || 0;
+    totalCell.textContent = formatPeniques(unitPeniques * qty);
+  });
+});
+
+function formatPeniques(total) {
+  if (!total) return '0 Pe';
+  var coronas = Math.floor(total / 240);
+  var resto = total % 240;
+  var chelines = Math.floor(resto / 12);
+  var peniques = resto % 12;
+  var parts = [];
+  if (coronas) parts.push(coronas + ' Co');
+  if (chelines) parts.push(chelines + ' C');
+  if (peniques || parts.length === 0) parts.push(peniques + ' Pe');
+  return parts.join(' ');
+}
+</script>
+{% endblock %}
