@@ -17,7 +17,8 @@ def _load(filename):
 
 
 def seed_food_catalog() -> int:
-    """Returns the number of new rows inserted (0 if the catalog is already seeded)."""
+    """Returns the number of rows inserted or backfilled (0 if the catalog is
+    already fully seeded)."""
     added = 0
 
     existing_methods = {m.nombre: m for m in CookingMethod.query.all()}
@@ -51,9 +52,16 @@ def seed_food_catalog() -> int:
             added += 1
     db.session.flush()
 
-    existing_recipes = {r.nombre for r in Recipe.query.all()}
+    existing_recipes = {r.nombre: r for r in Recipe.query.all()}
     for row in _load('recipes.json'):
         if row['nombre'] in existing_recipes:
+            # Backfill columns added after this book recipe was first seeded
+            # (e.g. 'complejidad', introduced alongside the Fase 2 proposal
+            # workflow) - book recipes are never otherwise touched here.
+            recipe = existing_recipes[row['nombre']]
+            if recipe.complejidad is None and row['complejidad'] is not None:
+                recipe.complejidad = row['complejidad']
+                added += 1
             continue
         method = existing_methods.get(row['metodo_cocina']) if row['metodo_cocina'] else None
 

@@ -30,6 +30,21 @@ def test_seed_food_catalog_is_idempotent(app, db):
         assert Drink.query.count() == 61
 
 
+def test_seed_food_catalog_backfills_complejidad_on_preexisting_recipes(app, db):
+    """Regression: a recipe already seeded before 'complejidad' existed (Fase 1
+    deployments) must get it backfilled on the next seed call, not stay None."""
+    with app.app_context():
+        seed_food_catalog()
+        recipe = Recipe.query.filter_by(nombre='Olla podrida').first()
+        recipe.complejidad = None
+        db.session.commit()
+
+        added = seed_food_catalog()
+        assert added > 0
+        db.session.refresh(recipe)
+        assert recipe.complejidad == 11
+
+
 def test_currency_to_peniques():
     assert currency_service.to_peniques(coronas=1) == 240
     assert currency_service.to_peniques(chelines=1) == 12
