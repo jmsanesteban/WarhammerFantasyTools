@@ -70,7 +70,11 @@
             {% endif %}
           </td>
           <td class="small text-muted">
-            {{ contact.professions|map(attribute='profession.name')|join(', ') or '—' }}
+            {% if current_user.is_admin or visibility_by_contact.get(contact.id) == 'total' %}
+              {{ contact.professions|map(attribute='profession.name')|join(', ') or '—' }}
+            {% else %}
+              <span title="Visibilidad parcial">—</span>
+            {% endif %}
           </td>
           <td>
             {% if current_user.is_admin or (active_character and active_character.es_untersuchung) %}

@@ -20,6 +20,18 @@ def test_list_only_shows_own_characters(client, make_user, make_character, login
     assert 'Personaje de Other'.encode('utf-8') not in resp.data
 
 
+def test_admin_list_shows_every_players_characters(client, admin_user, make_user, make_character, login_as):
+    player1 = make_user(username='player1', password='playerpass123')
+    player2 = make_user(username='player2', password='playerpass123')
+    make_character(player1, name='Personaje de Player1')
+    make_character(player2, name='Personaje de Player2')
+
+    login_as(client, admin_user, 'adminpass123')
+    resp = client.get('/personajes/')
+    assert 'Personaje de Player1'.encode('utf-8') in resp.data
+    assert 'Personaje de Player2'.encode('utf-8') in resp.data
+
+
 def test_detail_blocks_other_users(client, make_user, make_character, login_as):
     owner = make_user(username='owner1', password='ownerpass123')
     other = make_user(username='other1', password='otherpass123')

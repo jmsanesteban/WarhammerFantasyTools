@@ -497,9 +497,9 @@ pytest --cov=app --cov-report=term-missing
 | `tests/test_auth.py` | Login, registro, logout, redirección a `next`, usuarios inactivos |
 | `tests/test_professions.py` | CRUD de profesiones, permisos, características primarias/secundarias, habilidades/talentos/enseres/salidas asociados |
 | `tests/test_skills_talents.py` | CRUD de habilidades y talentos, búsqueda/filtros, importación/exportación en texto plano, y el guardián anti-duplicados (bloquea duplicados exactos, avisa de casi-duplicados) al crear/editar/importar |
-| `tests/test_characters.py` | CRUD de personajes WFRP, aislamiento por propietario, historial de profesiones ordenado, `es_untersuchung`, salario por profesión |
-| `tests/test_contacts.py` | Vista de usuario de Contactos: visibilidad, alta de contacto + vínculo propio, aislamiento de notas/nivel/apodo entre personajes (incluso del mismo usuario), visibilidad de Untersuchung según membresía, salario |
-| `tests/test_admin_contacts.py` | Administración de Contactos: listado/alta/baja, edición del vínculo de cualquier personaje, importación/exportación Excel con columnas fijas |
+| `tests/test_characters.py` | CRUD de personajes WFRP, aislamiento por propietario (admin ve todos, jugador solo los suyos), historial de profesiones ordenado, `es_untersuchung`, salario por profesión |
+| `tests/test_contacts.py` | Vista de usuario de Contactos: permiso de visibilidad por personaje (sin concesión no se ve, total/parcial oculta profesiones), concesión automática al crear, alta de contacto + vínculo propio, aislamiento de notas/nivel/apodo entre personajes (incluso del mismo usuario), visibilidad de Untersuchung según membresía, salario |
+| `tests/test_admin_contacts.py` | Administración de Contactos: listado/alta/baja, edición de datos globales, concesión/revocación de visibilidad por personaje, edición del vínculo de cualquier personaje, importación/exportación Excel con columnas fijas |
 | `tests/test_pdf_import.py` | Pipeline de importación de PDF: emparejamiento de habilidades/talentos, canonicalización de chips al nombre exacto del catálogo, auto-vinculación de accesos/salidas, detección de duplicados/casi-duplicados, persistencia del caché de trabajos en disco (con expiración a las 48h), recuperación de enseres mal clasificados como talentos, corrección de nombres de carrera vía sinónimos, y el endpoint de guardado (modos crear/actualizar/omitir + el guardián anti-duplicados). Incluye tests de regresión explícitos para los bugs reales corregidos: pérdida de chips confirmados al guardar, caché no persistente entre reinicios, accesos/salidas no auto-vinculados, enseres perdidos dentro de talentos, nombres de carrera no corregidos por el diccionario de sinónimos, y habilidades/talentos casi-duplicados (p.ej. "preparar veneno" vs "Preparar venenos") |
 | `tests/test_pathfinder.py` | Construcción del grafo de carreras, búsqueda de rutas (más cortas primero, límite de resultados, ausencia de ruta), y acumulación de estadísticas (máximo por característica, deduplicación de habilidades/talentos/enseres a lo largo de la ruta) |
 | `tests/test_talent_specializations.py` | Talentos con especializaciones predefinidas (p.ej. "Especialista en armas"): carga de `talent_specializations.json`, guardado en formato de entradas (JSON) con grupos de elección, y que los talentos sin especializaciones predefinidas siguen funcionando con el campo de texto libre de siempre |
@@ -804,6 +804,8 @@ Para cada ruta se muestra:
 
 ### Crear y gestionar personajes
 
+Un jugador normal solo ve sus propios personajes en el listado; un administrador ve los de todos los jugadores (agrupados por usuario), aunque cualquiera puede editar/ver la ficha de cualquier personaje ya conociendo su URL.
+
 Hay dos formas de crear un personaje desde **Personajes**:
 
 #### Creación rápida (manual)
@@ -846,12 +848,14 @@ Desde la ficha del personaje puedes ver las estadísticas de cada profesión en 
 
 Ve a **Contactos** en el menú principal. Un contacto (NPC) tiene datos **globales** (nombre, profesiones del catálogo, si pertenece a la Untersuchung) y datos **por personaje** — cada personaje ve y edita solo su propio vínculo, nunca el de otro personaje, aunque sean del mismo usuario.
 
-- **Cualquier personaje puede registrar un contacto nuevo** desde **+ Nuevo contacto**: rellena los datos globales y, en el mismo formulario, su propio vínculo (apodo(s), nivel de relación de -5 a 5, organización/secta si no es la Untersuchung, lugar de residencia, lugar de contacto, GM y misión en la que se conoció, y si viene de la creación del personaje).
+- **Visibilidad por personaje**: un personaje solo ve los contactos para los que tiene un permiso concedido — **Total** (ve todos los campos globales, incluidas las profesiones) o **Parcial** (ve la ficha, pero sin las profesiones). Sin permiso, el contacto no aparece ni en el listado ni en la ficha, aunque exista. El personaje que **crea** un contacto obtiene automáticamente permiso Total sobre él; para el resto, un administrador concede el nivel que corresponda desde la ficha del contacto ("Visibilidad por personaje", solo-admin).
+- El interruptor **Visible** (solo-admin, en Editar contacto) sigue existiendo como apagado general: si está desmarcado, oculta el contacto a todos los no-admin sin importar los permisos concedidos.
+- **Cualquier personaje puede registrar un contacto nuevo** desde **+ Nuevo contacto**: rellena los datos globales y, en el mismo formulario, su propio vínculo (apodo(s), nivel de relación de -5 a 5, organización/secta si no es la Untersuchung, lugar de residencia, lugar de contacto, GM y misión en la que se conoció, y si viene de la creación del personaje). Un administrador puede además crear un contacto **sin** vincularlo a ningún personaje todavía, para repartir la visibilidad después.
 - Si el usuario tiene varios personajes, un selector **"Ver como"** en el listado y en la ficha cambia qué vínculo se muestra/edita.
-- **Untersuchung**: si el contacto pertenece a esta organización secreta, ese dato **solo se muestra si el personaje activo también es miembro** (marcado en su ficha) — un personaje no-miembro no lo ve, aunque el admin sí lo ve siempre.
-- **Salario**: si el contacto tiene una profesión, puedes elegir manualmente un tipo de sueldo (Obreros/Sirvientes/Artesanos/Profesionales/Especialistas/Artistas o ilegal 1-3) y un estado de habilidad (Mala/Normal/Buena/Excelente) de la tabla de referencia — no se calcula a partir de ninguna habilidad real. La misma tabla está disponible al asignar profesiones a tus propios personajes.
+- **Untersuchung**: si el contacto pertenece a esta organización secreta, ese dato **solo se muestra si el personaje activo también es miembro** (marcado en su ficha) — un personaje no-miembro no lo ve, aunque el admin sí lo ve siempre. Es un eje de visibilidad independiente del permiso Total/Parcial.
+- **Salario**: si el contacto tiene una profesión, puedes elegir manualmente un tipo de sueldo (Obreros/Sirvientes/Artesanos/Profesionales/Especialistas/Artistas o ilegal 1-3) y un estado de habilidad (Mala/Normal/Buena/Excelente) de la tabla de referencia — no se calcula a partir de ninguna habilidad real. La misma tabla está disponible al asignar profesiones a tus propios personajes. Solo visible con permiso Total (implica ver las profesiones).
 - **Notas**: privadas de cada personaje — una nota de tu personaje A nunca aparece al ver el contacto como tu personaje B.
-- Los administradores gestionan desde **Admin → Contactos**: listado completo (mostrar/ocultar, eliminar), e importación/exportación Excel con columnas fijas (`nombre`, `es_untersuchung`, `profesiones` separadas por comas — deben existir ya en el catálogo de Profesiones). Un admin puede además editar el vínculo de cualquier personaje desde la ficha del contacto, no solo el suyo.
+- Los administradores gestionan desde **Admin → Contactos**: listado completo (mostrar/ocultar, eliminar, editar datos globales), e importación/exportación Excel con columnas fijas (`nombre`, `es_untersuchung`, `profesiones` separadas por comas — deben existir ya en el catálogo de Profesiones). Un admin puede además editar el vínculo de cualquier personaje y conceder/revocar su visibilidad desde la ficha del contacto.
 
 ---
 
@@ -875,7 +879,8 @@ users
        │                           del generador — texto libre, independiente de contact_*)
        ├─ character_possessions   (objetos de inventario iniciales)
        ├─ character_magic_items   (objetos mágicos rolados con Puntos de Historial)
-       └─ contact_character_links (su propia visión de cada Contacto, ver más abajo)
+       ├─ contact_character_links (su propia visión de cada Contacto, ver más abajo)
+       └─ contact_visibilities → contact_character_visibilities (qué contactos puede ver este personaje)
 
 permissions                               (12 códigos de permiso disponibles)
 permission_templates                      (conjuntos reutilizables de permisos)
@@ -884,11 +889,19 @@ template_permissions (M2M)                (permisos que incluye cada plantilla)
 contacts                           (hechos GLOBALES de un NPC — iguales para todo el mundo)
   ├─ nombre
   ├─ es_untersuchung               (solo se muestra a personajes que también sean miembros)
-  ├─ is_visible                    (los no-admin solo ven contactos visibles)
+  ├─ is_visible                    (apagado general del admin: oculto para todo no-admin
+  │                                 pase lo que pase en contact_character_visibilities)
   ├─ created_by_id → users.id
   ├─ contact_professions           (M2M contacts ↔ professions, reutiliza el catálogo)
   ├─ character_links → contact_character_links
+  ├─ character_visibilities → contact_character_visibilities
   └─ notes → contact_notes
+
+contact_character_visibilities      (permiso de UN personaje para ver un Contacto — sin fila,
+  ├─ character_id, contact_id       no lo ve en absoluto, ni en listado ni en ficha)
+  └─ nivel                         ('total' ve todo; 'parcial' oculta las profesiones.
+                                     El personaje creador recibe 'total' automáticamente;
+                                     para el resto lo concede un admin.)
 
 contact_character_links            (la visión de UN personaje sobre un Contacto —
   ├─ character_id, contact_id      nunca visible para otro personaje, ni del mismo usuario)

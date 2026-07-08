@@ -59,9 +59,11 @@
                 <i class="bi {% if contact.is_visible %}bi-eye{% else %}bi-eye-slash{% endif %}"></i>
               </button>
             </td>
-            <td>
+            <td class="d-flex gap-1">
               <a href="{{ url_for('contacts.detail', contact_id=contact.id) }}"
                  class="btn btn-outline-secondary btn-sm">Ver</a>
+              <a href="{{ url_for('contacts.edit', contact_id=contact.id) }}"
+                 class="btn btn-outline-warning btn-sm"><i class="bi bi-pencil"></i></a>
             </td>
           </tr>
           {% endfor %}

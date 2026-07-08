@@ -1,9 +1,11 @@
 """Tests for admin-only Contacts management: contact CRUD/listing/toggle/
-delete, and Excel import/export against the fixed-column schema (nombre,
-es_untersuchung, profesiones)."""
+delete, editing global fields, per-character visibility grants, and Excel
+import/export against the fixed-column schema (nombre, es_untersuchung,
+profesiones)."""
 import io
 import openpyxl
 from app.models.contact import Contact, ContactProfession
+from app.models.contact_character_link import ContactCharacterVisibility
 
 
 # ── Admin contact listing/toggle/delete ─────────────────────────────────────
@@ -12,6 +14,82 @@ def test_admin_contacts_listing_requires_admin(client, regular_user, login_as):
     login_as(client, regular_user, 'userpass123')
     resp = client.get('/admin/contactos')
     assert resp.status_code == 403
+
+
+# ── Editar datos globales ────────────────────────────────────────────────────
+
+def test_edit_contact_requires_admin(client, regular_user, make_contact, login_as):
+    contact = make_contact()
+    login_as(client, regular_user, 'userpass123')
+    resp = client.get(f'/contactos/{contact.id}/editar')
+    assert resp.status_code == 403
+
+
+def test_edit_contact_updates_global_fields(db, client, admin_user, make_contact, make_profession, login_as):
+    contact = make_contact(nombre='Nombre original', es_untersuchung=False)
+    prof = make_profession(name='Herrero')
+    login_as(client, admin_user, 'adminpass123')
+
+    resp = client.post(f'/contactos/{contact.id}/editar', data={
+        'nombre': 'Nombre corregido', 'es_untersuchung': 'on', 'profession_ids': [str(prof.id)],
+    }, follow_redirects=True)
+    assert resp.status_code == 200
+
+    db.session.refresh(contact)
+    assert contact.nombre == 'Nombre corregido'
+    assert contact.es_untersuchung is True
+    assert ContactProfession.query.filter_by(contact_id=contact.id, profession_id=prof.id).first() is not None
+
+
+# ── Visibilidad por personaje ────────────────────────────────────────────────
+
+def test_visibility_save_requires_admin(client, regular_user, make_character, make_contact, login_as):
+    char = make_character(regular_user)
+    contact = make_contact()
+    login_as(client, regular_user, 'userpass123')
+    resp = client.post(f'/contactos/{contact.id}/visibilidad',
+                       data={'character_id': str(char.id), 'nivel': 'total'})
+    assert resp.status_code == 403
+
+
+def test_visibility_save_grants_access(db, client, admin_user, regular_user, make_character, make_contact, login_as):
+    char = make_character(regular_user)
+    contact = make_contact()
+    login_as(client, admin_user, 'adminpass123')
+
+    client.post(f'/contactos/{contact.id}/visibilidad',
+               data={'character_id': str(char.id), 'nivel': 'parcial'}, follow_redirects=True)
+
+    grant = ContactCharacterVisibility.query.filter_by(contact_id=contact.id, character_id=char.id).first()
+    assert grant is not None
+    assert grant.nivel == 'parcial'
+
+
+def test_visibility_save_updates_existing_grant(db, client, admin_user, regular_user, make_character,
+                                                make_contact, make_contact_visibility, login_as):
+    char = make_character(regular_user)
+    contact = make_contact()
+    make_contact_visibility(char, contact, 'parcial')
+    login_as(client, admin_user, 'adminpass123')
+
+    client.post(f'/contactos/{contact.id}/visibilidad',
+               data={'character_id': str(char.id), 'nivel': 'total'}, follow_redirects=True)
+
+    grant = ContactCharacterVisibility.query.filter_by(contact_id=contact.id, character_id=char.id).first()
+    assert grant.nivel == 'total'
+
+
+def test_visibility_save_empty_nivel_revokes_access(db, client, admin_user, regular_user, make_character,
+                                                    make_contact, make_contact_visibility, login_as):
+    char = make_character(regular_user)
+    contact = make_contact()
+    make_contact_visibility(char, contact, 'total')
+    login_as(client, admin_user, 'adminpass123')
+
+    client.post(f'/contactos/{contact.id}/visibilidad',
+               data={'character_id': str(char.id), 'nivel': ''}, follow_redirects=True)
+
+    assert ContactCharacterVisibility.query.filter_by(contact_id=contact.id, character_id=char.id).first() is None
 
 
 def test_admin_contacts_listing_shows_nombre(client, admin_user, login_as, make_contact):

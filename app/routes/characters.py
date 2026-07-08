@@ -11,6 +11,7 @@ from app.models.character import (
 from app.models.profession import Profession
 from app.models.skill import Skill
 from app.models.talent import Talent
+from app.models.user import User
 from app.services import character_creation_service as ccs
 from app.services import salary_service
 
@@ -22,7 +23,14 @@ _RAZAS = ['Humano', 'Halfling', 'Enano', 'Elfo Silvano', 'Alto Elfo']
 @characters_bp.route('/')
 @login_required
 def list_characters():
-    characters = Character.query.filter_by(user_id=current_user.id).order_by(Character.name).all()
+    if current_user.is_admin:
+        characters = (
+            Character.query.join(User, User.id == Character.user_id)
+            .order_by(User.username, Character.name)
+            .all()
+        )
+    else:
+        characters = Character.query.filter_by(user_id=current_user.id).order_by(Character.name).all()
     return render_template('characters/list.html', characters=characters)
 
 

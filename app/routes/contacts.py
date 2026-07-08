@@ -4,7 +4,9 @@ from app.extensions import db
 from app.models.character import Character
 from app.models.profession import Profession
 from app.models.contact import Contact, ContactProfession
-from app.models.contact_character_link import ContactCharacterLink, ContactApodo, ContactCharacterSalary
+from app.models.contact_character_link import (
+    ContactCharacterLink, ContactApodo, ContactCharacterSalary, ContactCharacterVisibility,
+)
 from app.models.contact_note import ContactNote
 from app.services import salary_service
 
@@ -22,6 +24,21 @@ def _selectable_characters():
     if current_user.is_admin:
         return Character.query.order_by(Character.name).all()
     return _own_characters()
+
+
+def _visibility_level(character, contact):
+    """'total' | 'parcial' | None - whether/how much this character can see
+    of the contact. Admins bypass this entirely at the call site."""
+    if not character:
+        return None
+    grant = ContactCharacterVisibility.query.filter_by(
+        contact_id=contact.id, character_id=character.id,
+    ).first()
+    return grant.nivel if grant else None
+
+
+def _can_view(character, contact):
+    return current_user.is_admin or (contact.is_visible and _visibility_level(character, contact) is not None)
 
 
 def _active_character():
@@ -47,16 +64,28 @@ def index():
     search = request.args.get('q', '').strip()
     per_page = 25
 
+    active_character = _active_character()
+
     query = Contact.query.order_by(Contact.nombre)
     if not current_user.is_admin:
         query = query.filter_by(is_visible=True)
+        if active_character:
+            query = query.join(
+                ContactCharacterVisibility,
+                db.and_(
+                    ContactCharacterVisibility.contact_id == Contact.id,
+                    ContactCharacterVisibility.character_id == active_character.id,
+                ),
+            )
+        else:
+            query = query.filter(db.false())
     if search:
         query = query.filter(Contact.nombre.ilike(f'%{search}%'))
 
     pagination = query.paginate(page=page, per_page=per_page, error_out=False)
 
-    active_character = _active_character()
     link_by_contact = {}
+    visibility_by_contact = {}
     if active_character:
         contact_ids = [c.id for c in pagination.items]
         if contact_ids:
@@ -66,6 +95,12 @@ def index():
             ).all()
             link_by_contact = {l.contact_id: l for l in links}
 
+            grants = ContactCharacterVisibility.query.filter(
+                ContactCharacterVisibility.character_id == active_character.id,
+                ContactCharacterVisibility.contact_id.in_(contact_ids),
+            ).all()
+            visibility_by_contact = {g.contact_id: g.nivel for g in grants}
+
     return render_template(
         'contacts/index.html',
         contacts=pagination.items,
@@ -74,6 +109,7 @@ def index():
         my_characters=_selectable_characters(),
         active_character=active_character,
         link_by_contact=link_by_contact,
+        visibility_by_contact=visibility_by_contact,
     )
 
 
@@ -93,7 +129,7 @@ def new():
         if not nombre:
             flash('El contacto necesita un nombre.', 'danger')
             return render_template('contacts/new.html', characters=characters, professions=professions)
-        if not personaje:
+        if not personaje and not current_user.is_admin:
             flash('Selecciona el personaje que registra este contacto.', 'danger')
             return render_template('contacts/new.html', characters=characters, professions=professions)
 
@@ -109,14 +145,18 @@ def new():
             if prof_id:
                 db.session.add(ContactProfession(contact_id=contact.id, profession_id=int(prof_id)))
 
-        link = ContactCharacterLink(
-            character_id=personaje.id,
-            contact_id=contact.id,
-            **_link_fields_from_form(),
-        )
-        db.session.add(link)
-        db.session.flush()
-        _save_apodos_from_form(link)
+        if personaje:
+            link = ContactCharacterLink(
+                character_id=personaje.id,
+                contact_id=contact.id,
+                **_link_fields_from_form(),
+            )
+            db.session.add(link)
+            db.session.flush()
+            _save_apodos_from_form(link)
+            db.session.add(ContactCharacterVisibility(
+                contact_id=contact.id, character_id=personaje.id, nivel='total',
+            ))
 
         db.session.commit()
         flash(f'Contacto «{contact.nombre}» creado.', 'success')
@@ -152,11 +192,14 @@ def _save_apodos_from_form(link):
 @login_required
 def detail(contact_id):
     contact = Contact.query.get_or_404(contact_id)
-    if not current_user.is_admin and not contact.is_visible:
-        return redirect(url_for('contacts.index'))
-
     characters = _selectable_characters()
     active_character = _active_character()
+
+    if not _can_view(active_character, contact):
+        return redirect(url_for('contacts.index'))
+
+    visibility_level = 'total' if current_user.is_admin else _visibility_level(active_character, contact)
+
     my_link = None
     if active_character:
         my_link = ContactCharacterLink.query.filter_by(
@@ -172,6 +215,13 @@ def detail(contact_id):
             .all()
         )
 
+    visibility_grants = None
+    if current_user.is_admin:
+        visibility_grants = {
+            g.character_id: g.nivel
+            for g in ContactCharacterVisibility.query.filter_by(contact_id=contact_id).all()
+        }
+
     return render_template(
         'contacts/detail.html',
         contact=contact,
@@ -180,6 +230,9 @@ def detail(contact_id):
         my_link=my_link,
         notes=notes,
         salary_table=salary_service.get_salary_table(),
+        visibility_level=visibility_level,
+        visibility_grants=visibility_grants,
+        all_characters=Character.query.order_by(Character.name).all() if current_user.is_admin else None,
     )
 
 
@@ -192,7 +245,7 @@ def link_save(contact_id):
     characters = _selectable_characters()
     personaje_id = request.form.get('personaje_id', type=int)
     personaje = next((c for c in characters if c.id == personaje_id), None)
-    if not personaje:
+    if not personaje or not _can_view(personaje, contact):
         abort(403)
 
     link = ContactCharacterLink.query.filter_by(character_id=personaje.id, contact_id=contact.id).first()
@@ -213,10 +266,11 @@ def link_save(contact_id):
 @contacts_bp.route('/<int:contact_id>/vinculo/eliminar', methods=['POST'])
 @login_required
 def link_delete(contact_id):
+    contact = Contact.query.get_or_404(contact_id)
     characters = _selectable_characters()
     personaje_id = request.form.get('personaje_id', type=int)
     personaje = next((c for c in characters if c.id == personaje_id), None)
-    if not personaje:
+    if not personaje or not _can_view(personaje, contact):
         abort(403)
     link = ContactCharacterLink.query.filter_by(character_id=personaje.id, contact_id=contact_id).first_or_404()
     db.session.delete(link)
@@ -228,10 +282,11 @@ def link_delete(contact_id):
 @contacts_bp.route('/<int:contact_id>/salario', methods=['POST'])
 @login_required
 def salary_save(contact_id):
+    contact = Contact.query.get_or_404(contact_id)
     characters = _selectable_characters()
     personaje_id = request.form.get('personaje_id', type=int)
     personaje = next((c for c in characters if c.id == personaje_id), None)
-    if not personaje:
+    if not personaje or not _can_view(personaje, contact):
         abort(403)
     link = ContactCharacterLink.query.filter_by(character_id=personaje.id, contact_id=contact_id).first_or_404()
     profession_id = request.form.get('profession_id', type=int)
@@ -266,12 +321,10 @@ def _note_owner_character(note):
 @login_required
 def note_create(contact_id):
     contact = Contact.query.get_or_404(contact_id)
-    if not current_user.is_admin and not contact.is_visible:
-        abort(403)
     characters = _selectable_characters()
     personaje_id = request.form.get('personaje_id', type=int)
     personaje = next((c for c in characters if c.id == personaje_id), None)
-    if not personaje:
+    if not personaje or not _can_view(personaje, contact):
         abort(403)
     content = request.form.get('content', '').strip()
     if not content:
@@ -314,3 +367,70 @@ def note_delete(contact_id, note_id):
     db.session.commit()
     flash('Nota eliminada.', 'success')
     return redirect(url_for('contacts.detail', contact_id=contact_id, personaje_id=personaje_id))
+
+
+# ── Edición de datos globales (admin) ───────────────────────────────────────
+
+@contacts_bp.route('/<int:contact_id>/editar', methods=['GET', 'POST'])
+@login_required
+def edit(contact_id):
+    if not current_user.is_admin:
+        abort(403)
+    contact = Contact.query.get_or_404(contact_id)
+    professions = Profession.query.order_by(Profession.name).all()
+    selected_profession_ids = {cp.profession_id for cp in contact.professions}
+
+    if request.method == 'POST':
+        nombre = request.form.get('nombre', '').strip()
+        if not nombre:
+            flash('El contacto necesita un nombre.', 'danger')
+            return render_template('contacts/edit.html', contact=contact, professions=professions,
+                                   selected_profession_ids=selected_profession_ids)
+
+        contact.nombre = nombre
+        contact.es_untersuchung = request.form.get('es_untersuchung') == 'on'
+        contact.is_visible = request.form.get('is_visible') == 'on'
+
+        ContactProfession.query.filter_by(contact_id=contact.id).delete()
+        for prof_id in request.form.getlist('profession_ids'):
+            if prof_id:
+                db.session.add(ContactProfession(contact_id=contact.id, profession_id=int(prof_id)))
+
+        db.session.commit()
+        flash(f'Contacto «{contact.nombre}» actualizado.', 'success')
+        return redirect(url_for('contacts.detail', contact_id=contact.id))
+
+    return render_template('contacts/edit.html', contact=contact, professions=professions,
+                           selected_profession_ids=selected_profession_ids)
+
+
+# ── Visibilidad por personaje (admin) ───────────────────────────────────────
+
+@contacts_bp.route('/<int:contact_id>/visibilidad', methods=['POST'])
+@login_required
+def visibility_save(contact_id):
+    if not current_user.is_admin:
+        abort(403)
+    Contact.query.get_or_404(contact_id)
+    character_id = request.form.get('character_id', type=int)
+    nivel = request.form.get('nivel', '').strip()
+    if not character_id:
+        abort(400)
+
+    grant = ContactCharacterVisibility.query.filter_by(
+        contact_id=contact_id, character_id=character_id,
+    ).first()
+
+    if nivel not in ('total', 'parcial'):
+        if grant:
+            db.session.delete(grant)
+            flash('Acceso revocado.', 'success')
+    elif grant:
+        grant.nivel = nivel
+        flash('Visibilidad actualizada.', 'success')
+    else:
+        db.session.add(ContactCharacterVisibility(contact_id=contact_id, character_id=character_id, nivel=nivel))
+        flash('Visibilidad concedida.', 'success')
+
+    db.session.commit()
+    return redirect(url_for('contacts.detail', contact_id=contact_id))

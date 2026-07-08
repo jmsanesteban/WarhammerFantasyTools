@@ -45,12 +45,18 @@
       <div class="card-body">
         <div class="row g-3">
           <div class="col-md-6">
-            <label class="form-label wh-label">Personaje que lo registra *</label>
-            <select name="personaje_id" class="form-select wh-input" required>
+            <label class="form-label wh-label">Personaje que lo registra {% if not current_user.is_admin %}*{% endif %}</label>
+            <select name="personaje_id" class="form-select wh-input" {% if not current_user.is_admin %}required{% endif %}>
+              {% if current_user.is_admin %}
+              <option value="">— Sin vincular (repartir visibilidad luego) —</option>
+              {% endif %}
               {% for c in characters %}
-              <option value="{{ c.id }}">{{ c.name }}</option>
+              <option value="{{ c.id }}">{{ c.name }} {% if current_user.is_admin %}({{ c.owner.username }}){% endif %}</option>
               {% endfor %}
             </select>
+            {% if current_user.is_admin %}
+            <small class="text-muted">Si no eliges personaje, el contacto se crea sin ningún vínculo — luego concede visibilidad desde su ficha.</small>
+            {% endif %}
           </div>
           <div class="col-md-6">
             <label class="form-label wh-label">Nivel de relación (-5 a 5)</label>

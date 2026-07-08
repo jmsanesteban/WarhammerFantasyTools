@@ -46,6 +46,29 @@ class ContactApodo(db.Model):
     texto = db.Column(db.String(100), nullable=False)
 
 
+class ContactCharacterVisibility(db.Model):
+    """Grants a character permission to see a contact at all. Absence of a
+    row means the character can't see the contact, regardless of
+    Contact.is_visible (which is a separate, coarser admin kill-switch that
+    hides a contact from every non-admin regardless of grants).
+
+    'total' shows every global field on the contact; 'parcial' hides some
+    (currently: profesiones) - see contacts.py's _visibility_level()."""
+    __tablename__ = 'contact_character_visibilities'
+
+    id = db.Column(db.Integer, primary_key=True)
+    contact_id = db.Column(db.Integer, db.ForeignKey('contacts.id', ondelete='CASCADE'), nullable=False)
+    character_id = db.Column(db.Integer, db.ForeignKey('characters.id', ondelete='CASCADE'), nullable=False)
+    nivel = db.Column(db.String(10), nullable=False, default='total')  # 'total' | 'parcial'
+
+    character = db.relationship('Character', backref=db.backref('contact_visibilities', passive_deletes=True))
+    contact = db.relationship('Contact', backref=db.backref('character_visibilities', passive_deletes=True))
+
+    __table_args__ = (
+        db.UniqueConstraint('contact_id', 'character_id', name='uq_contact_character_visibility'),
+    )
+
+
 class ContactCharacterSalary(db.Model):
     """This character's recorded salary tier for one of the contact's
     professions (picked manually from the reference salary table, not

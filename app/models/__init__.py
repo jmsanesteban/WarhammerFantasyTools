@@ -13,7 +13,9 @@ from app.models.character import (
 )
 from app.models.synonym import Synonym
 from app.models.contact import Contact, ContactProfession
-from app.models.contact_character_link import ContactCharacterLink, ContactApodo, ContactCharacterSalary
+from app.models.contact_character_link import (
+    ContactCharacterLink, ContactApodo, ContactCharacterSalary, ContactCharacterVisibility,
+)
 from app.models.contact_note import ContactNote
 
 __all__ = [
@@ -26,6 +28,6 @@ __all__ = [
     'CharacterTrait', 'CharacterAcquaintance', 'CharacterPossession', 'CharacterMagicItem',
     'Synonym',
     'Contact', 'ContactProfession',
-    'ContactCharacterLink', 'ContactApodo', 'ContactCharacterSalary',
+    'ContactCharacterLink', 'ContactApodo', 'ContactCharacterSalary', 'ContactCharacterVisibility',
     'ContactNote',
 ]

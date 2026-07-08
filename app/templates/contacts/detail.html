@@ -35,8 +35,10 @@
     </div>
     <div class="card-body">
       <dl class="row mb-0">
+        {% if visibility_level == 'total' %}
         <dt class="col-sm-4 wh-label">Profesiones</dt>
         <dd class="col-sm-8">{{ contact.professions|map(attribute='profession.name')|join(', ') or '—' }}</dd>
+        {% endif %}
         {% if current_user.is_admin or (active_character and active_character.es_untersuchung) %}
         <dt class="col-sm-4 wh-label">Untersuchung</dt>
         <dd class="col-sm-8">{{ 'Sí' if contact.es_untersuchung else 'No' }}</dd>
@@ -51,10 +53,49 @@
         {% endif %}
       </small>
       {% if current_user.is_admin %}
-      <a href="{{ url_for('admin.contacts') }}" class="btn btn-outline-secondary btn-sm">Gestionar</a>
+      <a href="{{ url_for('contacts.edit', contact_id=contact.id) }}" class="btn btn-outline-warning btn-sm">
+        <i class="bi bi-pencil me-1"></i>Editar
+      </a>
       {% endif %}
     </div>
   </div>
+
+  {% if current_user.is_admin %}
+  <div class="card wh-card mb-4" style="max-width:760px">
+    <div class="card-header wh-card-header">
+      <h3 class="wh-heading mb-0" style="font-size:1.1rem">Visibilidad por personaje</h3>
+      <small class="text-muted">Quién puede ver este contacto. "Parcial" oculta las profesiones en su ficha.</small>
+    </div>
+    <div class="table-responsive">
+      <table class="table wh-table align-middle mb-0">
+        <thead>
+          <tr><th>Personaje</th><th>Usuario</th><th colspan="2">Nivel</th></tr>
+        </thead>
+        <tbody>
+          {% for c in all_characters %}
+          <tr>
+            <td>{{ c.name }}{% if c.id == (active_character.id if active_character else none) %} <span class="badge bg-warning text-dark">activo</span>{% endif %}</td>
+            <td class="text-muted small">{{ c.owner.username }}</td>
+            <td colspan="2">
+              <form method="POST" action="{{ url_for('contacts.visibility_save', contact_id=contact.id) }}"
+                    class="d-flex gap-2 align-items-center">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <input type="hidden" name="character_id" value="{{ c.id }}">
+                <select name="nivel" class="form-select form-select-sm wh-input" style="max-width:180px">
+                  <option value="" {% if not visibility_grants.get(c.id) %}selected{% endif %}>Sin acceso</option>
+                  <option value="parcial" {% if visibility_grants.get(c.id) == 'parcial' %}selected{% endif %}>Parcial</option>
+                  <option value="total" {% if visibility_grants.get(c.id) == 'total' %}selected{% endif %}>Total</option>
+                </select>
+                <button type="submit" class="btn btn-outline-secondary btn-sm">Guardar</button>
+              </form>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+  {% endif %}
 
   {% if not active_character %}
   <div class="alert wh-alert" style="max-width:760px">
@@ -130,8 +171,8 @@
     </div>
   </div>
 
-  {# ── Salarios por profesión ───────────────────────────────────────────── #}
-  {% if my_link and contact.professions %}
+  {# ── Salarios por profesión (requiere visibilidad total: implica ver profesiones) ── #}
+  {% if my_link and contact.professions and visibility_level == 'total' %}
   <div class="card wh-card mb-4" style="max-width:760px">
     <div class="card-header wh-card-header">
       <h3 class="wh-heading mb-0" style="font-size:1.1rem">Salario</h3>
