@@ -42,7 +42,7 @@ def client(app):
 @pytest.fixture
 def make_user(db):
     def _make(username='user1', email=None, password='password123',
-              role='user', active=True, template=None):
+              role='user', active=True, template=None, **kwargs):
         from app.models.user import User
         user = User(
             username=username,
@@ -50,6 +50,7 @@ def make_user(db):
             role=role,
             active=active,
             template=template,
+            **kwargs,
         )
         user.set_password(password)
         db.session.add(user)

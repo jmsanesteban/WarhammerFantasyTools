@@ -82,3 +82,78 @@ def test_register_rejects_short_password(client):
         'password': 'abc', 'confirm_password': 'abc',
     }, follow_redirects=True)
     assert User.query.filter_by(username='shortpw').first() is None
+
+
+# ── Self-service password change ─────────────────────────────────────────────
+
+def test_change_password_requires_login(client):
+    resp = client.get('/auth/cambiar-clave')
+    assert resp.status_code == 302
+    assert '/auth/login' in resp.headers['Location']
+
+
+def test_change_password_succeeds(db, client, regular_user, login_as):
+    login_as(client, regular_user, 'userpass123')
+    resp = client.post('/auth/cambiar-clave', data={
+        'current_password': 'userpass123', 'new_password': 'newpass456', 'confirm_password': 'newpass456',
+    }, follow_redirects=True)
+    assert resp.status_code == 200
+    db.session.refresh(regular_user)
+    assert regular_user.check_password('newpass456')
+    assert regular_user.must_change_password is False
+
+
+def test_change_password_rejects_wrong_current_password(db, client, regular_user, login_as):
+    login_as(client, regular_user, 'userpass123')
+    client.post('/auth/cambiar-clave', data={
+        'current_password': 'wrongpass', 'new_password': 'newpass456', 'confirm_password': 'newpass456',
+    })
+    db.session.refresh(regular_user)
+    assert regular_user.check_password('userpass123')
+
+
+def test_change_password_rejects_mismatched_confirmation(db, client, regular_user, login_as):
+    login_as(client, regular_user, 'userpass123')
+    client.post('/auth/cambiar-clave', data={
+        'current_password': 'userpass123', 'new_password': 'newpass456', 'confirm_password': 'different789',
+    })
+    db.session.refresh(regular_user)
+    assert regular_user.check_password('userpass123')
+
+
+def test_change_password_rejects_short_new_password(db, client, regular_user, login_as):
+    login_as(client, regular_user, 'userpass123')
+    client.post('/auth/cambiar-clave', data={
+        'current_password': 'userpass123', 'new_password': 'short', 'confirm_password': 'short',
+    })
+    db.session.refresh(regular_user)
+    assert regular_user.check_password('userpass123')
+
+
+# ── Forced password change (must_change_password) ───────────────────────────
+
+def test_must_change_password_redirects_any_page(client, make_user, login_as):
+    user = make_user(username='forced1', password='temporal123', must_change_password=True)
+    login_as(client, user, 'temporal123')
+    resp = client.get('/personajes/', follow_redirects=False)
+    assert resp.status_code == 302
+    assert resp.headers['Location'] == '/auth/cambiar-clave'
+
+
+def test_must_change_password_allows_logout(client, make_user, login_as):
+    user = make_user(username='forced2', password='temporal123', must_change_password=True)
+    login_as(client, user, 'temporal123')
+    resp = client.get('/auth/logout', follow_redirects=False)
+    assert resp.status_code == 302
+    assert resp.headers['Location'] != '/auth/cambiar-clave'
+
+
+def test_completing_forced_change_restores_normal_access(db, client, make_user, login_as):
+    user = make_user(username='forced3', password='temporal123', must_change_password=True)
+    login_as(client, user, 'temporal123')
+
+    client.post('/auth/cambiar-clave', data={
+        'current_password': 'temporal123', 'new_password': 'newpass456', 'confirm_password': 'newpass456',
+    })
+    resp = client.get('/personajes/', follow_redirects=False)
+    assert resp.status_code == 200

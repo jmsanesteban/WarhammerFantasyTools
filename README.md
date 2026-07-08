@@ -494,7 +494,8 @@ pytest --cov=app --cov-report=term-missing
 |---|---|
 | `tests/conftest.py` | Fixtures compartidas: app Flask en modo `testing`, sesión de BD, cliente de test, factories de modelos (`make_user`, `make_profession`, `make_skill`, `make_talent`, `make_character`, `make_contact*`) y helper de login |
 | `tests/test_permissions.py` | `User.has_perm()` / `effective_perm_codes()` (bypass de admin, permisos directos, plantillas) y los decoradores `require_permission` / `admin_required` |
-| `tests/test_auth.py` | Login, registro, logout, redirección a `next`, usuarios inactivos |
+| `tests/test_auth.py` | Login, registro, logout, redirección a `next`, usuarios inactivos, cambio de contraseña propio, y el bloqueo de `must_change_password` (redirige a cualquier página salvo logout hasta completarlo) |
+| `tests/test_admin_users.py` | Gestión admin de contraseñas: restablecer a una aleatoria, forzar cambio sin tocar la contraseña, y establecer una contraseña concreta (con validación de longitud/confirmación) |
 | `tests/test_professions.py` | CRUD de profesiones, permisos, características primarias/secundarias, habilidades/talentos/enseres/salidas asociados |
 | `tests/test_skills_talents.py` | CRUD de habilidades y talentos, búsqueda/filtros, importación/exportación en texto plano, y el guardián anti-duplicados (bloquea duplicados exactos, avisa de casi-duplicados) al crear/editar/importar |
 | `tests/test_characters.py` | CRUD de personajes WFRP, aislamiento por propietario (admin ve todos, jugador solo los suyos), historial de profesiones ordenado, `es_untersuchung`, salario por profesión |
@@ -705,6 +706,9 @@ Desde esta pantalla puedes:
 - **Ver la plantilla asignada** a cada usuario normal en la columna "Plantilla".
 - **Activar/Desactivar** usuarios con el botón de pausa/play. Un usuario desactivado no puede iniciar sesión.
 - **Editar los permisos** de un usuario con el icono de llave 🔑, que abre la pantalla de edición de permisos.
+- **Restablecer a una contraseña aleatoria** (icono ↻): genera una contraseña segura al azar, se muestra una única vez en el flash de confirmación, y marca al usuario para que la cambie en su próximo inicio de sesión.
+- **Establecer una contraseña concreta** (icono 🔑 junto al de restablecer): abre un formulario para escribir tú mismo la nueva contraseña (con confirmación), con la opción de forzar además que el usuario la cambie la próxima vez que entre.
+- **Forzar cambio de contraseña** (icono ⚠️) sin tocar la contraseña actual: la próxima vez que el usuario inicie sesión, se le redirige obligatoriamente a la pantalla de cambio de contraseña antes de poder ver nada más de la aplicación.
 - **Eliminar** la cuenta de usuario permanentemente.
 
 #### Edición de permisos de un usuario (`/admin/usuarios/<id>/permisos`)
@@ -759,6 +763,12 @@ Puedes crear, editar y eliminar plantillas desde esa pantalla. Al eliminar una p
 3. Inicia sesión desde **Entrar**.
 
 > Los usuarios recién registrados no tienen ningún permiso por defecto. Un administrador debe asignarles una plantilla o permisos directos desde **Admin → Usuarios**.
+
+### Cambiar tu contraseña
+
+Desde el menú desplegable con tu nombre de usuario (arriba a la derecha), entra en **Cambiar contraseña**. Pide tu contraseña actual, la nueva (mínimo 8 caracteres) y su confirmación.
+
+Si un administrador ha marcado tu cuenta para forzar el cambio (por ejemplo, tras crear tu usuario o restablecerte la contraseña), la aplicación te lleva automáticamente a esta pantalla en tu próximo inicio de sesión y no te deja ver nada más hasta que la cambies.
 
 ---
 

@@ -73,3 +73,33 @@ def logout():
     logout_user()
     flash('Has cerrado sesión.', 'info')
     return redirect(url_for('main.index'))
+
+
+@auth_bp.route('/cambiar-clave', methods=['GET', 'POST'])
+@login_required
+def change_password():
+    forced = current_user.must_change_password
+
+    if request.method == 'POST':
+        current = request.form.get('current_password', '')
+        new_password = request.form.get('new_password', '')
+        confirm = request.form.get('confirm_password', '')
+
+        error = None
+        if not current_user.check_password(current):
+            error = 'La contraseña actual no es correcta.'
+        elif len(new_password) < 8:
+            error = 'La nueva contraseña debe tener al menos 8 caracteres.'
+        elif new_password != confirm:
+            error = 'Las contraseñas nuevas no coinciden.'
+
+        if error:
+            flash(error, 'danger')
+        else:
+            current_user.set_password(new_password)
+            current_user.must_change_password = False
+            db.session.commit()
+            flash('Contraseña actualizada correctamente.', 'success')
+            return redirect(url_for('main.index'))
+
+    return render_template('auth/change_password.html', forced=forced)

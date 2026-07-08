@@ -52,6 +52,7 @@ def create_app(config_name='default'):
     _register_cli_commands(app)
     _register_error_handlers(app)
     _register_security_headers(app)
+    _register_password_change_enforcement(app)
 
     return app
 
@@ -64,6 +65,24 @@ def _register_security_headers(app):
         response.headers['X-XSS-Protection'] = '1; mode=block'
         response.headers['Referrer-Policy'] = 'strict-origin-when-cross-origin'
         return response
+
+
+def _register_password_change_enforcement(app):
+    """A user with must_change_password=True can't reach anything else -
+    every request gets redirected to the change-password page until they
+    pick a new one. Allowlist: the change-password page itself, logout, and
+    static assets (otherwise the page's own CSS/JS would 404-loop)."""
+    _ALLOWED_ENDPOINTS = {'auth.change_password', 'auth.logout', 'static'}
+
+    @app.before_request
+    def _enforce_password_change():
+        from flask_login import current_user
+        if (
+            current_user.is_authenticated
+            and current_user.must_change_password
+            and request.endpoint not in _ALLOWED_ENDPOINTS
+        ):
+            return redirect(url_for('auth.change_password'))
 
 
 def _wants_json() -> bool:

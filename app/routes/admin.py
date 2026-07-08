@@ -193,6 +193,37 @@ def user_reset_password(user_id):
     return redirect(url_for('admin.users'))
 
 
+@admin_bp.route('/usuarios/<int:user_id>/forzar-cambio-clave', methods=['POST'])
+@login_required
+@admin_required
+def user_force_password_change(user_id):
+    user = User.query.get_or_404(user_id)
+    user.must_change_password = True
+    db.session.commit()
+    flash(f'«{user.username}» deberá cambiar su contraseña en el próximo inicio de sesión.', 'info')
+    return redirect(url_for('admin.users'))
+
+
+@admin_bp.route('/usuarios/<int:user_id>/establecer-clave', methods=['POST'])
+@login_required
+@admin_required
+def user_set_password(user_id):
+    user = User.query.get_or_404(user_id)
+    password = request.form.get('password', '')
+    confirm = request.form.get('confirm_password', '')
+
+    if len(password) < 8:
+        flash('La contraseña debe tener al menos 8 caracteres.', 'danger')
+    elif password != confirm:
+        flash('Las contraseñas no coinciden.', 'danger')
+    else:
+        user.set_password(password)
+        user.must_change_password = request.form.get('force_change') == 'on'
+        db.session.commit()
+        flash(f'Contraseña de «{user.username}» actualizada.', 'success')
+    return redirect(url_for('admin.users'))
+
+
 @admin_bp.route('/usuarios/<int:user_id>/permisos', methods=['GET', 'POST'])
 @login_required
 @admin_required

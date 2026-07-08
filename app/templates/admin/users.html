@@ -73,10 +73,23 @@
               </a>
               <form method="POST" action="{{ url_for('admin.user_reset_password', user_id=user.id) }}"
                     class="d-inline"
-                    onsubmit="return confirm('¿Restablecer la contraseña de {{ user.username }}?')">
+                    onsubmit="return confirm('¿Restablecer la contraseña de {{ user.username }} a una generada al azar?')">
                 <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                <button class="btn btn-sm btn-outline-secondary" title="Restablecer contraseña">
+                <button class="btn btn-sm btn-outline-secondary" title="Restablecer a contraseña aleatoria">
                   <i class="bi bi-arrow-clockwise"></i>
+                </button>
+              </form>
+              <button type="button" class="btn btn-sm btn-outline-secondary" title="Establecer contraseña"
+                      onclick="openSetPassword({{ user.id }}, '{{ user.username }}')">
+                <i class="bi bi-key"></i>
+              </button>
+              <form method="POST" action="{{ url_for('admin.user_force_password_change', user_id=user.id) }}"
+                    class="d-inline"
+                    onsubmit="return confirm('¿Forzar a {{ user.username }} a cambiar su contraseña en el próximo inicio de sesión?')">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <button class="btn btn-sm {% if user.must_change_password %}btn-warning{% else %}btn-outline-secondary{% endif %}"
+                        title="{{ 'Ya debe cambiarla' if user.must_change_password else 'Forzar cambio de contraseña' }}">
+                  <i class="bi bi-exclamation-triangle"></i>
                 </button>
               </form>
               <form method="POST" action="{{ url_for('admin.toggle_user', user_id=user.id) }}"
@@ -106,4 +119,52 @@
     </table>
   </div>
 </div>
+
+{# ── Set-password modal (shared, populated via JS per row) ── #}
+<div class="modal fade" id="setPasswordModal" tabindex="-1">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content wh-card">
+      <div class="modal-header wh-card-header border-0">
+        <h5 class="modal-title wh-label mb-0">Establecer contraseña — <span id="setPasswordUsername"></span></h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+      </div>
+      <form id="setPasswordForm" method="POST">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <div class="modal-body">
+          <div class="mb-3">
+            <label class="form-label wh-label">Nueva contraseña</label>
+            <input type="password" name="password" class="form-control wh-input" required minlength="8">
+            <small class="text-muted">Mínimo 8 caracteres.</small>
+          </div>
+          <div class="mb-3">
+            <label class="form-label wh-label">Confirmar contraseña</label>
+            <input type="password" name="confirm_password" class="form-control wh-input" required minlength="8">
+          </div>
+          <div class="mb-3 d-flex align-items-center gap-2">
+            <input type="checkbox" name="force_change" id="setPasswordForceChange" class="form-check-input">
+            <label class="form-label wh-label mb-0" for="setPasswordForceChange">
+              Forzar que la cambie en el próximo inicio de sesión
+            </label>
+          </div>
+        </div>
+        <div class="modal-footer border-0">
+          <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
+          <button type="submit" class="btn btn-wh">Guardar</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+const SET_PASSWORD_URL_TMPL = '{{ url_for("admin.user_set_password", user_id=999999) }}';
+
+function openSetPassword(userId, username) {
+  document.getElementById('setPasswordUsername').textContent = username;
+  document.getElementById('setPasswordForm').action = SET_PASSWORD_URL_TMPL.replace('999999', userId);
+  new bootstrap.Modal(document.getElementById('setPasswordModal')).show();
+}
+</script>
 {% endblock %}
