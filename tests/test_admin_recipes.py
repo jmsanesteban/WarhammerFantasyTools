@@ -33,6 +33,33 @@ def _seed_and_propose(app, client, regular_user, login_as, nombre='Gachas de pru
         return Recipe.query.filter_by(nombre=nombre).first().id
 
 
+def test_recipe_review_shows_per_element_breakdown(app, client, admin_user, regular_user, login_as):
+    """Admin shouldn't have to open Métodos/Ingredientes in another tab to see
+    where the totals come from - the review page breaks vigor/moral/coste down
+    per method/ingredient/condiment, plus a total row matching the recipe."""
+    recipe_id = _seed_and_propose(app, client, regular_user, login_as)
+    client.get('/auth/logout')
+    login_as(client, admin_user, 'adminpass123')
+
+    resp = client.get(f'/admin/recetas/{recipe_id}')
+    assert resp.status_code == 200
+    body = resp.data.decode('utf-8')
+
+    with app.app_context():
+        recipe = Recipe.query.get(recipe_id)
+        method = recipe.cooking_method
+        ingredient = recipe.ingredientes[0]
+        condiment = recipe.condimentos[0]
+
+    assert 'Desglose por elemento' in body
+    assert method.nombre in body
+    assert ingredient.nombre in body
+    assert condiment.nombre in body
+    assert 'Total (receta, 12 raciones)' in body
+    assert f'<td>{recipe.vigor}</td>' in body
+    assert f'<td>{recipe.moral}</td>' in body
+
+
 def test_recipes_pending_requires_login(client):
     resp = client.get('/admin/recetas')
     assert resp.status_code == 302

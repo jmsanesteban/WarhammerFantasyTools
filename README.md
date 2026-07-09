@@ -777,7 +777,7 @@ Puedes crear, editar y eliminar plantillas desde esa pantalla. Al eliminar una p
 
 ### Revisar recetas propuestas
 
-Ve a **Admin → Recetas pendientes** (o al indicador "Recetas pendientes" del panel de administración). Cada receta propuesta por un usuario muestra quién la pidió y cuándo, y todos sus valores ya calculados (vigor, moral, coste, precio, duración, complejidad, ingredientes/condimentos) — son de solo lectura, no se editan aquí.
+Ve a **Admin → Recetas pendientes** (o al indicador "Recetas pendientes" del panel de administración). Cada receta propuesta por un usuario muestra quién la pidió y cuándo, y todos sus valores ya calculados (vigor, moral, coste, precio, duración, complejidad, ingredientes/condimentos) — son de solo lectura, no se editan aquí. Una tabla de **"Desglose por elemento"** muestra, fila por fila, cuánto aporta el método de cocina y cada ingrediente/condimento a Vigor, Moral y Coste (más la duración, que sale solo del método) — para no tener que abrir Métodos/Ingredientes en otra pestaña al revisar si los números cuadran.
 
 - **Aprobar**: sube una imagen (obligatoria si la receta todavía no tiene una) y pulsa Aprobar. La receta pasa a `aprobada`, se registra qué administrador la aprobó y cuándo, y desde ese momento aparece en el catálogo público de Recetas con la etiqueta "Comunidad".
 - **Rechazar**: puedes indicar un motivo (opcional pero recomendado); el proponente lo verá en su página "Mis recetas".

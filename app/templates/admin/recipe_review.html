@@ -51,6 +51,66 @@
     </div>
   </div>
 
+  {% if recipe.cooking_method %}
+  <div class="card wh-card mb-3">
+    <div class="card-header wh-card-header">
+      Desglose por elemento
+      <small class="text-muted d-block">De dónde sale cada valor final, sin tener que consultar Métodos/Ingredientes en otra pestaña.</small>
+    </div>
+    <div class="table-responsive">
+      <table class="table wh-table align-middle mb-0">
+        <thead>
+          <tr>
+            <th>Elemento</th>
+            <th>Tipo</th>
+            <th>Vigor</th>
+            <th>Moral</th>
+            <th>Coste (docena)</th>
+            <th>Duración</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>{{ recipe.cooking_method.nombre }}</td>
+            <td class="text-muted small">Método</td>
+            <td>{{ recipe.cooking_method.vigor }}</td>
+            <td>{{ recipe.cooking_method.moral }}</td>
+            <td>{{ recipe.cooking_method.coste | food_money }}</td>
+            <td>{{ recipe.cooking_method.duracion_dias }} días{% if recipe.cooking_method.recalentar %} · recalentable{% endif %}</td>
+          </tr>
+          {% for ing in recipe.ingredientes %}
+          <tr>
+            <td>{{ ing.nombre }}</td>
+            <td class="text-muted small">Ingrediente</td>
+            <td>{{ ing.vigor }}</td>
+            <td>{{ ing.moral }}</td>
+            <td>{{ ing.coste_docena | food_money }}</td>
+            <td class="text-muted">—</td>
+          </tr>
+          {% endfor %}
+          {% for cond in recipe.condimentos %}
+          <tr>
+            <td>{{ cond.nombre }}</td>
+            <td class="text-muted small">Condimento</td>
+            <td>{{ cond.vigor }}</td>
+            <td>{{ cond.moral }}</td>
+            <td>{{ cond.coste_docena | food_money }}</td>
+            <td class="text-muted">—</td>
+          </tr>
+          {% endfor %}
+          <tr class="fw-bold border-top border-2">
+            <td colspan="2">Total (receta, 12 raciones)</td>
+            <td>{{ recipe.vigor }}</td>
+            <td>{{ recipe.moral }}</td>
+            <td>{{ recipe.coste_creacion_peniques | food_money }}</td>
+            <td>{{ recipe.duracion_dias }} días</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+  {% endif %}
+
   {% if recipe.status == 'pendiente' %}
   <div class="row g-3">
     <div class="col-md-6">
