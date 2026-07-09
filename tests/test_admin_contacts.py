@@ -187,6 +187,54 @@ def test_admin_contacts_listing_shows_nombre(client, admin_user, login_as, make_
     assert b'Gotrek Gurnisson' in resp.data
 
 
+def test_admin_contacts_listing_includes_inline_permissions_panel(
+    client, admin_user, regular_user, make_character, make_contact, make_contact_visibility, login_as,
+):
+    """Admin can see and edit per-character visibility directly from the main
+    contacts list, without opening each contact's own detail page."""
+    char = make_character(regular_user, name='Ulrika')
+    contact = make_contact(nombre='Snorri')
+    make_contact_visibility(char, contact, 'parcial')
+    login_as(client, admin_user, 'adminpass123')
+
+    resp = client.get('/admin/contactos')
+    assert resp.status_code == 200
+    assert f'perms-{contact.id}'.encode() in resp.data
+    assert b'Ulrika' in resp.data
+    # The inline form posts to the same visibility_save endpoint used on the contact's own page.
+    assert f'/contactos/{contact.id}/visibilidad'.encode() in resp.data
+
+
+def test_visibility_save_redirects_to_next_url_when_provided(
+    db, client, admin_user, regular_user, make_character, make_contact, login_as,
+):
+    char = make_character(regular_user)
+    contact = make_contact()
+    login_as(client, admin_user, 'adminpass123')
+
+    resp = client.post(f'/contactos/{contact.id}/visibilidad', data={
+        'character_id': str(char.id), 'nivel': 'total', 'next_url': '/admin/contactos?page=2',
+    })
+    assert resp.status_code == 302
+    assert resp.headers['Location'] == '/admin/contactos?page=2'
+
+
+def test_visibility_save_ignores_unsafe_next_url(
+    db, client, admin_user, regular_user, make_character, make_contact, login_as,
+):
+    """An absolute/external next_url must never be honored (open-redirect guard)."""
+    char = make_character(regular_user)
+    contact = make_contact()
+    login_as(client, admin_user, 'adminpass123')
+
+    resp = client.post(f'/contactos/{contact.id}/visibilidad', data={
+        'character_id': str(char.id), 'nivel': 'total', 'next_url': 'https://evil.example.com',
+    })
+    assert resp.status_code == 302
+    assert 'evil.example.com' not in resp.headers['Location']
+    assert f'/contactos/{contact.id}' in resp.headers['Location']
+
+
 def test_admin_contact_toggle(client, admin_user, login_as, make_contact):
     contact = make_contact(is_visible=True)
     login_as(client, admin_user, 'adminpass123')

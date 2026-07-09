@@ -449,4 +449,11 @@ def visibility_save(contact_id):
     if revoked:
         parts.append(f'{revoked} revocado(s)')
     flash('Visibilidad guardada: ' + (', '.join(parts) if parts else 'sin cambios') + '.', 'success')
+
+    # Optional same-site redirect back to wherever the form was submitted from
+    # (e.g. admin/contactos' inline panel) instead of always jumping to the
+    # contact's own detail page. Only accept a plain relative path.
+    next_url = request.form.get('next_url', '').strip()
+    if next_url.startswith('/') and not next_url.startswith('//') and '://' not in next_url:
+        return redirect(next_url)
     return redirect(url_for('contacts.detail', contact_id=contact_id))

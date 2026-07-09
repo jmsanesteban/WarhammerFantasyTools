@@ -478,6 +478,37 @@ def test_pdf_result_renders_review_and_persists_cache(client, admin_user, login_
     assert cached['filename'] == 'careers.pdf'
 
 
+def test_pdf_result_splits_summary_into_registered_and_unregistered_tables_with_anchors(
+    db, client, admin_user, login_as, make_profession,
+):
+    """The triage summary is split into two collapsible tables (feature request:
+    large imports shouldn't bury the ones needing review under dozens of
+    already-registered rows), and each row links directly to its profession
+    card further down the page."""
+    make_profession(name='Alborotador')
+    admin_routes._write_job('job-split', {
+        'done': True, 'error': None,
+        'result': {
+            'professions': [
+                {'name': 'Alborotador', 'type': 'basic'},  # exact match -> "registradas"
+                {'name': 'Bufón Errante', 'type': 'basic'},  # new -> "no registradas"
+            ],
+            'pages': [], 'errors': [],
+        },
+        'filename': 'careers.pdf',
+    })
+    login_as(client, admin_user, 'adminpass123')
+    resp = client.get('/admin/pdf/result/job-split')
+    body = resp.data.decode('utf-8')
+
+    assert 'Ya registradas' in body
+    assert 'No registradas' in body
+    assert 'id="prof-card-1"' in body
+    assert 'id="prof-card-2"' in body
+    assert 'href="#prof-card-1"' in body
+    assert 'href="#prof-card-2"' in body
+
+
 def test_pdf_resume_renders_from_cache(client, admin_user, login_as):
     admin_routes._write_cache('cache-resume', {
         'result': {'professions': [{'name': 'Bufón', 'type': 'basic'}], 'pages': [], 'errors': []},

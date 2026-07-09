@@ -60,10 +60,65 @@
               </button>
             </td>
             <td class="d-flex gap-1">
+              <button type="button" class="btn btn-outline-secondary btn-sm"
+                      data-bs-toggle="collapse" data-bs-target="#perms-{{ contact.id }}"
+                      title="Ver/editar permisos por personaje">
+                <i class="bi bi-shield-lock"></i>
+              </button>
               <a href="{{ url_for('contacts.detail', contact_id=contact.id) }}"
                  class="btn btn-outline-secondary btn-sm">Ver</a>
               <a href="{{ url_for('contacts.edit', contact_id=contact.id) }}"
                  class="btn btn-outline-warning btn-sm"><i class="bi bi-pencil"></i></a>
+            </td>
+          </tr>
+          <tr>
+            <td colspan="7" class="p-0 border-0">
+              {# Collapse lives on this inner <div>, never on the <tr> itself -
+                 Bootstrap's .collapse.show sets display:block, which would break
+                 table layout if applied directly to a table row. #}
+              <div class="collapse" id="perms-{{ contact.id }}">
+                <div class="card wh-card my-2">
+                  <div class="card-header wh-card-header py-2">
+                    <small class="text-muted">Visibilidad por personaje — "Parcial" oculta las profesiones</small>
+                  </div>
+                  <form method="POST" action="{{ url_for('contacts.visibility_save', contact_id=contact.id) }}">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <input type="hidden" name="next_url"
+                           value="{{ url_for('admin.contacts', page=pagination.page, q=search) }}#perms-{{ contact.id }}">
+                    <div class="table-responsive">
+                      <table class="table wh-table table-sm align-middle mb-0">
+                        <thead>
+                          <tr><th>Personaje</th><th>Usuario</th><th>Nivel</th></tr>
+                        </thead>
+                        <tbody>
+                          {% for c in all_characters %}
+                          <tr>
+                            <td>{{ c.name }}</td>
+                            <td class="text-muted small">{{ c.owner.username }}</td>
+                            <td>
+                              <input type="hidden" name="character_id" value="{{ c.id }}">
+                              {% set nivel_actual = visibility_map.get((contact.id, c.id)) %}
+                              <select name="nivel" class="form-select form-select-sm wh-input" style="max-width:160px">
+                                <option value="" {% if not nivel_actual %}selected{% endif %}>Sin acceso</option>
+                                <option value="parcial" {% if nivel_actual == 'parcial' %}selected{% endif %}>Parcial</option>
+                                <option value="total" {% if nivel_actual == 'total' %}selected{% endif %}>Total</option>
+                              </select>
+                            </td>
+                          </tr>
+                          {% else %}
+                          <tr><td colspan="3" class="text-muted">No hay personajes en el sistema todavía.</td></tr>
+                          {% endfor %}
+                        </tbody>
+                      </table>
+                    </div>
+                    {% if all_characters %}
+                    <div class="card-footer py-2">
+                      <button type="submit" class="btn btn-wh btn-sm"><i class="bi bi-floppy me-1"></i>Guardar cambios</button>
+                    </div>
+                    {% endif %}
+                  </form>
+                </div>
+              </div>
             </td>
           </tr>
           {% endfor %}
@@ -100,4 +155,19 @@
   <div class="alert wh-alert">Sin contactos registrados.</div>
   {% endif %}
 </div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+// Re-open the permissions panel the form was submitted from (after the
+// visibility_save redirect brings us back with a #perms-<id> fragment).
+(function () {
+  var id = window.location.hash.replace('#', '');
+  if (!id || id.indexOf('perms-') !== 0) return;
+  var el = document.getElementById(id);
+  if (!el) return;
+  el.classList.add('show');
+  el.scrollIntoView({ block: 'center' });
+})();
+</script>
 {% endblock %}

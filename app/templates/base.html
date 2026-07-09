@@ -57,12 +57,27 @@
             <i class="bi bi-people me-1"></i>Personajes
           </a>
         </li>
+        {% if current_user.is_admin %}
+        <li class="nav-item dropdown">
+          <a class="nav-link dropdown-toggle {% if request.blueprint == 'contacts' or request.endpoint == 'admin.contact_links' %}active{% endif %}"
+             href="#" data-bs-toggle="dropdown">
+            <i class="bi bi-person-lines-fill me-1"></i>Contactos
+          </a>
+          <ul class="dropdown-menu dropdown-menu-dark">
+            <li><a class="dropdown-item {% if request.blueprint == 'contacts' %}active{% endif %}"
+                   href="{{ url_for('contacts.index') }}">Contactos</a></li>
+            <li><a class="dropdown-item {% if request.endpoint == 'admin.contact_links' %}active{% endif %}"
+                   href="{{ url_for('admin.contact_links') }}">Vínculos</a></li>
+          </ul>
+        </li>
+        {% else %}
         <li class="nav-item">
           <a class="nav-link {% if request.blueprint == 'contacts' %}active{% endif %}"
              href="{{ url_for('contacts.index') }}">
             <i class="bi bi-person-lines-fill me-1"></i>Contactos
           </a>
         </li>
+        {% endif %}
         <li class="nav-item dropdown">
           <a class="nav-link dropdown-toggle {% if request.blueprint == 'food' %}active{% endif %}"
              href="#" data-bs-toggle="dropdown">

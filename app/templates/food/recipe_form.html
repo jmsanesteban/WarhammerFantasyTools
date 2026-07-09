@@ -240,17 +240,73 @@
   applyMethod();
 
   // ── Sugerencia de nombre a partir del método + ingredientes/condimentos ──
-  // "de + ingrediente(s)" evita tener que conjugar género/número del adjetivo
-  // del método contra el ingrediente (p.ej. "Guiso de carne superior" en vez
-  // de tener que decidir si sería "carne superior guisada" o "guisado").
-  var METHOD_NOUN = {
-    'Crudo': 'Crudo', 'Ahumado': 'Ahumado', 'Secado': 'Secado', 'Salado': 'Salazón',
-    'Cocido': 'Cocido', 'Guisado': 'Guiso', 'Asar': 'Asado', 'Hornear': 'Horneado',
+  // Las categorías del catálogo son genéricas ("Carne superior", "Pescado
+  // inferior"...) - decirlas tal cual suena a "enumeración de ingredientes",
+  // no a nombre de plato. En su lugar, cada categoría tiene un pequeño banco
+  // de palabras concretas de las que se elige una al azar (p.ej. "Carne
+  // superior" -> venado/jabalí/buey/cordero), y cada condimento se traduce a
+  // un adjetivo/frase en vez de nombrarlo literalmente ("con especias" ->
+  // "especiado"). Cada clic en "Sugerir" vuelve a elegir al azar, así que
+  // funciona también como generador aleatorio, no solo como lista fija.
+  var INGREDIENT_WORDS = {
+    'Raíces': ['raíces', 'zanahorias', 'remolacha'],
+    'Verduras': ['verduras', 'coles', 'puerros'],
+    'Tubérculos': ['patatas', 'boniatos', 'chirivías'],
+    'Cereales': ['cebada', 'avena', 'trigo'],
+    'Crustáceos': ['cangrejo', 'langosta', 'gambas'],
+    'Legumbres': ['lentejas', 'garbanzos', 'judías'],
+    'Frutos secos': ['nueces', 'almendras', 'avellanas'],
+    'Pescado inferior': ['bacalao', 'arenque', 'anguila'],
+    'Carne inferior': ['cerdo', 'cabra', 'gallina'],
+    'Pescado superior': ['salmón', 'trucha', 'esturión', 'lubina'],
+    'Carne superior': ['venado', 'jabalí', 'buey', 'cordero'],
+    'Frutas': ['manzana', 'pera', 'ciruela', 'bayas'],
+    'Hongos': ['setas', 'champiñones', 'trufa'],
+    'Leches': ['nata', 'queso fresco', 'leche'],
+    'Miel': ['miel'],
+    'Huevos': ['huevo'],
+    'Especias': ['especias'],
+    'Sal': ['sal'],
+    'Aceites': ['aceite'],
   };
-  var METHOD_INGREDIENT_FIRST = { 'Almíbar': ' en almíbar', 'Brasa': ' a la brasa' };
+  var CONDIMENT_PHRASES = {
+    'Especias': ['especiado', 'condimentado', 'con un toque picante'],
+    'Sal': ['en salazón', 'bien salado'],
+    'Miel': ['endulzado con miel', 'meloso'],
+    'Aceites': ['aliñado en aceite'],
+  };
+  // "tail": adjetivo/frase que va detrás del ingrediente (p.ej. "Venado asado").
+  // "noun": alternativa como sustantivo con "de" (p.ej. "Estofado de venado").
+  var METHOD_STYLE = {
+    'Crudo': { tail: ['crudo', 'en tartar'] },
+    'Ahumado': { tail: ['ahumado'] },
+    'Secado': { tail: ['curado', 'secado'] },
+    'Salado': { tail: ['en salazón'] },
+    'Almíbar': { tail: ['en almíbar'] },
+    'Brasa': { tail: ['a la brasa'] },
+    'Cocido': { tail: ['cocido', 'hervido'] },
+    'Guisado': { tail: ['guisado'], noun: ['guiso', 'estofado'] },
+    'Asar': { tail: ['asado'] },
+    'Hornear': { tail: ['al horno', 'horneado'] },
+  };
 
   function capitalize(s) {
     return s.charAt(0).toUpperCase() + s.slice(1);
+  }
+
+  function pick(arr) {
+    return arr[Math.floor(Math.random() * arr.length)];
+  }
+
+  function ingredientWord(catalogName) {
+    var words = INGREDIENT_WORDS[catalogName];
+    return words ? pick(words) : catalogName.toLowerCase();
+  }
+
+  function condimentPhrase(catalogName) {
+    var phrases = CONDIMENT_PHRASES[catalogName];
+    if (phrases) return pick(phrases);
+    return 'con un toque de ' + ingredientWord(catalogName);
   }
 
   function selectedNames(slots) {
@@ -269,23 +325,25 @@
     if (!option || !option.value) return [];
     var methodName = option.textContent.trim();
 
-    var ingredientNames = selectedNames(Array.prototype.slice.call(ingredientSlots));
-    if (!ingredientNames.length) return [];
-    var condimentNames = selectedNames(Array.prototype.slice.call(condimentSlots));
+    var ingredientCatalogNames = selectedNames(Array.prototype.slice.call(ingredientSlots));
+    if (!ingredientCatalogNames.length) return [];
+    var condimentCatalogNames = selectedNames(Array.prototype.slice.call(condimentSlots));
 
-    var main = ingredientNames.join(' y ').toLowerCase();
-    var withCondiment = condimentNames.length ? ' con ' + condimentNames.join(' y ').toLowerCase() : '';
+    var style = METHOD_STYLE[methodName] || { tail: ['al estilo ' + methodName.toLowerCase()] };
+    var ingWords = ingredientCatalogNames.map(ingredientWord);
+    var mainPhrase = ingWords.length > 1
+      ? ingWords.slice(0, -1).join(', ') + ' y ' + ingWords[ingWords.length - 1]
+      : ingWords[0];
+    var condSuffix = condimentCatalogNames.length
+      ? ' ' + condimentCatalogNames.map(condimentPhrase).join(' y ')
+      : '';
 
     var candidates = [];
-    if (METHOD_INGREDIENT_FIRST[methodName]) {
-      candidates.push(capitalize(main) + METHOD_INGREDIENT_FIRST[methodName] + withCondiment);
-      candidates.push(capitalize(main) + withCondiment + METHOD_INGREDIENT_FIRST[methodName]);
-    } else if (METHOD_NOUN[methodName]) {
-      candidates.push(METHOD_NOUN[methodName] + ' de ' + main + withCondiment);
-      candidates.push(capitalize(main) + ' al estilo ' + methodName.toLowerCase() + withCondiment);
-    } else {
-      candidates.push(capitalize(main) + ' al estilo ' + methodName.toLowerCase() + withCondiment);
+    candidates.push(capitalize(mainPhrase) + ' ' + pick(style.tail) + condSuffix);
+    if (style.noun) {
+      candidates.push(capitalize(pick(style.noun)) + ' de ' + mainPhrase + condSuffix);
     }
+    candidates.push(capitalize(mainPhrase) + condSuffix + ' ' + pick(style.tail));
 
     var seen = {};
     return candidates.filter(function (c) {

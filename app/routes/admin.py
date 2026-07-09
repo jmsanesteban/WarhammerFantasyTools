@@ -1372,10 +1372,23 @@ def contacts():
         query = query.filter(Contact.nombre.ilike(f'%{search}%'))
 
     pagination = query.paginate(page=page, per_page=per_page, error_out=False)
+    contacts_page = pagination.items
+
+    all_characters = Character.query.order_by(Character.name).all()
+    visibility_map = {}
+    contact_ids = [c.id for c in contacts_page]
+    if contact_ids:
+        grants = ContactCharacterVisibility.query.filter(
+            ContactCharacterVisibility.contact_id.in_(contact_ids),
+        ).all()
+        visibility_map = {(g.contact_id, g.character_id): g.nivel for g in grants}
+
     return render_template('admin/contacts.html',
-                           contacts=pagination.items,
+                           contacts=contacts_page,
                            pagination=pagination,
-                           search=search)
+                           search=search,
+                           all_characters=all_characters,
+                           visibility_map=visibility_map)
 
 
 @admin_bp.route('/contactos/<int:contact_id>/toggle', methods=['POST'])

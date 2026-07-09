@@ -46,7 +46,7 @@
             {% for prof_data in registradas %}
             <tr>
               <td class="text-muted small">{{ prof_data.idx }}</td>
-              <td>{{ prof_data.name or '(sin nombre)' }}</td>
+              <td><a href="#prof-card-{{ prof_data.idx }}" class="wh-link">{{ prof_data.name or '(sin nombre)' }}</a></td>
               <td><span class="badge bg-danger">Ya existe</span></td>
               <td class="small text-muted">Coincide exactamente con la profesión #{{ prof_data.existing_prof.id }} ya guardada.</td>
             </tr>
@@ -74,7 +74,7 @@
             {% for prof_data in no_registradas %}
             <tr>
               <td class="text-muted small">{{ prof_data.idx }}</td>
-              <td>{{ prof_data.name or '(sin nombre)' }}</td>
+              <td><a href="#prof-card-{{ prof_data.idx }}" class="wh-link">{{ prof_data.name or '(sin nombre)' }}</a></td>
               <td>
                 {% if prof_data.dup_status == 'possible' %}
                 <span class="badge bg-warning text-dark">Posible colisión</span>
@@ -100,7 +100,7 @@
 
   {% if professions %}
     {% for prof_data in professions %}
-    <div class="card wh-card mb-4">
+    <div class="card wh-card mb-4" id="prof-card-{{ loop.index }}">
       <div class="card-header wh-card-header d-flex justify-content-between">
         <span>{{ loop.index }}. {{ prof_data.name or '(sin nombre)' }}</span>
 
