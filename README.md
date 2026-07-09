@@ -1192,6 +1192,7 @@ WarhammerFantasyTools/
     │   │   └── new.html           # Alta de contacto + vínculo del personaje que lo registra
     │   └── ...                   # Resto de plantillas por módulo
     └── static/
-        ├── css/custom.css        # Tema oscuro medieval WH
-        └── js/main.js            # Scripts del cliente (incluye drag-reorder y toggles de Contactos)
+        ├── css/custom.css               # Tema oscuro medieval WH
+        ├── js/main.js                   # Scripts del cliente (incluye drag-reorder y toggles de Contactos)
+        └── js/profession_picker.js      # Buscador de profesión con salidas de carrera resaltadas (creación de personajes)
 ```
