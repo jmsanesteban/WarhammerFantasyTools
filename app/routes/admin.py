@@ -23,7 +23,10 @@ from app.models.contact_character_link import ContactCharacterLink, ContactChara
 from app.models.contact_note import ContactNote
 from app.models.character import Character
 from app.models.food import Recipe
-from app.utils import admin_required, allowed_file, generate_secure_password
+from app.utils import (
+    admin_required, allowed_file, generate_secure_password,
+    json_download_response, flash_import_summary,
+)
 from app.services.pdf_processor import process_pdf
 from app.services.contact_import_service import import_contacts_from_excel, export_contacts_to_excel
 
@@ -285,6 +288,39 @@ def permission_templates():
     return render_template('admin/permission_templates.html', templates=templates)
 
 
+@admin_bp.route('/plantillas/exportar')
+@login_required
+@admin_required
+def permission_templates_export():
+    from app.services.backup_service import export_permission_templates
+    return json_download_response(export_permission_templates(), 'plantillas_permisos_backup.json')
+
+
+@admin_bp.route('/plantillas/importar', methods=['GET', 'POST'])
+@login_required
+@admin_required
+def permission_templates_import():
+    if request.method == 'GET':
+        return render_template('admin/permission_templates_import.html')
+
+    f = request.files.get('file')
+    if not f or not f.filename:
+        flash('Selecciona un fichero JSON.', 'danger')
+        return redirect(request.url)
+
+    try:
+        data = json.loads(f.read())
+    except Exception as e:
+        flash(f'Error al leer el fichero: {e}', 'danger')
+        return redirect(request.url)
+
+    from app.services.backup_service import import_permission_templates
+    mode = request.form.get('mode', 'skip')
+    summary = import_permission_templates(data, mode=mode)
+    flash_import_summary(summary)
+    return redirect(url_for('admin.permission_templates'))
+
+
 @admin_bp.route('/plantillas/nueva', methods=['GET', 'POST'])
 @login_required
 @admin_required
@@ -415,6 +451,75 @@ def delete_user(user_id):
         db.session.commit()
         flash(f'Usuario "{name}" eliminado.', 'warning')
     return redirect(url_for('admin.users'))
+
+
+@admin_bp.route('/usuarios/exportar')
+@login_required
+@admin_required
+def users_export():
+    from app.services.backup_service import export_users
+    return json_download_response(export_users(), 'usuarios_backup.json')
+
+
+@admin_bp.route('/usuarios/importar', methods=['GET', 'POST'])
+@login_required
+@admin_required
+def users_import():
+    if request.method == 'GET':
+        return render_template('admin/users_import.html')
+
+    f = request.files.get('file')
+    if not f or not f.filename:
+        flash('Selecciona un fichero JSON.', 'danger')
+        return redirect(request.url)
+
+    try:
+        data = json.loads(f.read())
+    except Exception as e:
+        flash(f'Error al leer el fichero: {e}', 'danger')
+        return redirect(request.url)
+
+    from app.services.backup_service import import_users
+    mode = request.form.get('mode', 'skip')
+    summary = import_users(data, mode=mode)
+    flash_import_summary(summary)
+    return redirect(url_for('admin.users'))
+
+
+# ---- Personajes: backup (todos los personajes del sistema, no solo los
+# propios - por eso vive en admin, no en el blueprint de characters) ----
+
+@admin_bp.route('/personajes/exportar')
+@login_required
+@admin_required
+def characters_export():
+    from app.services.backup_service import export_characters
+    return json_download_response(export_characters(), 'personajes_backup.json')
+
+
+@admin_bp.route('/personajes/importar', methods=['GET', 'POST'])
+@login_required
+@admin_required
+def characters_import():
+    if request.method == 'GET':
+        return render_template('admin/characters_import.html')
+
+    f = request.files.get('file')
+    if not f or not f.filename:
+        flash('Selecciona un fichero JSON.', 'danger')
+        return redirect(request.url)
+
+    try:
+        data = json.loads(f.read())
+    except Exception as e:
+        flash(f'Error al leer el fichero: {e}', 'danger')
+        return redirect(request.url)
+
+    from app.services.backup_service import import_characters
+    mode = request.form.get('mode', 'skip')
+    summary = import_characters(data, mode=mode)
+    flash_import_summary(summary)
+    return redirect(url_for('characters.list_characters'))
 
 
 # ---- PDF upload & review ----
@@ -1166,6 +1271,39 @@ def synonyms():
     return render_template('admin/synonyms.html', synonyms=query.all(), search=q)
 
 
+@admin_bp.route('/synonyms/exportar')
+@login_required
+@admin_required
+def synonyms_export():
+    from app.services.backup_service import export_synonyms
+    return json_download_response(export_synonyms(), 'sinonimos_backup.json')
+
+
+@admin_bp.route('/synonyms/importar', methods=['GET', 'POST'])
+@login_required
+@admin_required
+def synonyms_import():
+    if request.method == 'GET':
+        return render_template('admin/synonyms_import.html')
+
+    f = request.files.get('file')
+    if not f or not f.filename:
+        flash('Selecciona un fichero JSON.', 'danger')
+        return redirect(request.url)
+
+    try:
+        data = json.loads(f.read())
+    except Exception as e:
+        flash(f'Error al leer el fichero: {e}', 'danger')
+        return redirect(request.url)
+
+    from app.services.backup_service import import_synonyms
+    mode = request.form.get('mode', 'skip')
+    summary = import_synonyms(data, mode=mode)
+    flash_import_summary(summary)
+    return redirect(url_for('admin.synonyms'))
+
+
 @admin_bp.route('/synonyms/new', methods=['POST'])
 @login_required
 @admin_required
@@ -1391,6 +1529,98 @@ def contact_links():
         visibility_map=visibility_map,
         note_counts=note_counts,
     )
+
+
+@admin_bp.route('/vinculos/exportar')
+@login_required
+@admin_required
+def contacts_full_export():
+    from app.services.backup_service import export_contacts_full
+    return json_download_response(export_contacts_full(), 'contactos_vinculos_backup.json')
+
+
+@admin_bp.route('/vinculos/importar', methods=['GET', 'POST'])
+@login_required
+@admin_required
+def contacts_full_import():
+    if request.method == 'GET':
+        return render_template('admin/contacts_full_import.html')
+
+    f = request.files.get('file')
+    if not f or not f.filename:
+        flash('Selecciona un fichero JSON.', 'danger')
+        return redirect(request.url)
+
+    try:
+        data = json.loads(f.read())
+    except Exception as e:
+        flash(f'Error al leer el fichero: {e}', 'danger')
+        return redirect(request.url)
+
+    from app.services.backup_service import import_contacts_full
+    mode = request.form.get('mode', 'skip')
+    summary = import_contacts_full(data, mode=mode)
+    flash_import_summary(summary)
+    return redirect(url_for('admin.contact_links'))
+
+
+# ---------------------------------------------------------------------------
+# Backup completo: exporta/importa todas las secciones anteriores de golpe,
+# en el orden correcto de dependencias.
+# ---------------------------------------------------------------------------
+
+@admin_bp.route('/backup')
+@login_required
+@admin_required
+def backup_home():
+    return render_template('admin/backup.html')
+
+
+@admin_bp.route('/backup/exportar')
+@login_required
+@admin_required
+def backup_export():
+    from app.services.backup_service import export_full_backup
+    return json_download_response(export_full_backup(), 'wft_backup_completo.json')
+
+
+@admin_bp.route('/backup/importar', methods=['POST'])
+@login_required
+@admin_required
+def backup_import():
+    f = request.files.get('file')
+    if not f or not f.filename:
+        flash('Selecciona un fichero JSON.', 'danger')
+        return redirect(url_for('admin.backup_home'))
+
+    try:
+        data = json.loads(f.read())
+    except Exception as e:
+        flash(f'Error al leer el fichero: {e}', 'danger')
+        return redirect(url_for('admin.backup_home'))
+
+    from app.services.backup_service import import_full_backup
+    mode = request.form.get('mode', 'skip')
+    summaries = import_full_backup(data, mode=mode)
+
+    labels = {
+        'permission_templates': 'Plantillas de permisos', 'synonyms': 'Sinónimos', 'users': 'Usuarios',
+        'professions': 'Profesiones', 'characters': 'Personajes', 'contacts': 'Contactos y vínculos',
+    }
+    for key, label in labels.items():
+        s = summaries[key]
+        flash(f"{label}: {s['created']} creados, {s['updated']} actualizados, {s['skipped']} omitidos.", 'success')
+        warnings = s.get('warnings') or []
+        if warnings:
+            shown = warnings[:10]
+            more = '' if len(warnings) <= 10 else f' (+{len(warnings) - 10} más)'
+            flash(Markup('<strong>{} — avisos:</strong> {}{}').format(label, '; '.join(shown), more), 'warning')
+        passwords = s.get('generated_passwords') or {}
+        if passwords:
+            detail = '; '.join(f'{u}: {p}' for u, p in passwords.items())
+            flash(Markup('<strong>Contraseñas temporales asignadas:</strong> {}').format(detail), 'warning')
+
+    return redirect(url_for('admin.backup_home'))
 
 
 # ---------------------------------------------------------------------------

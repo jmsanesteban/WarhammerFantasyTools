@@ -12,6 +12,14 @@
       <a href="{{ url_for('characters.create') }}" class="btn btn-outline-warning btn-sm">
         <i class="bi bi-plus-circle me-1"></i>Creación rápida
       </a>
+      {% if current_user.is_admin %}
+      <a href="{{ url_for('admin.characters_export') }}" class="btn btn-outline-secondary btn-sm">
+        <i class="bi bi-download me-1"></i>Exportar
+      </a>
+      <a href="{{ url_for('admin.characters_import') }}" class="btn btn-outline-secondary btn-sm">
+        <i class="bi bi-upload me-1"></i>Importar
+      </a>
+      {% endif %}
     </div>
   </div>
 

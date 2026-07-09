@@ -31,6 +31,7 @@ Aplicación web para gestionar profesiones, habilidades, talentos y personajes d
 | **Personajes** | Creación rápida (manual) o mediante el **Generador de Personaje**: asistente con tiradas guiadas (raza, profesión, características, trasfondo completo) siguiendo las reglas caseras de creación de personajes jugadores. Carrera profesional con múltiples profesiones en orden |
 | **Contactos** | Agenda de contactos con campos personalizables (EAV), notas, vínculos con "personas" propias de cada usuario, visibilidad por contacto/campo, e importación/exportación Excel. Módulo integrado a partir del proyecto independiente [ContactosWH](https://github.com/jmsanesteban/ContactosWH) (ahora archivado, ver nota histórica en su README) |
 | **Sistema de permisos** | Control granular por función: plantillas de permisos reutilizables + asignaciones directas por usuario; los administradores tienen acceso total |
+| **Backup y recuperación** | Exportar/importar en JSON Profesiones, Usuarios, Personajes, Plantillas de permisos, Sinónimos y Contactos+Vínculos (además del "Backup completo" que hace las seis a la vez); pensado para no perder el trabajo manual de cargar el catálogo de Profesiones ante un problema con la base de datos |
 | **Comida y bebida** | Catálogo de bebidas por nación con calculadora de precio por cantidad; catálogo de recetas (vigor/moral/coste/duración/complejidad); tablas de referencia de ingredientes y métodos de cocina; página de normas de intoxicación y de vigor/moral diario; cualquier usuario puede proponer una receta nueva (cálculo automático de sus valores), que queda pendiente hasta que un administrador la revisa y aprueba |
 
 ---
@@ -346,6 +347,13 @@ docker exec wft_db mysqldump -u wftuser -pwftpassword wft > "backup_$(date +%Y%m
 docker exec -i wft_db mysql -u wftuser -pwftpassword wft < backup_20240101_1200.sql
 ```
 
+> **Alternativa por secciones (JSON):** `mysqldump` es la copia de seguridad completa de la base de datos, pero
+> requiere acceso al servidor MySQL. Para un backup más ligero, portable entre bases de datos, y accesible desde
+> la propia web (sin tocar el servidor), usa **Exportar/Importar** en Profesiones, Usuarios, Personajes,
+> Plantillas de permisos, Sinónimos y Vínculos — ver [Backup y recuperación](#backup-y-recuperación) más abajo.
+> Especialmente recomendable para **Profesiones**: reconstruir el catálogo a mano desde el PDF es un trabajo
+> manual de horas, mientras que el JSON exportado se reimporta en segundos.
+
 ---
 
 ### Gestión de ficheros subidos (PDFs e imágenes)
@@ -468,7 +476,7 @@ docker image prune -f
 
 ## Tests automatizados
 
-Suite de tests unitarios y de integración con **pytest**, ejecutada contra una base de datos **SQLite en memoria** (no hace falta un servidor MySQL para correrla) y el test client de Flask. Cubre permisos, autenticación, profesiones, habilidades/talentos, personajes WFRP, contactos (incluida la parte de administración), comida y bebida, el buscador de caminos, y — con especial atención, por ser el área con más incidencias reales en producción — todo el pipeline de importación de PDF.
+Suite de tests unitarios y de integración con **pytest**, ejecutada contra una base de datos **SQLite en memoria** (no hace falta un servidor MySQL para correrla) y el test client de Flask. Cubre permisos, autenticación, profesiones, habilidades/talentos, personajes WFRP, contactos (incluida la parte de administración), comida y bebida, el backup/restauración por secciones, el buscador de caminos, y — con especial atención, por ser el área con más incidencias reales en producción — todo el pipeline de importación de PDF.
 
 ### Ejecutar los tests
 
@@ -497,7 +505,9 @@ pytest --cov=app --cov-report=term-missing
 | `tests/test_permissions.py` | `User.has_perm()` / `effective_perm_codes()` (bypass de admin, permisos directos, plantillas) y los decoradores `require_permission` / `admin_required` |
 | `tests/test_auth.py` | Login, registro, logout, redirección a `next`, usuarios inactivos, cambio de contraseña propio, y el bloqueo de `must_change_password` (redirige a cualquier página salvo logout hasta completarlo) |
 | `tests/test_admin_users.py` | Gestión admin de contraseñas: restablecer a una aleatoria, forzar cambio sin tocar la contraseña, y establecer una contraseña concreta (con validación de longitud/confirmación) |
-| `tests/test_professions.py` | CRUD de profesiones, permisos, características primarias/secundarias, habilidades/talentos/enseres/salidas asociados |
+| `tests/test_professions.py` | CRUD de profesiones, permisos, características primarias/secundarias, habilidades/talentos/enseres/salidas asociados, y el export/import JSON (permiso `professions.edit`, formato con habilidades/talentos anidados) |
+| `tests/test_backup_service.py` | `app/services/backup_service.py`: round-trip export→borrar→reimportar de cada sección (Plantillas de permisos, Sinónimos, Usuarios, Profesiones con habilidades/talentos/enseres/salidas, Personajes con las 7 tablas hijas, Contactos+Vínculos con apodos/salarios/visibilidad) y del Backup completo; modo `update` no duplica; una referencia inexistente (usuario/profesión/habilidad/talento) se omite con aviso en vez de fallar; el export de Usuarios nunca incluye la contraseña y el import nunca la toca al actualizar |
+| `tests/test_admin_backup.py` | Rutas de backup en `/admin/*`: todas exigen admin (salvo Profesiones, que exige `professions.edit` y se cubre en `test_professions.py`), descarga JSON válido, importación end-to-end repuebla los datos tras borrarlos |
 | `tests/test_skills_talents.py` | CRUD de habilidades y talentos, búsqueda/filtros, importación/exportación en texto plano, y el guardián anti-duplicados (bloquea duplicados exactos, avisa de casi-duplicados) al crear/editar/importar |
 | `tests/test_characters.py` | CRUD de personajes WFRP, aislamiento por propietario (admin ve todos, jugador solo los suyos), historial de profesiones ordenado, `es_untersuchung`, salario por profesión |
 | `tests/test_contacts.py` | Vista de usuario de Contactos: permiso de visibilidad por personaje (sin concesión no se ve, total/parcial oculta profesiones), concesión automática al crear, alta de contacto + vínculo propio, aislamiento de notas/nivel/apodo entre personajes (incluso del mismo usuario), visibilidad de Untersuchung según membresía, salario |
@@ -770,6 +780,35 @@ Ve a **Admin → Recetas pendientes** (o al indicador "Recetas pendientes" del p
 - **Aprobar**: sube una imagen (obligatoria si la receta todavía no tiene una) y pulsa Aprobar. La receta pasa a `aprobada`, se registra qué administrador la aprobó y cuándo, y desde ese momento aparece en el catálogo público de Recetas con la etiqueta "Comunidad".
 - **Rechazar**: puedes indicar un motivo (opcional pero recomendado); el proponente lo verá en su página "Mis recetas".
 - Si algo de la composición está mal (un ingrediente que no pega, un nombre confuso...), la opción más simple es rechazarla con un motivo explicando qué corregir — quien la propuso puede volver a enviarla.
+
+---
+
+### Backup y recuperación
+
+Además de la copia de seguridad completa por `mysqldump` (ver [Copias de seguridad de la base de datos](#copias-de-seguridad-de-la-base-de-datos)), cada una de estas secciones tiene su propio **Exportar/Importar** en formato **JSON**, pensado para no perder trabajo manual ante un problema con la base de datos — sobre todo **Profesiones**, ya que reconstruir el catálogo desde el PDF exige revisión manual de más de 220 entradas.
+
+| Sección | Dónde | Incluye |
+|---|---|---|
+| **Profesiones** | Profesiones → Exportar/Importar (requiere permiso `professions.edit`) | Todos los campos propios + habilidades/talentos/enseres/salidas de carrera |
+| **Usuarios** | Admin → Usuarios → Exportar/Importar | Todos los campos **salvo la contraseña** (ver más abajo) |
+| **Personajes** | Personajes → Exportar/Importar (solo visible para admin) | Ficha completa: características, trasfondo, carrera, habilidades, talentos, rasgos, contactos generados en creación, posesiones, objetos mágicos |
+| **Plantillas de permisos** | Admin → Usuarios → Plantillas de permisos → Exportar/Importar | Nombre, descripción y permisos incluidos |
+| **Diccionario de sinónimos** | Admin → Diccionario de sinónimos → Exportar/Importar | Todas las entradas (término original/correcto, prefijo, notas) |
+| **Contactos + Vínculos** | Admin → Vínculos → Exportar/Importar | Cada contacto con **todos** sus vínculos por personaje (nivel, apodos, salario, GM/misión) y las concesiones de visibilidad — más completo que la exportación Excel de Contactos (que solo cubre nombre/Untersuchung/profesiones y se mantiene aparte, sin cambios) |
+| **Backup completo** | Admin → Backup completo (o el indicador del panel) | Exporta/importa las seis secciones anteriores de golpe, en el orden correcto de dependencias |
+
+Cómo funciona el import (mismo criterio en todas las secciones):
+
+- **Nunca se identifica por id** — cada fila se empareja por su clave natural (nombre de usuario, nombre de profesión, nombre+usuario de personaje...), así el JSON exportado de una base de datos se puede importar en otra distinta.
+- **Modo "Omitir"** (por defecto): si el registro ya existe, no se toca. **Modo "Actualizar"**: lo sobrescribe (y sus datos anidados) con lo importado.
+- Una referencia que no se encuentra (una habilidad, un usuario, una profesión...) **no aborta la importación** — esa fila concreta se omite y aparece como aviso en el resumen final, igual que ya hace la importación de PDF con talentos/enseres no reconocidos.
+- La importación de **Usuarios** nunca incluye ni toca contraseñas: un usuario nuevo recibe una contraseña temporal aleatoria (mostrada una vez, tras la importación) con cambio obligatorio en el próximo inicio de sesión; actualizar un usuario ya existente no modifica su contraseña actual.
+
+**Restaurar una base de datos completamente vacía**, en orden:
+
+1. `flask init-db` (crea el esquema y siembra permisos/plantillas por defecto).
+2. Importa **Habilidades** y **Talentos** con su propio import (Profesiones y Personajes los referencian por nombre y no forman parte de este backup).
+3. Importa el **Backup completo** (o, si prefieres ir sección a sección: Plantillas de permisos → Sinónimos → Usuarios → Profesiones → Personajes → Contactos+Vínculos, en ese orden).
 
 ---
 
@@ -1117,7 +1156,9 @@ WarhammerFantasyTools/
     │   ├── character_creation_service.py  # Tiradas del Generador de Personaje (dados, tablas porcentuales)
     │   ├── currency_service.py   # Conversión/formateo Coronas de oro / Chelines de plata / Peniques
     │   ├── food_seed_service.py  # Siembra idempotente del catálogo de Comida y bebida desde app/data/food/
-    │   └── recipe_calc_service.py  # Cálculo de vigor/moral/coste/precio/duración/complejidad de una receta
+    │   ├── recipe_calc_service.py  # Cálculo de vigor/moral/coste/precio/duración/complejidad de una receta
+    │   └── backup_service.py     # Export/import JSON: Profesiones, Usuarios, Personajes, Plantillas,
+    │                             # Sinónimos, Contactos+Vínculos, y el orquestador de Backup completo
     ├── templates/
     │   ├── base.html             # Layout base con nav adaptativo
     │   ├── admin/

@@ -1,0 +1,47 @@
+{% extends 'base.html' %}
+{% block title %}Importar Personajes — Warhammer Fantasy Tools{% endblock %}
+
+{% block content %}
+<div class="container mt-4" style="max-width:700px">
+  <h2 class="wh-heading mb-4"><i class="bi bi-upload me-2"></i>Importar Personajes</h2>
+
+  <div class="alert alert-info wh-alert">
+    Formato JSON, el mismo que genera <a href="{{ url_for('admin.characters_export') }}" class="wh-link">Exportar</a>.
+    Cada personaje se vincula a su propietario por <strong>nombre de usuario</strong> — el usuario debe existir ya
+    (importa Usuarios primero si estás restaurando desde cero). Las profesiones/habilidades/talentos referenciados
+    que no existan en su catálogo se omiten con un aviso, sin bloquear el resto del personaje.
+  </div>
+
+  <div class="card wh-card">
+    <div class="card-body">
+      <form method="POST" enctype="multipart/form-data">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+        <div class="mb-3">
+          <label class="form-label wh-label">Fichero (.json)</label>
+          <input type="file" name="file" class="form-control wh-input" accept=".json" required>
+        </div>
+
+        <div class="mb-3">
+          <label class="form-label wh-label">Si el personaje ya existe (mismo usuario + nombre)…</label>
+          <div class="d-flex gap-3">
+            <div class="form-check">
+              <input class="form-check-input" type="radio" name="mode" value="skip" id="mode_skip" checked>
+              <label class="form-check-label wh-label" for="mode_skip">Omitir (no modificar)</label>
+            </div>
+            <div class="form-check">
+              <input class="form-check-input" type="radio" name="mode" value="update" id="mode_update">
+              <label class="form-check-label wh-label" for="mode_update">Actualizar datos (reemplaza toda la ficha)</label>
+            </div>
+          </div>
+        </div>
+
+        <div class="d-flex gap-2">
+          <button type="submit" class="btn btn-wh"><i class="bi bi-upload me-1"></i>Importar</button>
+          <a href="{{ url_for('characters.list_characters') }}" class="btn btn-outline-secondary">Cancelar</a>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+{% endblock %}

@@ -205,3 +205,58 @@ def test_delete_profession_cascades_relations(db, client, admin_user, login_as, 
     client.post(f'/profesiones/{prof_id}/eliminar', follow_redirects=True)
 
     assert ProfessionSkill.query.filter_by(profession_id=prof_id).count() == 0
+
+
+# ── Backup: exportar/importar ───────────────────────────────────────────────
+
+def test_export_requires_permission(client, regular_user, login_as):
+    login_as(client, regular_user, 'userpass123')
+    resp = client.get('/profesiones/exportar')
+    assert resp.status_code == 403
+
+
+def test_export_returns_json_with_nested_data(db, client, regular_user, login_as, make_profession, make_skill):
+    _grant(db, regular_user, 'professions.edit')
+    prof = make_profession(name='Alborotador')
+    skill = make_skill(name_es='Percepción')
+    from app.models.profession import ProfessionSkill
+    db.session.add(ProfessionSkill(profession_id=prof.id, skill_id=skill.id, specialization=None, choice_group=None))
+    db.session.commit()
+
+    login_as(client, regular_user, 'userpass123')
+    resp = client.get('/profesiones/exportar')
+    assert resp.status_code == 200
+    assert resp.mimetype == 'application/json'
+
+    import json
+    data = json.loads(resp.data)
+    row = next(r for r in data if r['name'] == 'Alborotador')
+    assert row['skills'] == [{'skill_name': 'Percepción', 'specialization': None, 'choice_group': None}]
+
+
+def test_import_requires_permission(client, regular_user, login_as):
+    login_as(client, regular_user, 'userpass123')
+    resp = client.get('/profesiones/importar')
+    assert resp.status_code == 403
+
+
+def test_import_creates_professions_from_json(db, client, regular_user, login_as):
+    _grant(db, regular_user, 'professions.edit')
+    login_as(client, regular_user, 'userpass123')
+
+    import io
+    import json
+    payload = json.dumps([{
+        'name': 'Bufón Importado', 'type': 'basic', 'ws': 10,
+        'skills': [], 'talents': [], 'trappings': [], 'exits': [],
+    }]).encode('utf-8')
+
+    resp = client.post('/profesiones/importar', data={
+        'file': (io.BytesIO(payload), 'profesiones.json'),
+        'mode': 'skip',
+    }, content_type='multipart/form-data', follow_redirects=True)
+    assert resp.status_code == 200
+
+    prof = Profession.query.filter_by(name='Bufón Importado').first()
+    assert prof is not None
+    assert prof.ws == 10

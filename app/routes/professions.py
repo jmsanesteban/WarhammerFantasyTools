@@ -10,7 +10,7 @@ from app.extensions import db
 from app.models.profession import Profession, ProfessionSkill, ProfessionTalent, ProfessionTrapping
 from app.models.skill import Skill
 from app.models.talent import Talent
-from app.utils import admin_required, require_permission
+from app.utils import admin_required, require_permission, json_download_response, flash_import_summary
 
 professions_bp = Blueprint('professions', __name__, template_folder='../templates')
 
@@ -94,6 +94,44 @@ def delete(prof_id):
     db.session.delete(prof)
     db.session.commit()
     flash(f'Profesión "{name}" eliminada.', 'warning')
+    return redirect(url_for('professions.list_professions'))
+
+
+# ---------------------------------------------------------------------------
+# Backup: exportar/importar todas las profesiones (JSON completo, incluidas
+# habilidades/talentos/enseres/salidas de carrera) - pensado sobre todo como
+# copia de seguridad ante un problema con la base de datos, ya que reconstruir
+# el catálogo a mano desde el PDF es un trabajo manual considerable.
+# ---------------------------------------------------------------------------
+
+@professions_bp.route('/exportar')
+@require_permission('professions.edit')
+def export():
+    from app.services.backup_service import export_professions
+    return json_download_response(export_professions(), 'profesiones_backup.json')
+
+
+@professions_bp.route('/importar', methods=['GET', 'POST'])
+@require_permission('professions.edit')
+def import_professions_route():
+    if request.method == 'GET':
+        return render_template('professions/import.html')
+
+    f = request.files.get('file')
+    if not f or not f.filename:
+        flash('Selecciona un fichero JSON.', 'danger')
+        return redirect(request.url)
+
+    try:
+        data = json.loads(f.read())
+    except Exception as e:
+        flash(f'Error al leer el fichero: {e}', 'danger')
+        return redirect(request.url)
+
+    from app.services.backup_service import import_professions
+    mode = request.form.get('mode', 'skip')
+    summary = import_professions(data, mode=mode)
+    flash_import_summary(summary)
     return redirect(url_for('professions.list_professions'))
 
 
