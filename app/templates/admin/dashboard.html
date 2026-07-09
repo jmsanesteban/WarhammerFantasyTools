@@ -90,8 +90,9 @@
         <div class="card-header wh-card-header"><i class="bi bi-book me-2"></i>Habilidades</div>
         <div class="card-body">
           <p>Importa las habilidades del reglamento para que la validación de PDFs funcione correctamente.</p>
-          <div class="d-flex gap-2">
+          <div class="d-flex gap-2 flex-wrap">
             <a href="{{ url_for('skills_talents.import_skills') }}" class="btn btn-wh">Importar</a>
+            <a href="{{ url_for('skills_talents.export_skills') }}" class="btn btn-outline-secondary">Exportar</a>
             <a href="{{ url_for('skills_talents.list_skills') }}" class="btn btn-outline-secondary">Ver todas</a>
           </div>
         </div>
@@ -102,8 +103,9 @@
         <div class="card-header wh-card-header"><i class="bi bi-star me-2"></i>Talentos</div>
         <div class="card-body">
           <p>Importa los talentos del reglamento para que la validación de PDFs funcione correctamente.</p>
-          <div class="d-flex gap-2">
+          <div class="d-flex gap-2 flex-wrap">
             <a href="{{ url_for('skills_talents.import_talents') }}" class="btn btn-wh">Importar</a>
+            <a href="{{ url_for('skills_talents.export_talents') }}" class="btn btn-outline-secondary">Exportar</a>
             <a href="{{ url_for('skills_talents.list_talents') }}" class="btn btn-outline-secondary">Ver todos</a>
           </div>
         </div>
@@ -123,8 +125,10 @@
         <div class="card-header wh-card-header"><i class="bi bi-person-badge me-2"></i>Profesiones</div>
         <div class="card-body">
           <p>Crear, editar y gestionar profesiones manualmente.</p>
-          <div class="d-flex gap-2">
+          <div class="d-flex gap-2 flex-wrap">
             <a href="{{ url_for('professions.create') }}" class="btn btn-wh">Nueva</a>
+            <a href="{{ url_for('professions.import_professions_route') }}" class="btn btn-outline-secondary">Importar</a>
+            <a href="{{ url_for('professions.export') }}" class="btn btn-outline-secondary">Exportar</a>
             <a href="{{ url_for('professions.list_professions') }}" class="btn btn-outline-secondary">Ver todas</a>
           </div>
         </div>
@@ -135,7 +139,11 @@
         <div class="card-header wh-card-header"><i class="bi bi-people me-2"></i>Usuarios</div>
         <div class="card-body">
           <p>Gestionar cuentas de usuario: roles y estado.</p>
-          <a href="{{ url_for('admin.users') }}" class="btn btn-wh">Gestionar</a>
+          <div class="d-flex gap-2 flex-wrap">
+            <a href="{{ url_for('admin.users') }}" class="btn btn-wh">Gestionar</a>
+            <a href="{{ url_for('admin.users_import') }}" class="btn btn-outline-secondary">Importar</a>
+            <a href="{{ url_for('admin.users_export') }}" class="btn btn-outline-secondary">Exportar</a>
+          </div>
         </div>
       </div>
     </div>
@@ -144,9 +152,10 @@
         <div class="card-header wh-card-header"><i class="bi bi-person-lines-fill me-2"></i>Contactos</div>
         <div class="card-body">
           <p>Gestionar contactos e importación/exportación Excel.</p>
-          <div class="d-flex gap-2">
+          <div class="d-flex gap-2 flex-wrap">
             <a href="{{ url_for('admin.contacts') }}" class="btn btn-wh">Gestionar</a>
             <a href="{{ url_for('admin.contacts_import') }}" class="btn btn-outline-secondary">Importar</a>
+            <a href="{{ url_for('admin.contacts_export') }}" class="btn btn-outline-secondary">Exportar</a>
           </div>
         </div>
       </div>
@@ -156,7 +165,11 @@
         <div class="card-header wh-card-header"><i class="bi bi-diagram-3 me-2"></i>Vínculos</div>
         <div class="card-body">
           <p>Directorio de relaciones contacto↔personaje: quién ve qué, con qué nivel, y de qué usuario.</p>
-          <a href="{{ url_for('admin.contact_links') }}" class="btn btn-wh">Ver vínculos</a>
+          <div class="d-flex gap-2 flex-wrap">
+            <a href="{{ url_for('admin.contact_links') }}" class="btn btn-wh">Ver vínculos</a>
+            <a href="{{ url_for('admin.contacts_full_import') }}" class="btn btn-outline-secondary">Importar</a>
+            <a href="{{ url_for('admin.contacts_full_export') }}" class="btn btn-outline-secondary">Exportar</a>
+          </div>
         </div>
       </div>
     </div>
@@ -165,7 +178,11 @@
         <div class="card-header wh-card-header"><i class="bi bi-people-fill me-2"></i>Personajes</div>
         <div class="card-body">
           <p>Ver y editar los personajes de todos los jugadores.</p>
-          <a href="{{ url_for('characters.list_characters') }}" class="btn btn-wh">Ver todos</a>
+          <div class="d-flex gap-2 flex-wrap">
+            <a href="{{ url_for('characters.list_characters') }}" class="btn btn-wh">Ver todos</a>
+            <a href="{{ url_for('admin.characters_import') }}" class="btn btn-outline-secondary">Importar</a>
+            <a href="{{ url_for('admin.characters_export') }}" class="btn btn-outline-secondary">Exportar</a>
+          </div>
         </div>
       </div>
     </div>
@@ -174,7 +191,11 @@
         <div class="card-header wh-card-header"><i class="bi bi-collection me-2"></i>Plantillas de permisos</div>
         <div class="card-body">
           <p>Conjuntos reutilizables de permisos para asignar a varios usuarios a la vez.</p>
-          <a href="{{ url_for('admin.permission_templates') }}" class="btn btn-wh">Gestionar</a>
+          <div class="d-flex gap-2 flex-wrap">
+            <a href="{{ url_for('admin.permission_templates') }}" class="btn btn-wh">Gestionar</a>
+            <a href="{{ url_for('admin.permission_templates_import') }}" class="btn btn-outline-secondary">Importar</a>
+            <a href="{{ url_for('admin.permission_templates_export') }}" class="btn btn-outline-secondary">Exportar</a>
+          </div>
         </div>
       </div>
     </div>
@@ -183,7 +204,11 @@
         <div class="card-header wh-card-header"><i class="bi bi-translate me-2"></i>Diccionario de sinónimos</div>
         <div class="card-body">
           <p>Correcciones automáticas de nombres al importar PDFs (p.ej. variantes mal escritas).</p>
-          <a href="{{ url_for('admin.synonyms') }}" class="btn btn-wh">Gestionar</a>
+          <div class="d-flex gap-2 flex-wrap">
+            <a href="{{ url_for('admin.synonyms') }}" class="btn btn-wh">Gestionar</a>
+            <a href="{{ url_for('admin.synonyms_import') }}" class="btn btn-outline-secondary">Importar</a>
+            <a href="{{ url_for('admin.synonyms_export') }}" class="btn btn-outline-secondary">Exportar</a>
+          </div>
         </div>
       </div>
     </div>

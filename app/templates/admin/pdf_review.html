@@ -8,10 +8,13 @@
     Se encontraron <strong>{{ professions|length }}</strong> profesión(es) potencial(es).
     Revisa cada una y guarda las que sean correctas.
   </p>
-  <p class="text-muted small mb-4">
+  <p class="text-muted small mb-4 chip-legend-sticky">
     <span class="chip-legend-dot match">●</span> Encontrado en la BD &nbsp;
     <span class="chip-legend-dot nomatch">●</span> Sin coincidencia &nbsp;
     <span class="chip-legend-dot accepted">●</span> Aceptado manualmente
+    <br><span class="fst-italic">Estos colores son de las etiquetas de Habilidades y Talentos dentro de cada
+    ficha de profesión más abajo — no de las tablas de resumen de arriba, que usan sus propias insignias
+    (Ya existe / Posible colisión / Nueva).</span>
   </p>
 
   {% if db_empty %}
@@ -421,6 +424,17 @@
 .chip-legend-dot.match    { color: #9cec9c; }
 .chip-legend-dot.nomatch  { color: #f0b060; }
 .chip-legend-dot.accepted { color: #8fc7f7; }
+
+/* Stays visible while scrolling through the (potentially 200+) profession
+   cards below, since the colors it explains live in each card, not up here. */
+.chip-legend-sticky {
+  position: sticky;
+  top: 0;
+  z-index: 900;
+  background: var(--wh-bg);
+  padding: 8px 4px;
+  border-bottom: 1px solid var(--wh-border-gold);
+}
 </style>
 
 {# ─── JavaScript ─── #}

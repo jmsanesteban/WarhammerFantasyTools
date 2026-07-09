@@ -12,11 +12,14 @@
 </head>
 <body>
 
-<nav class="navbar navbar-expand-lg navbar-dark wh-navbar">
+<nav class="navbar navbar-expand-lg navbar-dark wh-navbar{% if config.APP_ENVIRONMENT == 'prepro' %} wh-navbar-prepro{% endif %}">
   <div class="container-fluid">
     <a class="navbar-brand wh-brand" href="{{ url_for('main.index') }}">
       <i class="bi bi-shield-fill me-2"></i>Warhammer Fantasy Tools
     </a>
+    {% if config.APP_ENVIRONMENT == 'prepro' %}
+    <span class="wh-env-banner">Entorno de preproducción</span>
+    {% endif %}
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navMain">
       <span class="navbar-toggler-icon"></span>
     </button>

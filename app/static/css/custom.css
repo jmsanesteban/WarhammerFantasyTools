@@ -64,6 +64,26 @@ a:hover { color: var(--wh-gold-light); }
   letter-spacing: 1px;
 }
 
+/* Preproduction-only: visually distinct navbar so it's never confused with
+   production at a glance (deliberately a different hue family, not just a
+   shade of the same gold/carbón palette). */
+.wh-navbar-prepro {
+  background: linear-gradient(180deg, #041a1f 0%, #0a2b33 100%) !important;
+  border-bottom: 2px solid #2ab0c9 !important;
+}
+.wh-env-banner {
+  background: #ffb020;
+  color: #1a1200;
+  font-weight: 700;
+  font-size: 0.8rem;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+  padding: 4px 12px;
+  border-radius: 999px;
+  margin-left: 12px;
+  white-space: nowrap;
+}
+
 .navbar-nav .nav-link {
   color: var(--wh-text) !important;
   font-family: 'Cinzel', serif;

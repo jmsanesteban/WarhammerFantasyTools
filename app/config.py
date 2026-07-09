@@ -14,6 +14,11 @@ class Config:
     ADMIN_EMAIL = os.environ.get('ADMIN_EMAIL', 'admin@example.com')
     ADMIN_PASSWORD = os.environ.get('ADMIN_PASSWORD', 'changeme123')
 
+    # Purely cosmetic: set to 'prepro' on the preproduction VM's .env so the
+    # navbar visually differs from production (avoids confusing the two when
+    # switching tabs). Empty/anything else = normal (production-looking) navbar.
+    APP_ENVIRONMENT = os.environ.get('APP_ENVIRONMENT', '')
+
 
 class DevelopmentConfig(Config):
     DEBUG = True
