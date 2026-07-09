@@ -22,49 +22,78 @@
   </div>
   {% endif %}
 
-  {# ── Triage summary: which of this book's professions are new vs. already in the DB ── #}
+  {# ── Triage summary: which of this book's professions are new vs. already in the DB ──
+     Split into two collapsible tables so a big import doesn't force scrolling past
+     dozens of "ya existe" rows to reach the ones that actually need attention. #}
   {% if professions %}
-  <div class="card wh-card mb-4">
-    <div class="card-header wh-card-header">
-      <i class="bi bi-list-check me-2"></i>Resumen — {{ professions|length }} profesión(es) detectada(s)
+  {% set registradas = professions | selectattr('dup_status', 'equalto', 'exact') | list %}
+  {% set no_registradas = professions | rejectattr('dup_status', 'equalto', 'exact') | list %}
+
+  <div class="card wh-card mb-3">
+    <div class="card-header wh-card-header d-flex justify-content-between align-items-center"
+         role="button" data-bs-toggle="collapse" data-bs-target="#registradasBody"
+         aria-expanded="false" aria-controls="registradasBody" style="cursor:pointer">
+      <span><i class="bi bi-check-circle me-2"></i>Ya registradas — {{ registradas|length }}</span>
+      <i class="bi bi-chevron-down"></i>
     </div>
-    <div class="table-responsive">
-      <table class="table wh-table align-middle mb-0">
-        <thead>
-          <tr>
-            <th>#</th>
-            <th>Nombre</th>
-            <th>Estado</th>
-            <th>Detalle</th>
-          </tr>
-        </thead>
-        <tbody>
-          {% for prof_data in professions %}
-          <tr>
-            <td class="text-muted small">{{ loop.index }}</td>
-            <td>{{ prof_data.name or '(sin nombre)' }}</td>
-            <td>
-              {% if prof_data.dup_status == 'exact' %}
-              <span class="badge bg-danger">Ya existe</span>
-              {% elif prof_data.dup_status == 'possible' %}
-              <span class="badge bg-warning text-dark">Posible colisión</span>
-              {% else %}
-              <span class="badge bg-success">Nueva</span>
-              {% endif %}
-            </td>
-            <td class="small text-muted">
-              {% if prof_data.dup_status == 'exact' %}
-              Coincide exactamente con la profesión #{{ prof_data.existing_prof.id }} ya guardada.
-              {% elif prof_data.dup_status == 'possible' %}
-              Nombre similar a: {{ prof_data.possible_duplicates | map(attribute='name') | join(', ') }}
-              {% else %}
-              No hay ninguna profesión con nombre igual o similar en la BD.
-              {% endif %}
-            </td>
-          </tr>
-          {% endfor %}
-        </tbody>
-      </table>
+    <div class="collapse" id="registradasBody">
+      <div class="table-responsive">
+        <table class="table wh-table align-middle mb-0">
+          <thead>
+            <tr><th>#</th><th>Nombre</th><th>Estado</th><th>Detalle</th></tr>
+          </thead>
+          <tbody>
+            {% for prof_data in registradas %}
+            <tr>
+              <td class="text-muted small">{{ prof_data.idx }}</td>
+              <td>{{ prof_data.name or '(sin nombre)' }}</td>
+              <td><span class="badge bg-danger">Ya existe</span></td>
+              <td class="small text-muted">Coincide exactamente con la profesión #{{ prof_data.existing_prof.id }} ya guardada.</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <div class="card wh-card mb-4">
+    <div class="card-header wh-card-header d-flex justify-content-between align-items-center"
+         role="button" data-bs-toggle="collapse" data-bs-target="#noRegistradasBody"
+         aria-expanded="true" aria-controls="noRegistradasBody" style="cursor:pointer">
+      <span><i class="bi bi-exclamation-circle me-2"></i>No registradas — {{ no_registradas|length }}</span>
+      <i class="bi bi-chevron-down"></i>
+    </div>
+    <div class="collapse show" id="noRegistradasBody">
+      <div class="table-responsive">
+        <table class="table wh-table align-middle mb-0">
+          <thead>
+            <tr><th>#</th><th>Nombre</th><th>Estado</th><th>Detalle</th></tr>
+          </thead>
+          <tbody>
+            {% for prof_data in no_registradas %}
+            <tr>
+              <td class="text-muted small">{{ prof_data.idx }}</td>
+              <td>{{ prof_data.name or '(sin nombre)' }}</td>
+              <td>
+                {% if prof_data.dup_status == 'possible' %}
+                <span class="badge bg-warning text-dark">Posible colisión</span>
+                {% else %}
+                <span class="badge bg-success">Nueva</span>
+                {% endif %}
+              </td>
+              <td class="small text-muted">
+                {% if prof_data.dup_status == 'possible' %}
+                Nombre similar a: {{ prof_data.possible_duplicates | map(attribute='name') | join(', ') }}
+                {% else %}
+                No hay ninguna profesión con nombre igual o similar en la BD.
+                {% endif %}
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
     </div>
   </div>
   {% endif %}
@@ -349,7 +378,7 @@
 }
 .chip.match    { background: rgba(30,110,30,.45);  border: 1px solid rgba(60,180,60,.5);  color: #9cec9c; }
 .chip.nomatch  { background: rgba(130,70,0,.4);    border: 1px solid rgba(200,110,0,.5);  color: #f0b060; }
-.chip.accepted { background: rgba(20,90,20,.55);   border: 1px solid rgba(80,180,80,.6);  color: #b0f0b0; }
+.chip.accepted { background: rgba(20,70,120,.5);   border: 1px solid rgba(70,150,220,.6); color: #8fc7f7; }
 .chip.trapping { background: rgba(60,44,12,.55);   border: 1px solid rgba(140,100,30,.5); color: #c9a84c; }
 
 .chip-label { cursor: pointer; }
@@ -391,7 +420,7 @@
 .chip-legend-dot { font-size: .85rem; }
 .chip-legend-dot.match    { color: #9cec9c; }
 .chip-legend-dot.nomatch  { color: #f0b060; }
-.chip-legend-dot.accepted { color: #b0f0b0; }
+.chip-legend-dot.accepted { color: #8fc7f7; }
 </style>
 
 {# ─── JavaScript ─── #}

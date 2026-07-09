@@ -194,3 +194,38 @@ def test_admin_can_delete_any_character(db, client, admin_user, regular_user, ma
     resp = client.post(f'/personajes/{char_id}/eliminar', follow_redirects=True)
     assert resp.status_code == 200
     assert db.session.get(Character, char_id) is None
+
+
+# ── Searchable profession picker: catalog + career-exits map passed to the template ──
+
+def test_new_character_form_embeds_profession_catalog_and_exits_map(
+    db, client, regular_user, login_as, make_profession,
+):
+    soldado = make_profession(name='Soldado')
+    sargento = make_profession(name='Sargento')
+    soldado.exits.append(sargento)
+    db.session.commit()
+    login_as(client, regular_user, 'userpass123')
+
+    resp = client.get('/personajes/nuevo')
+    assert resp.status_code == 200
+    body = resp.data.decode('utf-8')
+    # Full catalog (both professions) must be present for the search widget.
+    assert 'Soldado' in body
+    assert 'Sargento' in body
+    # The exits map keys profession ids (as JSON object keys, i.e. strings) to
+    # a list of exit profession ids - confirm Soldado -> [Sargento.id] is there.
+    assert f'"{soldado.id}": [{sargento.id}]' in body or f'"{soldado.id}":[{sargento.id}]' in body
+
+
+def test_edit_character_form_also_embeds_exits_map(
+    db, client, regular_user, login_as, make_character, make_profession,
+):
+    char = make_character(regular_user)
+    make_profession(name='Otra profesión')
+    login_as(client, regular_user, 'userpass123')
+
+    resp = client.get(f'/personajes/{char.id}/editar')
+    assert resp.status_code == 200
+    assert b'professions_picker' not in resp.data  # context var name itself never leaks into HTML
+    assert b'prof-picker' in resp.data

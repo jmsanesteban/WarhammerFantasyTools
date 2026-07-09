@@ -617,6 +617,8 @@ def _render_pdf_review(cache_id: str, result: dict, filename: str):
     talents_data = [{'es': t.name_es, 'en': t.name_en or ''} for t in all_talents]
 
     professions = _validate_pdf_professions(result.get('professions', []), all_skills, all_talents)
+    for idx, prof_data in enumerate(professions, start=1):
+        prof_data['idx'] = idx
 
     synonyms_data = [
         {'source': s.source, 'target': s.target, 'is_prefix': s.is_prefix}
@@ -1507,6 +1509,7 @@ def contact_links():
     contact_ids = [l.contact_id for l in links]
     visibility_map = {}
     note_counts = {}
+    contact_access_map = {}
     if contact_ids:
         grants = ContactCharacterVisibility.query.filter(
             ContactCharacterVisibility.contact_id.in_(contact_ids),
@@ -1521,6 +1524,27 @@ def contact_links():
         )
         note_counts = {(cid, chid): cnt for cid, chid, cnt in rows}
 
+        # Every character with visibility into each contact, regardless of whether
+        # that character is also the one who registered it (has a ContactCharacterLink) -
+        # shown directly in this table so an admin doesn't have to open each contact.
+        access_rows = (
+            db.session.query(
+                ContactCharacterVisibility.contact_id,
+                Character.name,
+                User.username,
+                ContactCharacterVisibility.nivel,
+            )
+            .join(Character, Character.id == ContactCharacterVisibility.character_id)
+            .join(User, User.id == Character.user_id)
+            .filter(ContactCharacterVisibility.contact_id.in_(contact_ids))
+            .order_by(Character.name)
+            .all()
+        )
+        for cid, char_name, username, nivel in access_rows:
+            contact_access_map.setdefault(cid, []).append({
+                'character_name': char_name, 'username': username, 'nivel': nivel,
+            })
+
     return render_template(
         'admin/contact_links.html',
         links=links,
@@ -1528,6 +1552,7 @@ def contact_links():
         search=search,
         visibility_map=visibility_map,
         note_counts=note_counts,
+        contact_access_map=contact_access_map,
     )
 
 

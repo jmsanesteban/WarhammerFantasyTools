@@ -634,6 +634,52 @@ mark { background: rgba(212, 168, 48, .28); color: var(--wh-gold-light); padding
   color: var(--wh-text-muted);
 }
 
+/* Profession picker (searchable combobox, career-exit highlighting) */
+.prof-picker { position: relative; }
+.prof-picker-dropdown {
+  display: none;
+  position: absolute;
+  top: 100%; left: 0; right: 0;
+  z-index: 1000;
+  max-height: 260px;
+  overflow-y: auto;
+  background: var(--wh-bg-card);
+  border: 1px solid var(--wh-border-gold);
+  border-radius: 4px;
+  margin-top: 2px;
+  box-shadow: 0 6px 18px rgba(0,0,0,0.6);
+}
+.prof-picker-dropdown.open { display: block; }
+.prof-picker-group-label {
+  padding: 4px 10px 2px;
+  font-size: .72rem;
+  text-transform: uppercase;
+  letter-spacing: .03em;
+  color: var(--wh-text-muted);
+}
+.prof-picker-option {
+  padding: 5px 10px;
+  cursor: pointer;
+  font-size: .9rem;
+  color: var(--wh-text);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 6px;
+}
+.prof-picker-option:hover { background: var(--wh-bg-card-alt); }
+.prof-picker-option.is-exit { background: rgba(212,168,48,.12); }
+.prof-picker-option.is-exit:hover { background: rgba(212,168,48,.22); }
+.prof-picker-exit-badge {
+  font-size: .68rem;
+  color: var(--wh-gold-light);
+  border: 1px solid var(--wh-gold-dark);
+  border-radius: 3px;
+  padding: 0 4px;
+  white-space: nowrap;
+}
+.prof-picker-empty { color: var(--wh-text-muted); }
+
 /* Responsive tweaks */
 @media (max-width: 768px) {
   .wh-stat-number { font-size: 1.8rem; }

@@ -92,6 +92,33 @@ def test_visibility_save_empty_nivel_revokes_access(db, client, admin_user, regu
     assert ContactCharacterVisibility.query.filter_by(contact_id=contact.id, character_id=char.id).first() is None
 
 
+def test_visibility_save_bulk_handles_multiple_characters_in_one_post(
+    db, client, admin_user, regular_user, make_character, make_contact, make_contact_visibility, login_as,
+):
+    """The whole 'Visibilidad por personaje' table now submits as one form -
+    grant/update/revoke for several characters must all apply from a single POST."""
+    char_grant = make_character(regular_user, name='Nuevo acceso')
+    char_update = make_character(regular_user, name='Cambia de nivel')
+    char_revoke = make_character(regular_user, name='Pierde acceso')
+    contact = make_contact()
+    make_contact_visibility(char_update, contact, 'parcial')
+    make_contact_visibility(char_revoke, contact, 'total')
+    login_as(client, admin_user, 'adminpass123')
+
+    client.post(f'/contactos/{contact.id}/visibilidad', data={
+        'character_id': [str(char_grant.id), str(char_update.id), str(char_revoke.id)],
+        'nivel': ['total', 'total', ''],
+    }, follow_redirects=True)
+
+    grants = {
+        g.character_id: g.nivel
+        for g in ContactCharacterVisibility.query.filter_by(contact_id=contact.id).all()
+    }
+    assert grants.get(char_grant.id) == 'total'
+    assert grants.get(char_update.id) == 'total'
+    assert char_revoke.id not in grants
+
+
 # ── Vínculos (directorio admin contacto↔personaje) ──────────────────────────
 
 def test_contact_links_requires_admin(client, regular_user, login_as):
@@ -115,6 +142,26 @@ def test_contact_links_shows_owner_username_and_level(client, admin_user, regula
     assert b'Karl-Heinz' in resp.data
     assert regular_user.username.encode('utf-8') in resp.data
     assert b'Parcial' in resp.data
+
+
+def test_contact_links_shows_all_characters_with_access_not_just_the_linked_one(
+    client, admin_user, regular_user, make_character, make_contact, make_contact_link,
+    make_contact_visibility, login_as,
+):
+    """A character can have visibility into a contact without ever having registered
+    it (no ContactCharacterLink) - the 'Personajes con acceso' column must still list them."""
+    linked_char = make_character(regular_user, name='Registró el contacto')
+    other_char = make_character(regular_user, name='Solo tiene acceso')
+    contact = make_contact(nombre='NPC compartido')
+    make_contact_link(linked_char, contact, nivel=1)
+    make_contact_visibility(linked_char, contact, 'total')
+    make_contact_visibility(other_char, contact, 'parcial')
+    login_as(client, admin_user, 'adminpass123')
+
+    resp = client.get('/admin/vinculos')
+    assert resp.status_code == 200
+    assert b'Solo tiene acceso' in resp.data
+    assert b'Registr' in resp.data
 
 
 def test_contact_links_search_filters_by_username(client, admin_user, make_user, make_character,

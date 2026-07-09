@@ -409,28 +409,44 @@ def edit(contact_id):
 @contacts_bp.route('/<int:contact_id>/visibilidad', methods=['POST'])
 @login_required
 def visibility_save(contact_id):
+    """Bulk save: one (character_id, nivel) pair per row of the visibility
+    table, submitted together in a single POST (parallel repeated fields,
+    same convention as profession_ids/tipo_sueldo_list elsewhere)."""
     if not current_user.is_admin:
         abort(403)
     Contact.query.get_or_404(contact_id)
-    character_id = request.form.get('character_id', type=int)
-    nivel = request.form.get('nivel', '').strip()
-    if not character_id:
+
+    character_ids = request.form.getlist('character_id', type=int)
+    niveles = request.form.getlist('nivel')
+    if not character_ids:
         abort(400)
 
-    grant = ContactCharacterVisibility.query.filter_by(
-        contact_id=contact_id, character_id=character_id,
-    ).first()
-
-    if nivel not in ('total', 'parcial'):
-        if grant:
-            db.session.delete(grant)
-            flash('Acceso revocado.', 'success')
-    elif grant:
-        grant.nivel = nivel
-        flash('Visibilidad actualizada.', 'success')
-    else:
-        db.session.add(ContactCharacterVisibility(contact_id=contact_id, character_id=character_id, nivel=nivel))
-        flash('Visibilidad concedida.', 'success')
+    existing_grants = {
+        g.character_id: g for g in ContactCharacterVisibility.query.filter_by(contact_id=contact_id).all()
+    }
+    granted = revoked = updated = 0
+    for character_id, nivel in zip(character_ids, niveles):
+        nivel = (nivel or '').strip()
+        grant = existing_grants.get(character_id)
+        if nivel not in ('total', 'parcial'):
+            if grant:
+                db.session.delete(grant)
+                revoked += 1
+        elif grant:
+            if grant.nivel != nivel:
+                grant.nivel = nivel
+                updated += 1
+        else:
+            db.session.add(ContactCharacterVisibility(contact_id=contact_id, character_id=character_id, nivel=nivel))
+            granted += 1
 
     db.session.commit()
+    parts = []
+    if granted:
+        parts.append(f'{granted} concedido(s)')
+    if updated:
+        parts.append(f'{updated} actualizado(s)')
+    if revoked:
+        parts.append(f'{revoked} revocado(s)')
+    flash('Visibilidad guardada: ' + (', '.join(parts) if parts else 'sin cambios') + '.', 'success')
     return redirect(url_for('contacts.detail', contact_id=contact_id))

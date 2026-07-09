@@ -67,18 +67,21 @@
           {% endfor %}
         </select>
         {% endmacro %}
+        {% macro prof_picker(cp=none) %}
+        <div class="prof-picker" style="min-width:220px; max-width:260px; flex:1 1 260px;">
+          <input type="hidden" name="profession_ids" class="prof-picker-hidden"
+                 value="{{ cp.profession.id if cp and cp.profession else '' }}">
+          <input type="text" class="form-control wh-input prof-picker-input" autocomplete="off"
+                 placeholder="Buscar profesión…"
+                 value="{{ cp.profession.name if cp and cp.profession else '' }}">
+          <div class="prof-picker-dropdown"></div>
+        </div>
+        {% endmacro %}
         {% if char and char.professions %}
           {% for cp in char.professions %}
           <div class="d-flex align-items-center gap-2 mb-2 prof-row flex-wrap">
             <span class="text-muted">{{ loop.index }}.</span>
-            <select name="profession_ids" class="form-select wh-input" style="max-width:260px">
-              <option value="">— Selecciona —</option>
-              {% for p in professions %}
-              <option value="{{ p.id }}" {% if cp.profession and cp.profession.id == p.id %}selected{% endif %}>
-                {{ p.name }}
-              </option>
-              {% endfor %}
-            </select>
+            {{ prof_picker(cp) }}
             {{ salary_selects(cp) }}
             <button type="button" class="btn btn-outline-danger btn-sm remove-prof"><i class="bi bi-x-lg"></i></button>
           </div>
@@ -86,12 +89,7 @@
         {% else %}
         <div class="d-flex align-items-center gap-2 mb-2 prof-row flex-wrap">
           <span class="text-muted">1.</span>
-          <select name="profession_ids" class="form-select wh-input" style="max-width:260px">
-            <option value="">— Selecciona —</option>
-            {% for p in professions %}
-            <option value="{{ p.id }}">{{ p.name }}</option>
-            {% endfor %}
-          </select>
+          {{ prof_picker() }}
           {{ salary_selects() }}
           <button type="button" class="btn btn-outline-danger btn-sm remove-prof"><i class="bi bi-x-lg"></i></button>
         </div>
@@ -110,12 +108,7 @@
 <template id="profRowTemplate">
   <div class="d-flex align-items-center gap-2 mb-2 prof-row flex-wrap">
     <span class="prof-index text-muted"></span>
-    <select name="profession_ids" class="form-select wh-input" style="max-width:260px">
-      <option value="">— Selecciona —</option>
-      {% for p in professions %}
-      <option value="{{ p.id }}">{{ p.name }}</option>
-      {% endfor %}
-    </select>
+    {{ prof_picker() }}
     <select name="tipo_sueldo_list" class="form-select form-select-sm wh-input" style="max-width:210px">
       <option value="">— Tipo de sueldo —</option>
       {% for t in salary_table.tipos %}
@@ -134,10 +127,17 @@
 {% endblock %}
 
 {% block extra_scripts %}
+<script src="{{ url_for('static', filename='js/profession_picker.js') }}"></script>
 <script>
 const profList = document.getElementById('profList');
 const addBtn = document.getElementById('addProfBtn');
 const tmpl = document.getElementById('profRowTemplate');
+const PROF_PICKER_OPTIONS = {{ professions_picker_list | tojson }};
+const PROF_EXITS_MAP = {{ professions_exits_map | tojson }};
+
+function wireProfPickers(root) {
+  initProfessionPickers(root, { options: PROF_PICKER_OPTIONS, exitsMap: PROF_EXITS_MAP });
+}
 
 function reindex() {
   profList.querySelectorAll('.prof-row').forEach((row, i) => {
@@ -150,6 +150,7 @@ addBtn.addEventListener('click', () => {
   const clone = tmpl.content.cloneNode(true);
   profList.appendChild(clone);
   reindex();
+  wireProfPickers(profList);
 });
 
 profList.addEventListener('click', e => {
@@ -158,5 +159,7 @@ profList.addEventListener('click', e => {
     reindex();
   }
 });
+
+wireProfPickers(profList);
 </script>
 {% endblock %}

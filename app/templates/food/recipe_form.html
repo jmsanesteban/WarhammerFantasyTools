@@ -24,7 +24,14 @@
 
       <div class="mb-3">
         <label class="wh-label">Nombre</label>
-        <input type="text" name="nombre" class="form-control wh-input" value="{{ form.get('nombre', '') }}" required>
+        <div class="d-flex gap-2">
+          <input type="text" name="nombre" id="recipe-name-input" class="form-control wh-input"
+                 value="{{ form.get('nombre', '') }}" required>
+          <button type="button" id="suggest-name-btn" class="btn btn-outline-secondary btn-sm text-nowrap">
+            <i class="bi bi-magic me-1"></i>Sugerir nombre
+          </button>
+        </div>
+        <div id="name-suggestions" class="mt-2 d-flex flex-wrap gap-1"></div>
       </div>
 
       <div class="mb-3">
@@ -231,6 +238,84 @@
     slot.querySelector('select').addEventListener('change', updatePreview);
   });
   applyMethod();
+
+  // ── Sugerencia de nombre a partir del método + ingredientes/condimentos ──
+  // "de + ingrediente(s)" evita tener que conjugar género/número del adjetivo
+  // del método contra el ingrediente (p.ej. "Guiso de carne superior" en vez
+  // de tener que decidir si sería "carne superior guisada" o "guisado").
+  var METHOD_NOUN = {
+    'Crudo': 'Crudo', 'Ahumado': 'Ahumado', 'Secado': 'Secado', 'Salado': 'Salazón',
+    'Cocido': 'Cocido', 'Guisado': 'Guiso', 'Asar': 'Asado', 'Hornear': 'Horneado',
+  };
+  var METHOD_INGREDIENT_FIRST = { 'Almíbar': ' en almíbar', 'Brasa': ' a la brasa' };
+
+  function capitalize(s) {
+    return s.charAt(0).toUpperCase() + s.slice(1);
+  }
+
+  function selectedNames(slots) {
+    var names = [];
+    slots.forEach(function (slot) {
+      if (slot.style.display === 'none') return;
+      var select = slot.querySelector('select');
+      var opt = select.options[select.selectedIndex];
+      if (opt && opt.value) names.push(opt.textContent.trim());
+    });
+    return names;
+  }
+
+  function buildRecipeNameCandidates() {
+    var option = methodSelect.options[methodSelect.selectedIndex];
+    if (!option || !option.value) return [];
+    var methodName = option.textContent.trim();
+
+    var ingredientNames = selectedNames(Array.prototype.slice.call(ingredientSlots));
+    if (!ingredientNames.length) return [];
+    var condimentNames = selectedNames(Array.prototype.slice.call(condimentSlots));
+
+    var main = ingredientNames.join(' y ').toLowerCase();
+    var withCondiment = condimentNames.length ? ' con ' + condimentNames.join(' y ').toLowerCase() : '';
+
+    var candidates = [];
+    if (METHOD_INGREDIENT_FIRST[methodName]) {
+      candidates.push(capitalize(main) + METHOD_INGREDIENT_FIRST[methodName] + withCondiment);
+      candidates.push(capitalize(main) + withCondiment + METHOD_INGREDIENT_FIRST[methodName]);
+    } else if (METHOD_NOUN[methodName]) {
+      candidates.push(METHOD_NOUN[methodName] + ' de ' + main + withCondiment);
+      candidates.push(capitalize(main) + ' al estilo ' + methodName.toLowerCase() + withCondiment);
+    } else {
+      candidates.push(capitalize(main) + ' al estilo ' + methodName.toLowerCase() + withCondiment);
+    }
+
+    var seen = {};
+    return candidates.filter(function (c) {
+      if (seen[c]) return false;
+      seen[c] = true;
+      return true;
+    }).slice(0, 3);
+  }
+
+  var nameInput = document.getElementById('recipe-name-input');
+  var suggestionsBox = document.getElementById('name-suggestions');
+  document.getElementById('suggest-name-btn').addEventListener('click', function () {
+    var candidates = buildRecipeNameCandidates();
+    suggestionsBox.innerHTML = '';
+    if (!candidates.length) {
+      suggestionsBox.innerHTML = '<span class="text-muted small">Elige método e ingredientes primero para poder sugerir un nombre.</span>';
+      return;
+    }
+    if (!nameInput.value.trim()) {
+      nameInput.value = candidates[Math.floor(Math.random() * candidates.length)];
+    }
+    candidates.forEach(function (c) {
+      var chip = document.createElement('button');
+      chip.type = 'button';
+      chip.className = 'btn btn-outline-warning btn-sm';
+      chip.textContent = c;
+      chip.addEventListener('click', function () { nameInput.value = c; });
+      suggestionsBox.appendChild(chip);
+    });
+  });
 })();
 </script>
 {% endblock %}

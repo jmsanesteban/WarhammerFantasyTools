@@ -47,6 +47,7 @@
           <th>Visibilidad</th>
           <th>Nivel</th>
           <th>Notas</th>
+          <th>Personajes con acceso</th>
           <th style="width:9rem"></th>
         </tr>
       </thead>
@@ -68,6 +69,18 @@
           </td>
           <td>{{ link.nivel if link.nivel is not none else '—' }}</td>
           <td>{{ note_counts.get((link.contact_id, link.character_id), 0) }}</td>
+          <td class="small">
+            {% set access_list = contact_access_map.get(link.contact_id, []) %}
+            {% if access_list %}
+            {% for a in access_list %}
+            <span class="badge {% if a.nivel == 'total' %}bg-success{% else %}bg-warning text-dark{% endif %} mb-1">
+              {{ a.character_name }} ({{ a.username }}){% if a.nivel == 'parcial' %} · parcial{% endif %}
+            </span>
+            {% endfor %}
+            {% else %}
+            <span class="text-muted">— nadie con acceso —</span>
+            {% endif %}
+          </td>
           <td>
             <div class="d-flex gap-1">
               <a href="{{ url_for('contacts.detail', contact_id=link.contact_id, personaje_id=link.character_id) }}"

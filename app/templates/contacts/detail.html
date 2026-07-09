@@ -64,36 +64,37 @@
   <div class="card wh-card mb-4" style="max-width:760px">
     <div class="card-header wh-card-header">
       <h3 class="wh-heading mb-0" style="font-size:1.1rem">Visibilidad por personaje</h3>
-      <small class="text-muted">Quién puede ver este contacto. "Parcial" oculta las profesiones en su ficha.</small>
+      <small class="text-muted">Quién puede ver este contacto. "Parcial" oculta las profesiones en su ficha. Cambia lo que haga falta y pulsa "Guardar cambios" una sola vez.</small>
     </div>
-    <div class="table-responsive">
-      <table class="table wh-table align-middle mb-0">
-        <thead>
-          <tr><th>Personaje</th><th>Usuario</th><th colspan="2">Nivel</th></tr>
-        </thead>
-        <tbody>
-          {% for c in all_characters %}
-          <tr>
-            <td>{{ c.name }}{% if c.id == (active_character.id if active_character else none) %} <span class="badge bg-warning text-dark">activo</span>{% endif %}</td>
-            <td class="text-muted small">{{ c.owner.username }}</td>
-            <td colspan="2">
-              <form method="POST" action="{{ url_for('contacts.visibility_save', contact_id=contact.id) }}"
-                    class="d-flex gap-2 align-items-center">
-                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <form method="POST" action="{{ url_for('contacts.visibility_save', contact_id=contact.id) }}">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <div class="table-responsive">
+        <table class="table wh-table align-middle mb-0">
+          <thead>
+            <tr><th>Personaje</th><th>Usuario</th><th>Nivel</th></tr>
+          </thead>
+          <tbody>
+            {% for c in all_characters %}
+            <tr>
+              <td>{{ c.name }}{% if c.id == (active_character.id if active_character else none) %} <span class="badge bg-warning text-dark">activo</span>{% endif %}</td>
+              <td class="text-muted small">{{ c.owner.username }}</td>
+              <td>
                 <input type="hidden" name="character_id" value="{{ c.id }}">
                 <select name="nivel" class="form-select form-select-sm wh-input" style="max-width:180px">
                   <option value="" {% if not visibility_grants.get(c.id) %}selected{% endif %}>Sin acceso</option>
                   <option value="parcial" {% if visibility_grants.get(c.id) == 'parcial' %}selected{% endif %}>Parcial</option>
                   <option value="total" {% if visibility_grants.get(c.id) == 'total' %}selected{% endif %}>Total</option>
                 </select>
-                <button type="submit" class="btn btn-outline-secondary btn-sm">Guardar</button>
-              </form>
-            </td>
-          </tr>
-          {% endfor %}
-        </tbody>
-      </table>
-    </div>
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      <div class="card-footer">
+        <button type="submit" class="btn btn-wh btn-sm"><i class="bi bi-floppy me-1"></i>Guardar cambios</button>
+      </div>
+    </form>
   </div>
   {% endif %}
 

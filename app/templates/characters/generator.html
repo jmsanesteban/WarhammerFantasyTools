@@ -112,12 +112,11 @@
         <div id="profesion-options" class="d-flex flex-wrap gap-2 mb-2"></div>
         <div id="profesion-table" class="picker-wrap mb-2" style="display:none"></div>
         <label class="form-label wh-label">Profesión inicial (del catálogo)</label>
-        <select name="matched_profession_id" id="f-matched-profession" class="form-select wh-input">
-          <option value="">— Selecciona —</option>
-          {% for p in professions %}
-          <option value="{{ p.id }}">{{ p.name }}</option>
-          {% endfor %}
-        </select>
+        <div class="prof-picker" id="matched-profession-picker" style="max-width:320px;">
+          <input type="hidden" name="matched_profession_id" id="f-matched-profession" class="prof-picker-hidden">
+          <input type="text" class="form-control wh-input prof-picker-input" autocomplete="off" placeholder="Buscar profesión…">
+          <div class="prof-picker-dropdown"></div>
+        </div>
         <small class="text-muted">Si la profesión tirada/elegida no existe aún en el catálogo, créala primero desde <a href="{{ url_for('professions.create') }}" target="_blank" class="wh-link">Profesiones</a> y luego selecciónala aquí.</small>
       </div>
     </div>
@@ -502,12 +501,11 @@
     <template id="profRowTemplate">
       <div class="d-flex align-items-center gap-2 mb-2 prof-row flex-wrap">
         <span class="prof-index text-muted"></span>
-        <select name="profession_ids" class="form-select wh-input" style="max-width:260px">
-          <option value="">— Selecciona —</option>
-          {% for p in professions %}
-          <option value="{{ p.id }}">{{ p.name }}</option>
-          {% endfor %}
-        </select>
+        <div class="prof-picker" style="min-width:220px; max-width:260px; flex:1 1 260px;">
+          <input type="hidden" name="profession_ids" class="prof-picker-hidden">
+          <input type="text" class="form-control wh-input prof-picker-input" autocomplete="off" placeholder="Buscar profesión…">
+          <div class="prof-picker-dropdown"></div>
+        </div>
         <select name="tipo_sueldo_list" class="form-select form-select-sm wh-input" style="max-width:210px">
           <option value="">— Tipo de sueldo —</option>
           {% for t in salary_table.tipos %}
@@ -533,11 +531,14 @@
 {% endblock %}
 
 {% block extra_scripts %}
+<script src="{{ url_for('static', filename='js/profession_picker.js') }}"></script>
 <script>
 (function () {
   const ROLL_URL = '{{ url_for("characters.generator_roll") }}';
   const CSRF = document.querySelector('input[name=csrf_token]').value;
   const TABLES = {{ tables | tojson }};
+  const PROF_PICKER_OPTIONS = {{ professions_picker_list | tojson }};
+  const PROF_EXITS_MAP = {{ professions_exits_map | tojson }};
   const RACE_COL = { 'Humano': 'humano', 'Halfling': 'halfling', 'Enano': 'enano', 'Elfo Silvano': 'elfo', 'Alto Elfo': 'elfo' };
   const RACE_GROUP = TABLES.razas_caracteristicas_group;
 
@@ -937,7 +938,8 @@
       btn.textContent = label + ' (tirada ' + r.roll + ')';
       btn.addEventListener('click', () => {
         if (r.matched_profession) {
-          document.getElementById('f-matched-profession').value = r.matched_profession.id;
+          document.getElementById('matched-profession-picker')._profPicker
+            .selectById(r.matched_profession.id, r.matched_profession.name);
         }
         batchBtns.forEach(b => { b.disabled = true; });
         setPHCredit('profesion', 1);
@@ -954,10 +956,9 @@
       labelFn: row => (row[col] || '—') + ': ' + row.name,
       disabledFn: row => !row[col],
       onSelect: row => {
-        const sel = document.getElementById('f-matched-profession');
-        const opt = Array.from(sel.options).find(o => o.text.toLowerCase() === row.name.toLowerCase());
+        const opt = PROF_PICKER_OPTIONS.find(o => o.name.toLowerCase() === row.name.toLowerCase());
         if (opt) {
-          sel.value = opt.value;
+          document.getElementById('matched-profession-picker')._profPicker.selectById(opt.id, opt.name);
         } else {
           alert('«' + row.name + '» no está en el catálogo todavía. Créala desde Profesiones y luego selecciónala en el desplegable.');
         }
@@ -1584,6 +1585,9 @@
   /* ── Carrera profesional (mismo patrón que la creación rápida) ── */
   const profList = document.getElementById('profList');
   const tmpl = document.getElementById('profRowTemplate');
+  function wireProfPickers(root) {
+    initProfessionPickers(root, { options: PROF_PICKER_OPTIONS, exitsMap: PROF_EXITS_MAP });
+  }
   function reindex() {
     profList.querySelectorAll('.prof-row').forEach((row, i) => {
       const idx = row.querySelector('.prof-index');
@@ -1593,15 +1597,23 @@
   document.getElementById('addProfBtn').addEventListener('click', () => {
     profList.appendChild(tmpl.content.cloneNode(true));
     reindex();
+    wireProfPickers(profList);
   });
   profList.addEventListener('click', e => {
     if (e.target.closest('.remove-prof')) { e.target.closest('.prof-row').remove(); reindex(); }
   });
+  wireProfPickers(profList);
+  // Profesión inicial: sin resaltado de salidas (no tiene profesión previa),
+  // pero su valor sí cuenta para resaltar las salidas de las filas de abajo.
+  initProfessionPickers(document.getElementById('matched-profession-picker'), {
+    options: PROF_PICKER_OPTIONS, exitsMap: null,
+  });
   document.getElementById('addProfBtn').click();
 
   /* ── Nivel social automático para Noble ── */
-  document.getElementById('f-matched-profession').addEventListener('change', function () {
-    const label = this.options[this.selectedIndex].text;
+  document.getElementById('matched-profession-picker').addEventListener('prof-picker:change', function () {
+    const label = document.getElementById('f-matched-profession').closest('.prof-picker')
+      .querySelector('.prof-picker-input').value;
     if (/^noble$/i.test(label.trim())) {
       document.getElementById('f-nivel-social').value = 3;
     }

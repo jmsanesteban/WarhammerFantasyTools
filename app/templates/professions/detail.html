@@ -180,7 +180,7 @@
           <div class="card wh-card">
             <div class="card-header wh-card-header"><i class="bi bi-arrow-down-circle me-2"></i>Accesos</div>
             <div class="card-body">
-              {% for entry in prof.entries %}
+              {% for entry in prof.entries | sort(attribute='name') %}
               <a href="{{ url_for('professions.detail', prof_id=entry.id) }}" class="badge wh-badge-prof me-1 mb-1">{{ entry.name }}</a>
               {% endfor %}
             </div>
@@ -192,7 +192,7 @@
           <div class="card wh-card">
             <div class="card-header wh-card-header"><i class="bi bi-arrow-up-circle me-2"></i>Salidas</div>
             <div class="card-body">
-              {% for exit_prof in prof.exits %}
+              {% for exit_prof in prof.exits | sort(attribute='name') %}
               <a href="{{ url_for('professions.detail', prof_id=exit_prof.id) }}" class="badge wh-badge-prof me-1 mb-1">{{ exit_prof.name }}</a>
               {% endfor %}
             </div>

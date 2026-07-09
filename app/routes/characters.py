@@ -20,6 +20,23 @@ characters_bp = Blueprint('characters', __name__, template_folder='../templates'
 _RAZAS = ['Humano', 'Halfling', 'Enano', 'Elfo Silvano', 'Alto Elfo']
 
 
+def _professions_picker_context(professions):
+    """JSON-ready data for the searchable profession picker widget: the
+    full catalog (id/name) plus a profession_id -> [exit profession_ids]
+    map, built from the career_exits association table in a single query
+    to avoid N+1 lazy-loads of Profession.exits per profession."""
+    from app.models.profession import career_exits_table
+    exits_map = {}
+    for source_id, target_id in db.session.query(
+        career_exits_table.c.source_id, career_exits_table.c.target_id
+    ).all():
+        exits_map.setdefault(source_id, []).append(target_id)
+    return {
+        'professions_picker_list': [{'id': p.id, 'name': p.name} for p in professions],
+        'professions_exits_map': exits_map,
+    }
+
+
 @characters_bp.route('/')
 @login_required
 def list_characters():
@@ -67,13 +84,14 @@ def _rebuild_professions(char_id):
 @login_required
 def create():
     professions = Profession.query.order_by(Profession.name).all()
+    picker_ctx = _professions_picker_context(professions)
 
     if request.method == 'POST':
         name = request.form.get('name', '').strip()
         if not name:
             flash('El personaje necesita un nombre.', 'danger')
             return render_template('characters/form.html', char=None, professions=professions,
-                                   salary_table=salary_service.get_salary_table())
+                                   salary_table=salary_service.get_salary_table(), **picker_ctx)
 
         char = Character(
             user_id=current_user.id,
@@ -93,7 +111,7 @@ def create():
         return redirect(url_for('characters.detail', char_id=char.id))
 
     return render_template('characters/form.html', char=None, professions=professions,
-                           salary_table=salary_service.get_salary_table())
+                           salary_table=salary_service.get_salary_table(), **picker_ctx)
 
 
 @characters_bp.route('/<int:char_id>/editar', methods=['GET', 'POST'])
@@ -104,6 +122,7 @@ def edit(char_id):
         abort(403)
 
     professions = Profession.query.order_by(Profession.name).all()
+    picker_ctx = _professions_picker_context(professions)
 
     if request.method == 'POST':
         char.name = request.form.get('name', '').strip()
@@ -121,7 +140,7 @@ def edit(char_id):
         return redirect(url_for('characters.detail', char_id=char.id))
 
     return render_template('characters/form.html', char=char, professions=professions,
-                           salary_table=salary_service.get_salary_table())
+                           salary_table=salary_service.get_salary_table(), **picker_ctx)
 
 
 @characters_bp.route('/<int:char_id>/eliminar', methods=['POST'])
@@ -152,6 +171,7 @@ def generator():
         history_point_options=ccs.history_point_options(),
         tables=ccs.get_frontend_tables(),
         salary_table=salary_service.get_salary_table(),
+        **_professions_picker_context(professions),
     )
 
 
