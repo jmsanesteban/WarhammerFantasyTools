@@ -13,6 +13,17 @@ from app.services import salary_service
 contacts_bp = Blueprint('contacts', __name__, template_folder='../templates')
 
 
+def _safe_redirect(default_endpoint, **default_kwargs):
+    """Redirect to request.form['next_url'] if it's a plain same-site relative
+    path (avoids open redirect), else fall back to the given endpoint. Lets
+    admin-only inline panels (e.g. admin/contactos, admin/vinculos) post back
+    to themselves instead of always bouncing to the contact's own detail page."""
+    next_url = request.form.get('next_url', '').strip()
+    if next_url.startswith('/') and not next_url.startswith('//') and '://' not in next_url:
+        return redirect(next_url)
+    return redirect(url_for(default_endpoint, **default_kwargs))
+
+
 def _own_characters():
     return Character.query.filter_by(user_id=current_user.id).order_by(Character.name).all()
 
@@ -329,11 +340,11 @@ def note_create(contact_id):
     content = request.form.get('content', '').strip()
     if not content:
         flash('La nota no puede estar vacía.', 'warning')
-        return redirect(url_for('contacts.detail', contact_id=contact_id, personaje_id=personaje.id))
+        return _safe_redirect('contacts.detail', contact_id=contact_id, personaje_id=personaje.id)
     db.session.add(ContactNote(contact_id=contact_id, character_id=personaje.id, content=content))
     db.session.commit()
     flash('Nota añadida.', 'success')
-    return redirect(url_for('contacts.detail', contact_id=contact_id, personaje_id=personaje.id))
+    return _safe_redirect('contacts.detail', contact_id=contact_id, personaje_id=personaje.id)
 
 
 @contacts_bp.route('/<int:contact_id>/notas/<int:note_id>/editar', methods=['POST'])
@@ -449,11 +460,4 @@ def visibility_save(contact_id):
     if revoked:
         parts.append(f'{revoked} revocado(s)')
     flash('Visibilidad guardada: ' + (', '.join(parts) if parts else 'sin cambios') + '.', 'success')
-
-    # Optional same-site redirect back to wherever the form was submitted from
-    # (e.g. admin/contactos' inline panel) instead of always jumping to the
-    # contact's own detail page. Only accept a plain relative path.
-    next_url = request.form.get('next_url', '').strip()
-    if next_url.startswith('/') and not next_url.startswith('//') and '://' not in next_url:
-        return redirect(next_url)
-    return redirect(url_for('contacts.detail', contact_id=contact_id))
+    return _safe_redirect('contacts.detail', contact_id=contact_id)

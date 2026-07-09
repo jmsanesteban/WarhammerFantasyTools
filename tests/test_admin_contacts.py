@@ -164,6 +164,40 @@ def test_contact_links_shows_all_characters_with_access_not_just_the_linked_one(
     assert b'Registr' in resp.data
 
 
+def test_contact_links_notes_panel_shows_content_not_just_count(
+    client, admin_user, regular_user, make_character, make_contact, make_contact_link, login_as,
+):
+    """The 'Notas' column used to show only a bare count - it must now expose
+    the actual note text (and a way to add one) directly from this table."""
+    char = make_character(regular_user, name='Bardin')
+    contact = make_contact(nombre='El posadero')
+    make_contact_link(char, contact)
+    from app.models.contact_note import ContactNote
+    from app.extensions import db as _db
+    _db.session.add(ContactNote(contact_id=contact.id, character_id=char.id, content='Debe dinero al gremio.'))
+    _db.session.commit()
+    login_as(client, admin_user, 'adminpass123')
+
+    resp = client.get('/admin/vinculos')
+    assert resp.status_code == 200
+    assert b'Debe dinero al gremio.' in resp.data
+    assert f'/contactos/{contact.id}/notas'.encode() in resp.data
+
+
+def test_note_create_redirects_to_next_url_when_provided(
+    db, client, admin_user, regular_user, make_character, make_contact, login_as,
+):
+    char = make_character(regular_user)
+    contact = make_contact()
+    login_as(client, admin_user, 'adminpass123')
+
+    resp = client.post(f'/contactos/{contact.id}/notas', data={
+        'personaje_id': str(char.id), 'content': 'Nota de prueba', 'next_url': '/admin/vinculos?page=1',
+    })
+    assert resp.status_code == 302
+    assert resp.headers['Location'] == '/admin/vinculos?page=1'
+
+
 def test_contact_links_search_filters_by_username(client, admin_user, make_user, make_character,
                                                    make_contact, make_contact_link, login_as):
     user_a = make_user(username='searchableuser', password='passa12345')

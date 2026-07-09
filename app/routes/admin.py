@@ -1522,6 +1522,7 @@ def contact_links():
     contact_ids = [l.contact_id for l in links]
     visibility_map = {}
     note_counts = {}
+    notes_map = {}
     contact_access_map = {}
     if contact_ids:
         grants = ContactCharacterVisibility.query.filter(
@@ -1529,13 +1530,15 @@ def contact_links():
         ).all()
         visibility_map = {(g.contact_id, g.character_id): g.nivel for g in grants}
 
-        rows = (
-            db.session.query(ContactNote.contact_id, ContactNote.character_id, db.func.count(ContactNote.id))
-            .filter(ContactNote.contact_id.in_(contact_ids))
-            .group_by(ContactNote.contact_id, ContactNote.character_id)
+        notes = (
+            ContactNote.query.filter(ContactNote.contact_id.in_(contact_ids))
+            .order_by(ContactNote.created_at.desc())
             .all()
         )
-        note_counts = {(cid, chid): cnt for cid, chid, cnt in rows}
+        notes_map = {}
+        for n in notes:
+            notes_map.setdefault((n.contact_id, n.character_id), []).append(n)
+        note_counts = {key: len(rows) for key, rows in notes_map.items()}
 
         # Every character with visibility into each contact, regardless of whether
         # that character is also the one who registered it (has a ContactCharacterLink) -
@@ -1565,6 +1568,7 @@ def contact_links():
         search=search,
         visibility_map=visibility_map,
         note_counts=note_counts,
+        notes_map=notes_map,
         contact_access_map=contact_access_map,
     )
 

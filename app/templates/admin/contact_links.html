@@ -68,7 +68,14 @@
             {% endif %}
           </td>
           <td>{{ link.nivel if link.nivel is not none else '—' }}</td>
-          <td>{{ note_counts.get((link.contact_id, link.character_id), 0) }}</td>
+          <td>
+            <button type="button" class="btn btn-outline-secondary btn-sm"
+                    data-bs-toggle="collapse"
+                    data-bs-target="#notes-{{ link.contact_id }}-{{ link.character_id }}"
+                    title="Ver/añadir notas personales de este personaje sobre el contacto">
+              <i class="bi bi-sticky me-1"></i>{{ note_counts.get((link.contact_id, link.character_id), 0) }}
+            </button>
+          </td>
           <td class="small">
             {% set access_list = contact_access_map.get(link.contact_id, []) %}
             {% if access_list %}
@@ -91,6 +98,42 @@
                  class="btn btn-outline-warning btn-sm" title="Editar personaje">
                 <i class="bi bi-pencil"></i>
               </a>
+            </div>
+          </td>
+        </tr>
+        <tr>
+          <td colspan="8" class="p-0 border-0">
+            {# Collapse on this inner <div>, never the <tr> itself - see admin/contacts.html
+               for why (.collapse.show sets display:block, which breaks table layout on a <tr>). #}
+            <div class="collapse" id="notes-{{ link.contact_id }}-{{ link.character_id }}">
+              <div class="card wh-card my-2">
+                <div class="card-header wh-card-header py-2">
+                  <small class="text-muted">Notas personales de {{ link.character.name }} sobre {{ link.contact.nombre }}</small>
+                </div>
+                <div class="card-body py-2">
+                  {% set notes = notes_map.get((link.contact_id, link.character_id), []) %}
+                  {% if notes %}
+                  <ul class="list-unstyled mb-3">
+                    {% for note in notes %}
+                    <li class="mb-2 pb-2 border-bottom border-secondary-subtle">
+                      <div>{{ note.content }}</div>
+                      <small class="text-muted">{{ note.created_at.strftime('%d/%m/%Y %H:%M') }}</small>
+                    </li>
+                    {% endfor %}
+                  </ul>
+                  {% else %}
+                  <p class="text-muted small">Sin notas todavía.</p>
+                  {% endif %}
+                  <form method="POST" action="{{ url_for('contacts.note_create', contact_id=link.contact_id) }}" class="d-flex gap-2">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <input type="hidden" name="personaje_id" value="{{ link.character_id }}">
+                    <input type="hidden" name="next_url"
+                           value="{{ url_for('admin.contact_links', page=pagination.page, q=search) }}#notes-{{ link.contact_id }}-{{ link.character_id }}">
+                    <textarea name="content" rows="1" class="form-control wh-input" placeholder="Añadir una nota…" required></textarea>
+                    <button type="submit" class="btn btn-wh btn-sm text-nowrap">Añadir</button>
+                  </form>
+                </div>
+              </div>
             </div>
           </td>
         </tr>
@@ -122,4 +165,19 @@
   {% endif %}
   {% endif %}
 </div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+// Re-open the notes panel the form was submitted from (after note_create's
+// redirect brings us back with a #notes-<contact>-<character> fragment).
+(function () {
+  var id = window.location.hash.replace('#', '');
+  if (!id || id.indexOf('notes-') !== 0) return;
+  var el = document.getElementById(id);
+  if (!el) return;
+  el.classList.add('show');
+  el.scrollIntoView({ block: 'center' });
+})();
+</script>
 {% endblock %}

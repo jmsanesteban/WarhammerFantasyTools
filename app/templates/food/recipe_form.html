@@ -269,23 +269,36 @@
     'Sal': ['sal'],
     'Aceites': ['aceite'],
   };
-  var CONDIMENT_PHRASES = {
-    'Especias': ['especiado', 'condimentado', 'con un toque picante'],
-    'Sal': ['en salazón', 'bien salado'],
-    'Miel': ['endulzado con miel', 'meloso'],
-    'Aceites': ['aliñado en aceite'],
+  // Frases "atmosféricas" para condimentos, en vez de nombrarlos tal cual.
+  var CONDIMENT_ATMOSPHERE = {
+    'Especias': ['con un toque picante', 'con aroma especiado', 'con un halo de especias'],
+    'Sal': ['en salazón', 'con un punto salino'],
+    'Miel': ['con un toque de miel', 'con aroma a miel'],
+    'Aceites': ['bañado en aceite', 'con un hilo de aceite'],
   };
+  // Cada ingrediente se agrupa por "dominio" culinario. Cuando una receta
+  // mezcla mar + tierra se usa el término gastronómico real "mar y montaña"
+  // (surf and turf) en vez de una plantilla genérica - es la combinación que
+  // más suena a nombre de plato de verdad.
+  var DOMAIN = {
+    'Carne superior': 'tierra', 'Carne inferior': 'tierra',
+    'Pescado superior': 'mar', 'Pescado inferior': 'mar', 'Crustáceos': 'mar',
+    'Raíces': 'huerta', 'Verduras': 'huerta', 'Tubérculos': 'huerta', 'Cereales': 'huerta',
+    'Legumbres': 'huerta', 'Frutos secos': 'huerta', 'Hongos': 'huerta',
+    'Frutas': 'dulce', 'Miel': 'dulce', 'Leches': 'dulce', 'Huevos': 'dulce',
+  };
+  var DISH_NOUNS = ['Fusión', 'Delicia', 'Manjar', 'Sinfonía'];
   // "tail": adjetivo/frase que va detrás del ingrediente (p.ej. "Venado asado").
-  // "noun": alternativa como sustantivo con "de" (p.ej. "Estofado de venado").
+  // "noun": sustantivos propios del método, para variar frente al genérico DISH_NOUNS.
   var METHOD_STYLE = {
-    'Crudo': { tail: ['crudo', 'en tartar'] },
+    'Crudo': { tail: ['crudo'], noun: ['Tartar', 'Carpaccio'] },
     'Ahumado': { tail: ['ahumado'] },
     'Secado': { tail: ['curado', 'secado'] },
     'Salado': { tail: ['en salazón'] },
     'Almíbar': { tail: ['en almíbar'] },
     'Brasa': { tail: ['a la brasa'] },
     'Cocido': { tail: ['cocido', 'hervido'] },
-    'Guisado': { tail: ['guisado'], noun: ['guiso', 'estofado'] },
+    'Guisado': { tail: ['guisado'], noun: ['Guiso', 'Estofado'] },
     'Asar': { tail: ['asado'] },
     'Hornear': { tail: ['al horno', 'horneado'] },
   };
@@ -298,13 +311,17 @@
     return arr[Math.floor(Math.random() * arr.length)];
   }
 
+  function joinWords(words) {
+    return words.length > 1 ? words.slice(0, -1).join(', ') + ' y ' + words[words.length - 1] : words[0];
+  }
+
   function ingredientWord(catalogName) {
     var words = INGREDIENT_WORDS[catalogName];
     return words ? pick(words) : catalogName.toLowerCase();
   }
 
-  function condimentPhrase(catalogName) {
-    var phrases = CONDIMENT_PHRASES[catalogName];
+  function condimentAtmosphere(catalogName) {
+    var phrases = CONDIMENT_ATMOSPHERE[catalogName];
     if (phrases) return pick(phrases);
     return 'con un toque de ' + ingredientWord(catalogName);
   }
@@ -331,26 +348,41 @@
 
     var style = METHOD_STYLE[methodName] || { tail: ['al estilo ' + methodName.toLowerCase()] };
     var ingWords = ingredientCatalogNames.map(ingredientWord);
-    var mainPhrase = ingWords.length > 1
-      ? ingWords.slice(0, -1).join(', ') + ' y ' + ingWords[ingWords.length - 1]
-      : ingWords[0];
-    var condSuffix = condimentCatalogNames.length
-      ? ' ' + condimentCatalogNames.map(condimentPhrase).join(' y ')
+    var mainPhrase = joinWords(ingWords);
+    var condTail = condimentCatalogNames.length
+      ? ' ' + joinWords(condimentCatalogNames.map(condimentAtmosphere))
       : '';
+    var domains = {};
+    ingredientCatalogNames.forEach(function (n) { domains[DOMAIN[n] || 'huerta'] = true; });
 
     var candidates = [];
-    candidates.push(capitalize(mainPhrase) + ' ' + pick(style.tail) + condSuffix);
-    if (style.noun) {
-      candidates.push(capitalize(pick(style.noun)) + ' de ' + mainPhrase + condSuffix);
+
+    // "Mar y montaña": solo cuando la mezcla de verdad cruza tierra + mar.
+    if (domains.mar && domains.tierra) {
+      candidates.push('Fusión de mar y montaña: ' + mainPhrase + condTail);
     }
-    candidates.push(capitalize(mainPhrase) + condSuffix + ' ' + pick(style.tail));
+
+    // Sustantivo de plato (propio del método si lo tiene, si no uno genérico) + "de" + ingredientes.
+    var nounPool = style.noun || DISH_NOUNS;
+    candidates.push(capitalize(pick(nounPool)) + ' de ' + mainPhrase + condTail);
+
+    // Ingrediente por delante + adjetivo del método.
+    candidates.push(capitalize(mainPhrase) + ' ' + pick(style.tail) + condTail);
 
     var seen = {};
-    return candidates.filter(function (c) {
+    var unique = candidates.filter(function (c) {
       if (seen[c]) return false;
       seen[c] = true;
       return true;
-    }).slice(0, 3);
+    });
+    // Rellena hasta 3 con el sustantivo genérico si "mar y montaña" dejó solo 2 únicas.
+    while (unique.length < 3) {
+      var extra = capitalize(pick(DISH_NOUNS)) + ' de ' + mainPhrase + condTail;
+      if (seen[extra]) break;
+      seen[extra] = true;
+      unique.push(extra);
+    }
+    return unique.slice(0, 3);
   }
 
   var nameInput = document.getElementById('recipe-name-input');
