@@ -8,6 +8,19 @@ class RecipeCompositionError(ValueError):
     """A chosen ingredient/condiment (or slot count) isn't valid for the method."""
 
 
+def calidad_from_complejidad(complejidad: int) -> str:
+    """1-4 Mala, 5-8 Normal, 9-12 Buena, 13+ Excelente - verified against all
+    25 example recipes in the book (calidad is never chosen by hand, it's a
+    direct function of complejidad)."""
+    if complejidad >= 13:
+        return 'Excelente'
+    if complejidad >= 9:
+        return 'Buena'
+    if complejidad >= 5:
+        return 'Normal'
+    return 'Mala'
+
+
 def validate_and_calculate(cooking_method, ingredientes, condimentos):
     """cooking_method: a CookingMethod instance.
     ingredientes/condimentos: lists of Ingredient instances actually filled in
@@ -40,6 +53,7 @@ def validate_and_calculate(cooking_method, ingredientes, condimentos):
 
     usados = ingredientes + condimentos
     coste_creacion = cooking_method.coste + sum(i.coste_docena for i in usados)
+    complejidad = cooking_method.complejidad_base + len(ingredientes) + 2 * len(condimentos)
 
     return dict(
         vigor=cooking_method.vigor + sum(i.vigor for i in usados),
@@ -48,5 +62,6 @@ def validate_and_calculate(cooking_method, ingredientes, condimentos):
         precio_compra_peniques=round(coste_creacion / 12 * 4),
         duracion_dias=cooking_method.duracion_dias,
         recalentar=cooking_method.recalentar,
-        complejidad=cooking_method.complejidad_base + len(ingredientes) + 2 * len(condimentos),
+        complejidad=complejidad,
+        calidad=calidad_from_complejidad(complejidad),
     )

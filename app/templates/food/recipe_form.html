@@ -12,9 +12,10 @@
 
   <h2 class="wh-heading mb-3"><i class="bi bi-egg-fried me-2"></i>Proponer una receta nueva</h2>
   <div class="alert alert-info wh-alert">
-    Vigor, Moral, Coste, Duración, Recalentar y Complejidad se calculan automáticamente a partir del método y los
-    ingredientes/condimentos elegidos. Tu receta quedará <strong>pendiente de revisión</strong> hasta que un
-    administrador la apruebe (y le añada una imagen si hace falta).
+    Vigor, Moral, Coste, Precio, Duración, Recalentar, Complejidad y Calidad se calculan automáticamente a partir
+    del método y los ingredientes/condimentos elegidos (se muestran abajo, en vivo, según los vayas eligiendo). Tu
+    receta quedará <strong>pendiente de revisión</strong> hasta que un administrador la apruebe (y le añada una
+    imagen si hace falta).
   </div>
 
   <form method="POST" enctype="multipart/form-data" class="card wh-card">
@@ -26,29 +27,21 @@
         <input type="text" name="nombre" class="form-control wh-input" value="{{ form.get('nombre', '') }}" required>
       </div>
 
-      <div class="row g-3">
-        <div class="col-md-6">
-          <label class="wh-label">Método de cocina</label>
-          <select name="cooking_method_id" id="cooking-method-select" class="form-select wh-input" required>
-            <option value="">— Elige un método —</option>
-            {% for m in cooking_methods %}
-            <option value="{{ m.id }}" data-ingredientes="{{ m.ingredientes_permitidos }}"
-                    data-condimentos="{{ m.condimentos_permitidos }}"
-                    {% if form.get('cooking_method_id')|string == m.id|string %}selected{% endif %}>
-              {{ m.nombre }}
-            </option>
-            {% endfor %}
-          </select>
-        </div>
-        <div class="col-md-6">
-          <label class="wh-label">Calidad</label>
-          <select name="calidad" class="form-select wh-input" required>
-            <option value="">— Elige una calidad —</option>
-            {% for c in calidades %}
-            <option value="{{ c }}" {% if form.get('calidad') == c %}selected{% endif %}>{{ c }}</option>
-            {% endfor %}
-          </select>
-        </div>
+      <div class="mb-3">
+        <label class="wh-label">Método de cocina</label>
+        <select name="cooking_method_id" id="cooking-method-select" class="form-select wh-input" required>
+          <option value="">— Elige un método —</option>
+          {% for m in cooking_methods %}
+          <option value="{{ m.id }}" data-ingredientes="{{ m.ingredientes_permitidos }}"
+                  data-condimentos="{{ m.condimentos_permitidos }}"
+                  data-vigor="{{ m.vigor }}" data-moral="{{ m.moral }}" data-coste="{{ m.coste }}"
+                  data-duracion="{{ m.duracion_dias }}" data-recalentar="{{ 1 if m.recalentar else 0 }}"
+                  data-complejidad-base="{{ m.complejidad_base }}"
+                  {% if form.get('cooking_method_id')|string == m.id|string %}selected{% endif %}>
+            {{ m.nombre }}
+          </option>
+          {% endfor %}
+        </select>
       </div>
 
       <hr class="my-3">
@@ -59,7 +52,8 @@
           <select name="ingrediente_{{ slot }}" class="form-select form-select-sm wh-input wh-ingredient-select">
             <option value="">— Nada —</option>
             {% for ing in ingredients %}
-            <option value="{{ ing.id }}" {% if form.get('ingrediente_' ~ slot)|string == ing.id|string %}selected{% endif %}>
+            <option value="{{ ing.id }}" data-vigor="{{ ing.vigor }}" data-moral="{{ ing.moral }}" data-coste="{{ ing.coste_docena }}"
+                    {% if form.get('ingrediente_' ~ slot)|string == ing.id|string %}selected{% endif %}>
               {{ ing.nombre }}
             </option>
             {% endfor %}
@@ -75,13 +69,30 @@
           <select name="condimento_{{ slot }}" class="form-select form-select-sm wh-input wh-condiment-select">
             <option value="">— Nada —</option>
             {% for ing in ingredients %}
-            <option value="{{ ing.id }}" {% if form.get('condimento_' ~ slot)|string == ing.id|string %}selected{% endif %}>
+            <option value="{{ ing.id }}" data-vigor="{{ ing.vigor }}" data-moral="{{ ing.moral }}" data-coste="{{ ing.coste_docena }}"
+                    {% if form.get('condimento_' ~ slot)|string == ing.id|string %}selected{% endif %}>
               {{ ing.nombre }}
             </option>
             {% endfor %}
           </select>
         </div>
         {% endfor %}
+      </div>
+
+      <div class="card wh-card mb-3">
+        <div class="card-header wh-card-header">Cálculo en vivo</div>
+        <div class="card-body">
+          <dl class="row mb-0">
+            <dt class="col-sm-2">Vigor</dt><dd class="col-sm-4" id="preview-vigor">—</dd>
+            <dt class="col-sm-2">Moral</dt><dd class="col-sm-4" id="preview-moral">—</dd>
+            <dt class="col-sm-2">Coste (12 raciones)</dt><dd class="col-sm-4" id="preview-coste">—</dd>
+            <dt class="col-sm-2">Precio compra (1 ración)</dt><dd class="col-sm-4" id="preview-precio">—</dd>
+            <dt class="col-sm-2">Duración</dt><dd class="col-sm-4" id="preview-duracion">—</dd>
+            <dt class="col-sm-2">Recalentar</dt><dd class="col-sm-4" id="preview-recalentar">—</dd>
+            <dt class="col-sm-2">Complejidad</dt><dd class="col-sm-4" id="preview-complejidad">—</dd>
+            <dt class="col-sm-2">Calidad</dt><dd class="col-sm-4" id="preview-calidad">—</dd>
+          </dl>
+        </div>
       </div>
 
       <div class="mb-3">
@@ -106,6 +117,27 @@
   var methodSelect = document.getElementById('cooking-method-select');
   var ingredientSlots = document.querySelectorAll('.wh-ingredient-slot');
   var condimentSlots = document.querySelectorAll('.wh-condiment-slot');
+  var allSlots = Array.prototype.concat.call([], Array.prototype.slice.call(ingredientSlots), Array.prototype.slice.call(condimentSlots));
+
+  function formatPeniques(total) {
+    if (!total) return '0 Pe';
+    var coronas = Math.floor(total / 240);
+    var resto = total % 240;
+    var chelines = Math.floor(resto / 12);
+    var peniques = resto % 12;
+    var parts = [];
+    if (coronas) parts.push(coronas + ' Co');
+    if (chelines) parts.push(chelines + ' C');
+    if (peniques || parts.length === 0) parts.push(peniques + ' Pe');
+    return parts.join(' ');
+  }
+
+  function calidadFromComplejidad(c) {
+    if (c >= 13) return 'Excelente';
+    if (c >= 9) return 'Buena';
+    if (c >= 5) return 'Normal';
+    return 'Mala';
+  }
 
   function applyMethod() {
     var option = methodSelect.options[methodSelect.selectedIndex];
@@ -141,9 +173,63 @@
         select.value = '';
       }
     });
+
+    updatePreview();
+  }
+
+  function updatePreview() {
+    var option = methodSelect.options[methodSelect.selectedIndex];
+    if (!option || !option.value) {
+      ['vigor', 'moral', 'coste', 'precio', 'duracion', 'recalentar', 'complejidad', 'calidad'].forEach(function (id) {
+        document.getElementById('preview-' + id).textContent = '—';
+      });
+      return;
+    }
+
+    var vigor = parseInt(option.dataset.vigor, 10) || 0;
+    var moral = parseInt(option.dataset.moral, 10) || 0;
+    var coste = parseInt(option.dataset.coste, 10) || 0;
+    var nIngredientes = 0;
+    var nCondimentos = 0;
+
+    ingredientSlots.forEach(function (slot) {
+      if (slot.style.display === 'none') return;
+      var select = slot.querySelector('select');
+      var opt = select.options[select.selectedIndex];
+      if (!opt || !opt.value) return;
+      nIngredientes += 1;
+      vigor += parseInt(opt.dataset.vigor, 10) || 0;
+      moral += parseInt(opt.dataset.moral, 10) || 0;
+      coste += parseInt(opt.dataset.coste, 10) || 0;
+    });
+    condimentSlots.forEach(function (slot) {
+      if (slot.style.display === 'none') return;
+      var select = slot.querySelector('select');
+      var opt = select.options[select.selectedIndex];
+      if (!opt || !opt.value) return;
+      nCondimentos += 1;
+      vigor += parseInt(opt.dataset.vigor, 10) || 0;
+      moral += parseInt(opt.dataset.moral, 10) || 0;
+      coste += parseInt(opt.dataset.coste, 10) || 0;
+    });
+
+    var complejidad = (parseInt(option.dataset.complejidadBase, 10) || 0) + nIngredientes + 2 * nCondimentos;
+    var precio = Math.round(coste / 12 * 4);
+
+    document.getElementById('preview-vigor').textContent = vigor;
+    document.getElementById('preview-moral').textContent = moral;
+    document.getElementById('preview-coste').textContent = formatPeniques(coste);
+    document.getElementById('preview-precio').textContent = formatPeniques(precio);
+    document.getElementById('preview-duracion').textContent = option.dataset.duracion + ' días';
+    document.getElementById('preview-recalentar').textContent = option.dataset.recalentar === '1' ? 'Sí' : 'No';
+    document.getElementById('preview-complejidad').textContent = complejidad;
+    document.getElementById('preview-calidad').textContent = calidadFromComplejidad(complejidad);
   }
 
   methodSelect.addEventListener('change', applyMethod);
+  allSlots.forEach(function (slot) {
+    slot.querySelector('select').addEventListener('change', updatePreview);
+  });
   applyMethod();
 })();
 </script>

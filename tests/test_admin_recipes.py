@@ -15,7 +15,7 @@ def _ingredient(nombre):
 
 def _propose(client, nombre, method_id, ing1_id, condi1_id=''):
     return client.post('/comida/recetas/nueva', data={
-        'nombre': nombre, 'cooking_method_id': method_id, 'calidad': 'Normal',
+        'nombre': nombre, 'cooking_method_id': method_id,
         'ingrediente_1': ing1_id, 'ingrediente_2': '', 'ingrediente_3': '', 'ingrediente_4': '',
         'condimento_1': condi1_id, 'condimento_2': '', 'notas': '',
     }, follow_redirects=True)

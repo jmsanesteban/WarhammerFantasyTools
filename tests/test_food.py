@@ -251,8 +251,20 @@ def test_recipe_calc_matches_book_example(app, db):
         )
         assert result == dict(
             vigor=44, moral=30, coste_creacion_peniques=44, precio_compra_peniques=15,
-            duracion_dias=8, recalentar=True, complejidad=11,
+            duracion_dias=8, recalentar=True, complejidad=11, calidad='Buena',
         )
+
+
+def test_calidad_from_complejidad_thresholds():
+    from app.services.recipe_calc_service import calidad_from_complejidad
+    assert calidad_from_complejidad(1) == 'Mala'
+    assert calidad_from_complejidad(4) == 'Mala'
+    assert calidad_from_complejidad(5) == 'Normal'
+    assert calidad_from_complejidad(8) == 'Normal'
+    assert calidad_from_complejidad(9) == 'Buena'
+    assert calidad_from_complejidad(12) == 'Buena'
+    assert calidad_from_complejidad(13) == 'Excelente'
+    assert calidad_from_complejidad(20) == 'Excelente'
 
 
 def test_recipe_calc_rejects_too_many_ingredients(app, db):
@@ -289,7 +301,7 @@ def test_propose_recipe_requires_login(client):
 
 def _propose_form(nombre, method_id, ing1_id, ing2_id, condi1_id):
     return {
-        'nombre': nombre, 'cooking_method_id': method_id, 'calidad': 'Normal',
+        'nombre': nombre, 'cooking_method_id': method_id,
         'ingrediente_1': ing1_id, 'ingrediente_2': ing2_id, 'ingrediente_3': '', 'ingrediente_4': '',
         'condimento_1': condi1_id, 'condimento_2': '', 'notas': 'Receta de prueba',
     }
@@ -318,6 +330,9 @@ def test_propose_recipe_creates_pending_with_computed_stats(app, client, regular
         assert recipe.vigor == 4 + 10 + 5 + 1
         assert recipe.moral == 10 + 5 + 0 + 5
         assert recipe.coste_creacion_peniques == 5 + 6 + 2 + 4
+        # complejidad = 3 (base Guisado) + 2 ingredientes + 2*1 condimento = 7 -> Normal
+        assert recipe.complejidad == 7
+        assert recipe.calidad == 'Normal'
 
 
 def test_propose_recipe_rejects_incompatible_combination(app, client, regular_user, login_as):

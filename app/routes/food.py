@@ -13,7 +13,6 @@ food_bp = Blueprint('food', __name__, template_folder='../templates')
 
 _METHOD_ORDER = ['Crudo', 'Ahumado', 'Secado', 'Salado', 'Almíbar', 'Brasa', 'Cocido', 'Guisado', 'Asar', 'Hornear']
 _ALLOWED_IMAGE_EXTENSIONS = {'png', 'jpg', 'jpeg', 'webp', 'gif'}
-_CALIDADES = ('Mala', 'Normal', 'Buena', 'Excelente')
 
 _DRINK_SORT_COLUMNS = {
     'nombre': Drink.nombre, 'origen': Drink.origen, 'disponibilidad': Drink.disponibilidad,
@@ -150,7 +149,6 @@ def propose_recipe():
         f = request.form
         nombre = f.get('nombre', '').strip()
         method = CookingMethod.query.get(f.get('cooking_method_id', type=int))
-        calidad = f.get('calidad', '').strip()
 
         def _ingredient(field):
             raw = f.get(field, type=int)
@@ -167,8 +165,6 @@ def propose_recipe():
             error = f'Ya existe una receta llamada "{nombre}".'
         elif method is None:
             error = 'Elige un método de cocina.'
-        elif calidad not in _CALIDADES:
-            error = 'Elige una calidad válida.'
 
         if error is None:
             try:
@@ -179,11 +175,10 @@ def propose_recipe():
         if error:
             flash(error, 'danger')
             return render_template('food/recipe_form.html', cooking_methods=cooking_methods_list,
-                                   ingredients=ingredients_list, compat=compat, calidades=_CALIDADES,
-                                   form=f)
+                                   ingredients=ingredients_list, compat=compat, form=f)
 
         recipe = Recipe(
-            nombre=nombre, cooking_method_id=method.id, calidad=calidad,
+            nombre=nombre, cooking_method_id=method.id,
             notas=f.get('notas', '').strip() or None, solo_compra=False,
             status='pendiente', created_by_id=current_user.id, requested_at=datetime.utcnow(),
             ingrediente_1_id=ingredientes[0].id if len(ingredientes) > 0 else None,
@@ -199,15 +194,14 @@ def propose_recipe():
         except RecipeCompositionError as exc:
             flash(str(exc), 'danger')
             return render_template('food/recipe_form.html', cooking_methods=cooking_methods_list,
-                                   ingredients=ingredients_list, compat=compat, calidades=_CALIDADES,
-                                   form=f)
+                                   ingredients=ingredients_list, compat=compat, form=f)
         db.session.add(recipe)
         db.session.commit()
         flash('Tu receta se ha enviado para revisión. Un administrador la aprobará en cuanto la revise.', 'success')
         return redirect(url_for('food.my_recipes'))
 
     return render_template('food/recipe_form.html', cooking_methods=cooking_methods_list,
-                           ingredients=ingredients_list, compat=compat, calidades=_CALIDADES, form={})
+                           ingredients=ingredients_list, compat=compat, form={})
 
 
 @food_bp.route('/recetas/mias')
