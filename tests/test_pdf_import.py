@@ -132,6 +132,27 @@ def test_match_and_save_skills_groups_o_alternatives_under_shared_choice_group(
     assert {ps.skill_id for ps in saved} == {a.id, b.id}
 
 
+def test_match_and_save_skills_does_not_split_specializations_own_alternative_list(
+    app, db, make_profession, make_skill,
+):
+    """'Hablar idioma (Bretón o Tileano)' is ONE skill with a multi-choice
+    specialization, not two alternative skills - it must be saved as a single
+    ProfessionSkill row (specialization holding the full 'Bretón o Tileano'
+    text) with no choice_group, instead of being split into a broken
+    'Hablar idioma (Bretón' + an unmatched 'Tileano)'."""
+    skill = make_skill(name_es='HABLAR IDIOMA (Varios)')
+    prof = make_profession(name='Alborotador')
+    with app.test_request_context():
+        admin_routes._match_and_save_skills(prof, skills_raw='Hablar idioma (Bretón o Tileano)')
+    db.session.commit()
+
+    saved = ProfessionSkill.query.filter_by(profession_id=prof.id).all()
+    assert len(saved) == 1
+    assert saved[0].skill_id == skill.id
+    assert saved[0].specialization == 'Bretón o Tileano'
+    assert saved[0].choice_group is None
+
+
 def test_match_and_save_skills_treats_u_as_an_alternative_connector(
     app, db, make_profession, make_skill,
 ):
@@ -333,6 +354,50 @@ def test_validate_pdf_professions_strips_varios_marker_before_specialization(db,
 
     result = admin_routes._validate_pdf_professions(professions, Skill.query.all(), [])
     assert result[0]['skills_raw'] == 'HABLAR IDIOMA (Reikspiel)'
+
+
+def test_validate_pdf_professions_keeps_specializations_own_alternative_list_intact(db, make_skill):
+    """A skill's own specialization can list several alternative choices with
+    'o'/commas INSIDE its parentheses (e.g. 'Hablar idioma (Bretón o Tileano)').
+    That must not be mistaken for two different skill alternatives - the naive
+    split used to cut right through the parenthesis, breaking it into
+    'Hablar idioma (Bretón' and 'Tileano)' and mangling the catalog name into
+    'HABLAR IDIOMA (Varios) o Tileano)'."""
+    from app.models.skill import Skill
+    make_skill(name_es='HABLAR IDIOMA (Varios)')
+    professions = [{'name': 'Alborotador', 'type': 'basic', 'skills_raw': 'Hablar idioma (Bretón o Tileano)'}]
+
+    result = admin_routes._validate_pdf_professions(professions, Skill.query.all(), [])
+    assert result[0]['skills_raw'] == 'HABLAR IDIOMA (Bretón o Tileano)'
+
+
+def test_validate_pdf_professions_keeps_specializations_own_comma_list_intact(db, make_skill):
+    """Same as above but with a comma-separated internal alternative list, which
+    also used to be split as if each language were its own top-level skill item."""
+    from app.models.skill import Skill
+    make_skill(name_es='HABLAR IDIOMA (Varios)')
+    professions = [{
+        'name': 'Cochero', 'type': 'basic',
+        'skills_raw': 'Hablar idioma (Bretón, Kisleviano o Tileano)',
+    }]
+
+    result = admin_routes._validate_pdf_professions(professions, Skill.query.all(), [])
+    assert result[0]['skills_raw'] == 'HABLAR IDIOMA (Bretón, Kisleviano o Tileano)'
+
+
+def test_validate_pdf_professions_still_splits_genuine_top_level_alternative(db, make_skill):
+    """Regression guard: fixing the internal-parenthesis case above must not
+    break the ordinary 'A o B' case where each side really is a different skill."""
+    from app.models.skill import Skill
+    make_skill(name_es='SABIDURÍA ACADEMICA (Varios)')
+    make_skill(name_es='Cotilleo')
+    professions = [{
+        'name': 'Alborotador', 'type': 'basic',
+        'skills_raw': 'Sabiduría académica (Historia) o Cotilleo',
+    }]
+
+    result = admin_routes._validate_pdf_professions(professions, Skill.query.all(), [])
+    assert result[0]['skills_raw'] == 'SABIDURÍA ACADEMICA (Historia) o Cotilleo'
 
 
 def test_validate_pdf_professions_leaves_genuinely_unmatched_skill_text_as_is(db, make_skill):

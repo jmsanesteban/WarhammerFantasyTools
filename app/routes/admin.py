@@ -1118,21 +1118,25 @@ def _validate_pdf_professions(professions: list, all_skills, all_talents) -> lis
 
         unmatched_skills = []
         if skill_names:
-            for raw in skills_to_check.replace(' or ', ',').replace(' o ', ',').replace(' u ', ',').split(','):
-                item = raw.strip()
-                if not item or len(item) > 80 or '.' in item:
-                    continue
-                if not _fuzzy_match(item, skill_names, exact_syn, prefix_syn, cutoff=0.65):
-                    unmatched_skills.append(item)
+            for comma_part in _split_items_top_level(skills_to_check):
+                alternatives, _ = _split_top_level(comma_part, _RE_ALT_SPLIT)
+                for raw in alternatives:
+                    item = raw.strip()
+                    if not item or len(item) > 80 or '.' in item:
+                        continue
+                    if not _fuzzy_match(item, skill_names, exact_syn, prefix_syn, cutoff=0.65):
+                        unmatched_skills.append(item)
 
         unmatched_talents = []
         if talent_names:
-            for raw in talents_to_check.replace(' or ', ',').replace(' o ', ',').replace(' u ', ',').split(','):
-                item = raw.strip()
-                if not item or len(item) > 80 or '.' in item:
-                    continue
-                if not _fuzzy_match(item, talent_names, exact_syn, prefix_syn, cutoff=0.65):
-                    unmatched_talents.append(item)
+            for comma_part in _split_items_top_level(talents_to_check):
+                alternatives, _ = _split_top_level(comma_part, _RE_ALT_SPLIT)
+                for raw in alternatives:
+                    item = raw.strip()
+                    if not item or len(item) > 80 or '.' in item:
+                        continue
+                    if not _fuzzy_match(item, talent_names, exact_syn, prefix_syn, cutoff=0.65):
+                        unmatched_talents.append(item)
 
         prof['unmatched_skills']  = unmatched_skills
         prof['unmatched_talents'] = unmatched_talents
@@ -1159,7 +1163,8 @@ def _extract_specialization(chip_text: str) -> str | None:
     return None
 
 
-_RE_ALTERNATIVE = re.compile(r'(\s+(?:o|u|or)\s+)', re.IGNORECASE)
+_RE_ALT_SPLIT = re.compile(r'\s+(?:o|u|or)\s+', re.IGNORECASE)
+_RE_COMMA     = re.compile(r',')
 
 # Catalog skills that require a specialization store it literally in name_es,
 # e.g. "HABLAR IDIOMA (Varios)" or "ACTUAR (Varios)". "(Varios)" there is just
@@ -1167,6 +1172,32 @@ _RE_ALTERNATIVE = re.compile(r'(\s+(?:o|u|or)\s+)', re.IGNORECASE)
 # dropped before appending the real one, or chips end up as
 # "HABLAR IDIOMA (Varios) (Reikspiel)" instead of "HABLAR IDIOMA (Reikspiel)".
 _RE_TRAILING_VARIOS = re.compile(r'\s*\(\s*varios\s*\)\s*$', re.IGNORECASE)
+
+
+def _split_top_level(text: str, pattern: 're.Pattern') -> tuple:
+    """Split text on `pattern`, but only where a match occurs at paren-depth 0.
+    Returns (parts, seps). Without this, a specialization's own alternative
+    or comma list — e.g. 'Hablar idioma (Bretón, Estaliano o Tileano)' — gets
+    mistaken for several different skills/talents instead of one skill with
+    a multi-choice specialization."""
+    parts, seps = [], []
+    pos = 0
+    for m in pattern.finditer(text):
+        depth = text.count('(', 0, m.start()) - text.count(')', 0, m.start())
+        if depth != 0:
+            continue
+        parts.append(text[pos:m.start()])
+        seps.append(m.group(0))
+        pos = m.end()
+    parts.append(text[pos:])
+    return parts, seps
+
+
+def _split_items_top_level(raw: str) -> list:
+    """Top-level comma split: ignores commas that sit inside a specialization's
+    own parentheses (see _split_top_level)."""
+    parts, _ = _split_top_level(raw, _RE_COMMA)
+    return [p.strip() for p in parts if p.strip()]
 
 
 def _canonicalize_one_item(item: str, name_map: dict, exact_syn: dict, prefix_syn: dict) -> str:
@@ -1191,41 +1222,32 @@ def _canonicalize_catalog_list(raw: str, name_map: dict, exact_syn: dict, prefix
     wherever it fuzzy-matches an existing entry, so the PDF review UI always
     shows (and the admin edits) the same name that will actually be linked at
     save time — never a near-miss sitting next to the real catalog entry.
-    'A o B' / 'A or B' alternatives are canonicalized on each side.
+    'A o B' / 'A or B' alternatives are canonicalized on each side; a
+    specialization's own internal alternative/comma list is left untouched.
     """
     if not raw:
         return raw
-    parts = []
-    for item in raw.split(','):
-        item = item.strip()
-        if not item:
-            continue
-        alt = _RE_ALTERNATIVE.split(item, maxsplit=1)
-        if len(alt) == 3:
-            left, sep, right = alt
-            parts.append(
-                _canonicalize_one_item(left.strip(), name_map, exact_syn, prefix_syn) + sep +
-                _canonicalize_one_item(right.strip(), name_map, exact_syn, prefix_syn)
-            )
-        else:
-            parts.append(_canonicalize_one_item(item, name_map, exact_syn, prefix_syn))
-    return ', '.join(parts)
-
-
-_RE_ALT_SPLIT = re.compile(r'\s+(?:o|u|or)\s+', re.IGNORECASE)
+    out = []
+    for item in _split_items_top_level(raw):
+        alt_parts, alt_seps = _split_top_level(item, _RE_ALT_SPLIT)
+        canon = [_canonicalize_one_item(p.strip(), name_map, exact_syn, prefix_syn) for p in alt_parts]
+        rebuilt = canon[0]
+        for sep, part in zip(alt_seps, canon[1:]):
+            rebuilt += sep + part
+        out.append(rebuilt)
+    return ', '.join(out)
 
 
 def _split_choice_groups(raw: str) -> list:
     """Split a comma-separated skills/talents string into groups, where each
     group is the list of one or more alternatives joined by 'o'/'u'/'or'
     (an 'A o B' choice — pick exactly one of the group). A plain comma-separated
-    item with no alternatives becomes a single-item group."""
+    item with no alternatives becomes a single-item group. Commas/alternatives
+    inside a specialization's own parentheses are not treated as a new item."""
     groups = []
-    for comma_part in raw.split(','):
-        comma_part = comma_part.strip()
-        if not comma_part:
-            continue
-        alternatives = [a.strip() for a in _RE_ALT_SPLIT.split(comma_part) if a.strip()]
+    for comma_part in _split_items_top_level(raw):
+        alternatives, _ = _split_top_level(comma_part, _RE_ALT_SPLIT)
+        alternatives = [a.strip() for a in alternatives if a.strip()]
         if alternatives:
             groups.append(alternatives)
     return groups
