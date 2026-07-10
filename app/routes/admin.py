@@ -1330,6 +1330,22 @@ def _parse_skill_talent_groups(raw: str) -> list:
     return groups
 
 
+def _split_specialization_values(spec: str) -> list:
+    """Split a skill/talent's own specialization text into individual named
+    values when it lists several choices via 'o'/'u'/commas (e.g. 'el Imperio
+    o las Tierras Desoladas', 'Bretón, Reikspiel o Tileano'). The profession
+    edit form models each such choice as its own ProfessionSkill/ProfessionTalent
+    row sharing one choice_group ('Mismo Gr. = el jugador elige uno'), not one
+    flat string — a single free-form choice-count descriptor with no internal
+    alternatives (e.g. 'dos cualesquiera') has nothing to split on and comes
+    back as a single-item list unchanged."""
+    values = []
+    for comma_part in _split_items_top_level(spec):
+        alt_parts, _ = _split_top_level(comma_part, _RE_ALT_SPLIT)
+        values.extend(p.strip() for p in alt_parts if p.strip())
+    return values if values else [spec]
+
+
 def _match_and_save_skills(prof, skills_raw: str, skills_raw_en: str = ''):
     # skills_raw_en is intentionally unused here: it holds the ORIGINAL PDF-extracted
     # English text and is never updated by the review page's chip editor, which only
@@ -1356,14 +1372,25 @@ def _match_and_save_skills(prof, skills_raw: str, skills_raw_en: str = ''):
             if len(raw_part) > 80 or '.' in raw_part:
                 continue
             skill = _fuzzy_find(raw_part, skill_map, exact_syn, prefix_syn, cutoff=0.7)
-            if skill:
-                spec = _extract_specialization(raw_part)
-                key  = (skill.id, spec)
+            if not skill:
+                continue
+            spec = _extract_specialization(raw_part)
+            spec_values = _split_specialization_values(spec) if spec else [None]
+            row_group_id = group_id
+            if len(alternatives) == 1 and spec and len(spec_values) > 1:
+                # A single skill's own specialization lists several named choices
+                # ('el Imperio o las Tierras Desoladas') - each becomes its own row,
+                # sharing a fresh choice_group (pick exactly one), same as an
+                # ordinary "A o B" choice between two different skills.
+                row_group_id = next_group
+                next_group += 1
+            for spec_value in spec_values:
+                key = (skill.id, spec_value)
                 if key not in seen:
                     seen.add(key)
                     db.session.add(ProfessionSkill(
-                        profession_id=prof.id, skill_id=skill.id, specialization=spec,
-                        choice_group=group_id,
+                        profession_id=prof.id, skill_id=skill.id, specialization=spec_value,
+                        choice_group=row_group_id,
                     ))
 
 
@@ -1391,14 +1418,21 @@ def _match_and_save_talents(prof, talents_raw: str, talents_raw_en: str = ''):
             if len(raw_part) > 80 or '.' in raw_part:
                 continue
             talent = _fuzzy_find(raw_part, talent_map, exact_syn, prefix_syn, cutoff=0.7)
-            if talent:
-                spec = _extract_specialization(raw_part)
-                key  = (talent.id, spec)
+            if not talent:
+                continue
+            spec = _extract_specialization(raw_part)
+            spec_values = _split_specialization_values(spec) if spec else [None]
+            row_group_id = group_id
+            if len(alternatives) == 1 and spec and len(spec_values) > 1:
+                row_group_id = next_group
+                next_group += 1
+            for spec_value in spec_values:
+                key = (talent.id, spec_value)
                 if key not in seen:
                     seen.add(key)
                     db.session.add(ProfessionTalent(
-                        profession_id=prof.id, talent_id=talent.id, specialization=spec,
-                        choice_group=group_id,
+                        profession_id=prof.id, talent_id=talent.id, specialization=spec_value,
+                        choice_group=row_group_id,
                     ))
 
 

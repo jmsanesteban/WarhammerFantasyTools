@@ -132,14 +132,16 @@ def test_match_and_save_skills_groups_o_alternatives_under_shared_choice_group(
     assert {ps.skill_id for ps in saved} == {a.id, b.id}
 
 
-def test_match_and_save_skills_does_not_split_specializations_own_alternative_list(
+def test_match_and_save_skills_splits_specializations_own_alternative_list_into_grouped_rows(
     app, db, make_profession, make_skill,
 ):
     """'Hablar idioma (Bretón o Tileano)' is ONE skill with a multi-choice
-    specialization, not two alternative skills - it must be saved as a single
-    ProfessionSkill row (specialization holding the full 'Bretón o Tileano'
-    text) with no choice_group, instead of being split into a broken
-    'Hablar idioma (Bretón' + an unmatched 'Tileano)'."""
+    specialization, not two alternative skills - but the profession edit form
+    models each named specialization choice as its own ProfessionSkill row
+    ('Mismo Gr. = el jugador elige uno'), so it must be saved as two rows
+    (Bretón / Tileano) sharing one choice_group, not a single row holding the
+    literal 'Bretón o Tileano' string, and not split into a broken
+    'Hablar idioma (Bretón' + an unmatched 'Tileano)' either."""
     skill = make_skill(name_es='HABLAR IDIOMA (Varios)')
     prof = make_profession(name='Alborotador')
     with app.test_request_context():
@@ -147,9 +149,49 @@ def test_match_and_save_skills_does_not_split_specializations_own_alternative_li
     db.session.commit()
 
     saved = ProfessionSkill.query.filter_by(profession_id=prof.id).all()
+    assert len(saved) == 2
+    assert all(ps.skill_id == skill.id for ps in saved)
+    assert {ps.specialization for ps in saved} == {'Bretón', 'Tileano'}
+    groups = {ps.choice_group for ps in saved}
+    assert None not in groups
+    assert len(groups) == 1
+
+
+def test_match_and_save_skills_splits_specializations_own_comma_list_into_grouped_rows(
+    app, db, make_profession, make_skill,
+):
+    """Same as above but with a 3-way comma+'o' list, matching the real
+    'Hablar idioma (Bretón, Reikspiel o Tileano)' pattern from the book."""
+    skill = make_skill(name_es='HABLAR IDIOMA (Varios)')
+    prof = make_profession(name='Barbero cirujano')
+    with app.test_request_context():
+        admin_routes._match_and_save_skills(
+            prof, skills_raw='Hablar idioma (Bretón, Reikspiel o Tileano)',
+        )
+    db.session.commit()
+
+    saved = ProfessionSkill.query.filter_by(profession_id=prof.id).all()
+    assert len(saved) == 3
+    assert {ps.specialization for ps in saved} == {'Bretón', 'Reikspiel', 'Tileano'}
+    groups = {ps.choice_group for ps in saved}
+    assert None not in groups
+    assert len(groups) == 1
+
+
+def test_match_and_save_skills_keeps_specialization_count_phrasing_as_single_row(
+    app, db, make_profession, make_skill,
+):
+    """A free-form choice-count descriptor ('dos cualesquiera') names no
+    specific values, so there is nothing to split - it must stay one row."""
+    skill = make_skill(name_es='Actuar (Varios)')
+    prof = make_profession(name='Artista')
+    with app.test_request_context():
+        admin_routes._match_and_save_skills(prof, skills_raw='Actuar (dos cualesquiera)')
+    db.session.commit()
+
+    saved = ProfessionSkill.query.filter_by(profession_id=prof.id).all()
     assert len(saved) == 1
-    assert saved[0].skill_id == skill.id
-    assert saved[0].specialization == 'Bretón o Tileano'
+    assert saved[0].specialization == 'dos cualesquiera'
     assert saved[0].choice_group is None
 
 
