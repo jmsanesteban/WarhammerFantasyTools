@@ -1118,7 +1118,7 @@ def _validate_pdf_professions(professions: list, all_skills, all_talents) -> lis
 
         unmatched_skills = []
         if skill_names:
-            for raw in skills_to_check.replace(' or ', ',').replace(' o ', ',').split(','):
+            for raw in skills_to_check.replace(' or ', ',').replace(' o ', ',').replace(' u ', ',').split(','):
                 item = raw.strip()
                 if not item or len(item) > 80 or '.' in item:
                     continue
@@ -1127,7 +1127,7 @@ def _validate_pdf_professions(professions: list, all_skills, all_talents) -> lis
 
         unmatched_talents = []
         if talent_names:
-            for raw in talents_to_check.replace(' or ', ',').replace(' o ', ',').split(','):
+            for raw in talents_to_check.replace(' or ', ',').replace(' o ', ',').replace(' u ', ',').split(','):
                 item = raw.strip()
                 if not item or len(item) > 80 or '.' in item:
                     continue
@@ -1159,7 +1159,14 @@ def _extract_specialization(chip_text: str) -> str | None:
     return None
 
 
-_RE_ALTERNATIVE = re.compile(r'(\s+(?:o|or)\s+)', re.IGNORECASE)
+_RE_ALTERNATIVE = re.compile(r'(\s+(?:o|u|or)\s+)', re.IGNORECASE)
+
+# Catalog skills that require a specialization store it literally in name_es,
+# e.g. "HABLAR IDIOMA (Varios)" or "ACTUAR (Varios)". "(Varios)" there is just
+# a marker meaning "pick one", not an actual specialization value — it must be
+# dropped before appending the real one, or chips end up as
+# "HABLAR IDIOMA (Varios) (Reikspiel)" instead of "HABLAR IDIOMA (Reikspiel)".
+_RE_TRAILING_VARIOS = re.compile(r'\s*\(\s*varios\s*\)\s*$', re.IGNORECASE)
 
 
 def _canonicalize_one_item(item: str, name_map: dict, exact_syn: dict, prefix_syn: dict) -> str:
@@ -1172,7 +1179,10 @@ def _canonicalize_one_item(item: str, name_map: dict, exact_syn: dict, prefix_sy
     match = _fuzzy_find(base, name_map, exact_syn, prefix_syn, cutoff=0.7)
     if not match:
         return item
-    return f'{match.name_es} ({spec})' if spec else match.name_es
+    if not spec:
+        return match.name_es
+    match_base = _RE_TRAILING_VARIOS.sub('', match.name_es).strip()
+    return f'{match_base} ({spec})'
 
 
 def _canonicalize_catalog_list(raw: str, name_map: dict, exact_syn: dict, prefix_syn: dict) -> str:
@@ -1202,6 +1212,25 @@ def _canonicalize_catalog_list(raw: str, name_map: dict, exact_syn: dict, prefix
     return ', '.join(parts)
 
 
+_RE_ALT_SPLIT = re.compile(r'\s+(?:o|u|or)\s+', re.IGNORECASE)
+
+
+def _split_choice_groups(raw: str) -> list:
+    """Split a comma-separated skills/talents string into groups, where each
+    group is the list of one or more alternatives joined by 'o'/'u'/'or'
+    (an 'A o B' choice — pick exactly one of the group). A plain comma-separated
+    item with no alternatives becomes a single-item group."""
+    groups = []
+    for comma_part in raw.split(','):
+        comma_part = comma_part.strip()
+        if not comma_part:
+            continue
+        alternatives = [a.strip() for a in _RE_ALT_SPLIT.split(comma_part) if a.strip()]
+        if alternatives:
+            groups.append(alternatives)
+    return groups
+
+
 def _match_and_save_skills(prof, skills_raw: str, skills_raw_en: str = ''):
     # skills_raw_en is intentionally unused here: it holds the ORIGINAL PDF-extracted
     # English text and is never updated by the review page's chip editor, which only
@@ -1214,19 +1243,25 @@ def _match_and_save_skills(prof, skills_raw: str, skills_raw_en: str = ''):
     exact_syn, prefix_syn = _get_synonyms_dicts()
 
     seen: set = set()
-    for raw_part in skills_raw.replace(' or ', ',').replace(' o ', ',').split(','):
-        raw_part = raw_part.strip()
-        if not raw_part or len(raw_part) > 80 or '.' in raw_part:
-            continue
-        skill = _fuzzy_find(raw_part, skill_map, exact_syn, prefix_syn, cutoff=0.7)
-        if skill:
-            spec = _extract_specialization(raw_part)
-            key  = (skill.id, spec)
-            if key not in seen:
-                seen.add(key)
-                db.session.add(ProfessionSkill(
-                    profession_id=prof.id, skill_id=skill.id, specialization=spec
-                ))
+    next_group = 1
+    for alternatives in _split_choice_groups(skills_raw):
+        group_id = None
+        if len(alternatives) > 1:
+            group_id = next_group
+            next_group += 1
+        for raw_part in alternatives:
+            if len(raw_part) > 80 or '.' in raw_part:
+                continue
+            skill = _fuzzy_find(raw_part, skill_map, exact_syn, prefix_syn, cutoff=0.7)
+            if skill:
+                spec = _extract_specialization(raw_part)
+                key  = (skill.id, spec)
+                if key not in seen:
+                    seen.add(key)
+                    db.session.add(ProfessionSkill(
+                        profession_id=prof.id, skill_id=skill.id, specialization=spec,
+                        choice_group=group_id,
+                    ))
 
 
 def _match_and_save_talents(prof, talents_raw: str, talents_raw_en: str = ''):
@@ -1239,19 +1274,25 @@ def _match_and_save_talents(prof, talents_raw: str, talents_raw_en: str = ''):
     exact_syn, prefix_syn = _get_synonyms_dicts()
 
     seen: set = set()
-    for raw_part in talents_raw.replace(' or ', ',').replace(' o ', ',').split(','):
-        raw_part = raw_part.strip()
-        if not raw_part or len(raw_part) > 80 or '.' in raw_part:
-            continue
-        talent = _fuzzy_find(raw_part, talent_map, exact_syn, prefix_syn, cutoff=0.7)
-        if talent:
-            spec = _extract_specialization(raw_part)
-            key  = (talent.id, spec)
-            if key not in seen:
-                seen.add(key)
-                db.session.add(ProfessionTalent(
-                    profession_id=prof.id, talent_id=talent.id, specialization=spec
-                ))
+    next_group = 1
+    for alternatives in _split_choice_groups(talents_raw):
+        group_id = None
+        if len(alternatives) > 1:
+            group_id = next_group
+            next_group += 1
+        for raw_part in alternatives:
+            if len(raw_part) > 80 or '.' in raw_part:
+                continue
+            talent = _fuzzy_find(raw_part, talent_map, exact_syn, prefix_syn, cutoff=0.7)
+            if talent:
+                spec = _extract_specialization(raw_part)
+                key  = (talent.id, spec)
+                if key not in seen:
+                    seen.add(key)
+                    db.session.add(ProfessionTalent(
+                        profession_id=prof.id, talent_id=talent.id, specialization=spec,
+                        choice_group=group_id,
+                    ))
 
 
 # ---------------------------------------------------------------------------

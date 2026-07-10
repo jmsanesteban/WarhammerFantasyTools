@@ -112,6 +112,78 @@ def test_match_and_save_skills_deduplicates_same_skill_and_spec(app, db, make_pr
     assert ProfessionSkill.query.filter_by(profession_id=prof.id).count() == 1
 
 
+def test_match_and_save_skills_groups_o_alternatives_under_shared_choice_group(
+    app, db, make_profession, make_skill,
+):
+    """'A o B' means 'pick exactly one of these two' - both sides must share a
+    choice_group so the profession editor renders them as a single group instead
+    of two independent, always-granted skills."""
+    a = make_skill(name_es='Percepción')
+    b = make_skill(name_es='Callejeo')
+    prof = make_profession(name='Explorador')
+    with app.test_request_context():
+        admin_routes._match_and_save_skills(prof, skills_raw='Percepción o Callejeo')
+    db.session.commit()
+
+    saved = ProfessionSkill.query.filter_by(profession_id=prof.id).all()
+    groups = {ps.choice_group for ps in saved}
+    assert None not in groups
+    assert len(groups) == 1
+    assert {ps.skill_id for ps in saved} == {a.id, b.id}
+
+
+def test_match_and_save_skills_treats_u_as_an_alternative_connector(
+    app, db, make_profession, make_skill,
+):
+    """Spanish grammar swaps 'o' for 'u' before an o-/ho- sound (e.g. 'Carisma
+    animal u Oficio'); it must be recognized as the same alternative-group marker."""
+    a = make_skill(name_es='Carisma animal')
+    b = make_skill(name_es='Oficio')
+    prof = make_profession(name='Hechicero vulgar')
+    with app.test_request_context():
+        admin_routes._match_and_save_skills(prof, skills_raw='Carisma animal u Oficio (Boticario)')
+    db.session.commit()
+
+    saved = ProfessionSkill.query.filter_by(profession_id=prof.id).all()
+    groups = {ps.choice_group for ps in saved}
+    assert None not in groups
+    assert len(groups) == 1
+    assert {ps.skill_id for ps in saved} == {a.id, b.id}
+
+
+def test_match_and_save_skills_plain_comma_list_has_no_choice_group(
+    app, db, make_profession, make_skill,
+):
+    """Plain comma-separated skills (no 'o'/'u' alternative) are all mandatory -
+    none of them should be assigned to a choice_group."""
+    make_skill(name_es='Percepción')
+    make_skill(name_es='Callejeo')
+    prof = make_profession(name='Explorador')
+    with app.test_request_context():
+        admin_routes._match_and_save_skills(prof, skills_raw='Percepción, Callejeo')
+    db.session.commit()
+
+    saved = ProfessionSkill.query.filter_by(profession_id=prof.id).all()
+    assert all(ps.choice_group is None for ps in saved)
+
+
+def test_match_and_save_talents_groups_o_alternatives_under_shared_choice_group(
+    app, db, make_profession, make_talent,
+):
+    a = make_talent(name_es='Ambidiestro')
+    b = make_talent(name_es='Desarmar')
+    prof = make_profession(name='Duelista')
+    with app.test_request_context():
+        admin_routes._match_and_save_talents(prof, talents_raw='Ambidiestro o Desarmar')
+    db.session.commit()
+
+    saved = ProfessionTalent.query.filter_by(profession_id=prof.id).all()
+    groups = {pt.choice_group for pt in saved}
+    assert None not in groups
+    assert len(groups) == 1
+    assert {pt.talent_id for pt in saved} == {a.id, b.id}
+
+
 # ── _fuzzy_link_professions (exits/entries auto-linking) ────────────────────
 
 def test_fuzzy_link_professions_matches_exact_name(app, db, make_profession):
@@ -249,6 +321,18 @@ def test_validate_pdf_professions_canonicalizes_each_side_of_an_alternative(db, 
 
     result = admin_routes._validate_pdf_professions(professions, Skill.query.all(), [])
     assert result[0]['skills_raw'] == 'Percepción o Callejeo'
+
+
+def test_validate_pdf_professions_strips_varios_marker_before_specialization(db, make_skill):
+    """Catalog skills that require a specialization store the marker literally in
+    name_es (e.g. 'HABLAR IDIOMA (Varios)'). Appending the real specialization must
+    replace that marker, not stack on top of it as 'HABLAR IDIOMA (Varios) (Reikspiel)'."""
+    from app.models.skill import Skill
+    make_skill(name_es='HABLAR IDIOMA (Varios)')
+    professions = [{'name': 'Barquero', 'type': 'basic', 'skills_raw': 'Hablar idioma (Reikspiel)'}]
+
+    result = admin_routes._validate_pdf_professions(professions, Skill.query.all(), [])
+    assert result[0]['skills_raw'] == 'HABLAR IDIOMA (Reikspiel)'
 
 
 def test_validate_pdf_professions_leaves_genuinely_unmatched_skill_text_as_is(db, make_skill):

@@ -1,9 +1,12 @@
 {
   "Actuar": [
     { "nombre": "Acróbata", "atributo": "AGI" },
-    { "nombre": "Actor/narrador", "atributo": "EMP" },
+    { "nombre": "Actor", "atributo": "EMP" },
+    { "nombre": "Narrador", "atributo": "EMP" },
     { "nombre": "Bailarín", "atributo": "AGI" },
-    { "nombre": "Bufón/cómico/payaso", "atributo": "EMP" },
+    { "nombre": "Bufón", "atributo": "EMP" },
+    { "nombre": "Cómico", "atributo": "EMP" },
+    { "nombre": "Payaso", "atributo": "EMP" },
     { "nombre": "Cantante", "atributo": "EMP" },
     { "nombre": "Malabarista", "atributo": "AGI" },
     { "nombre": "Músico", "atributo": "EMP" }
