@@ -525,6 +525,117 @@ def test_validate_pdf_professions_flags_unmatched_skills(db, make_skill):
     assert 'Percepción' not in result[0]['unmatched_skills']
 
 
+# ── Specialization-count phrasing ("dos cualesquiera") must still match ─────
+# A skill/talent needing a specialization can carry either a real specialization
+# name (e.g. 'Hablar idioma (Reikspiel)') or the book's own free-form choice-count
+# descriptor (e.g. 'Actuar (dos cualesquiera)'). The latter's text has little
+# resemblance to the catalog's literal '(Varios)' marker, so a plain fuzzy-ratio
+# comparison of the full/base strings falls short of the cutoff even though the
+# base skill obviously exists - it must still match via the catalog's own debased
+# (parenthetical-stripped) name.
+
+def test_validate_pdf_professions_matches_specialization_count_phrasing(db, make_skill):
+    from app.models.skill import Skill
+    make_skill(name_es='Actuar (Varios)')
+    professions = [{'name': 'Artista', 'type': 'basic', 'skills_raw': 'Actuar (dos cualesquiera)'}]
+
+    result = admin_routes._validate_pdf_professions(professions, Skill.query.all(), [])
+    assert result[0]['unmatched_skills'] == []
+    assert result[0]['skills_raw'] == 'Actuar (dos cualesquiera)'
+
+
+def test_validate_pdf_professions_matches_talent_specialization_count_phrasing(db, make_talent):
+    from app.models.talent import Talent
+    make_talent(name_es='Especialista en armas (Varios)')
+    professions = [{
+        'name': 'Artista', 'type': 'basic',
+        'talents_raw': 'Especialista en armas (Arrojadizas)',
+    }]
+
+    result = admin_routes._validate_pdf_professions(professions, [], Talent.query.all())
+    assert result[0]['unmatched_talents'] == []
+
+
+def test_match_and_save_skills_links_specialization_count_phrasing(
+    app, db, make_profession, make_skill,
+):
+    skill = make_skill(name_es='Actuar (Varios)')
+    prof = make_profession(name='Artista')
+    with app.test_request_context():
+        admin_routes._match_and_save_skills(prof, skills_raw='Actuar (dos cualesquiera)')
+    db.session.commit()
+
+    saved = ProfessionSkill.query.filter_by(profession_id=prof.id).all()
+    assert len(saved) == 1
+    assert saved[0].skill_id == skill.id
+    assert saved[0].specialization == 'dos cualesquiera'
+
+
+# ── "<N> cualquiera(s) de las/los siguientes: A, B, C" enumeration ──────────
+# WFRP2's "pick N of the following" phrasing. For N == 1 all listed items form
+# one shared choice_group (pick exactly one); the schema has no way to represent
+# "pick exactly K of N" for K > 1, so those are kept individually matchable but
+# ungrouped - the admin can regroup manually at integration time.
+
+def test_validate_pdf_professions_strips_choose_one_connector_for_display(db, make_skill):
+    make_skill(name_es='Percepción')
+    make_skill(name_es='Callejeo')
+    make_skill(name_es='Nadar')
+    professions = [{
+        'name': 'Artista', 'type': 'basic',
+        'skills_raw': 'Percepción, Una cualquiera de las siguientes: Callejeo, Nadar',
+    }]
+
+    from app.models.skill import Skill
+    result = admin_routes._validate_pdf_professions(professions, Skill.query.all(), [])
+    assert result[0]['unmatched_skills'] == []
+    assert 'cualquiera de las siguientes' not in result[0]['skills_raw'].lower()
+    assert result[0]['skills_raw'] == 'Percepción, Callejeo, Nadar'
+
+
+def test_match_and_save_skills_groups_choose_one_of_list_under_shared_choice_group(
+    app, db, make_profession, make_skill,
+):
+    a = make_skill(name_es='Adiestrar animales')
+    b = make_skill(name_es='Carisma animal')
+    c = make_skill(name_es='Escalar')
+    prof = make_profession(name='Artista')
+    with app.test_request_context():
+        admin_routes._match_and_save_skills(
+            prof,
+            skills_raw='Una cualquiera de las siguientes: Adiestrar animales, Carisma animal, Escalar',
+        )
+    db.session.commit()
+
+    saved = ProfessionSkill.query.filter_by(profession_id=prof.id).all()
+    groups = {ps.choice_group for ps in saved}
+    assert None not in groups
+    assert len(groups) == 1
+    assert {ps.skill_id for ps in saved} == {a.id, b.id, c.id}
+
+
+def test_match_and_save_talents_choose_two_of_list_leaves_items_ungrouped(
+    app, db, make_profession, make_talent,
+):
+    """'Dos cualesquiera de los siguientes' means pick exactly 2 of N - the
+    choice_group column can't represent that, so each item is saved individually
+    matchable (ungrouped) rather than corrupted or silently dropped."""
+    a = make_talent(name_es='Certero')
+    b = make_talent(name_es='Lucha')
+    c = make_talent(name_es='Muy fuerte')
+    prof = make_profession(name='Artista')
+    with app.test_request_context():
+        admin_routes._match_and_save_talents(
+            prof,
+            talents_raw='Dos cualesquiera de los siguientes: Certero, Lucha, Muy fuerte',
+        )
+    db.session.commit()
+
+    saved = ProfessionTalent.query.filter_by(profession_id=prof.id).all()
+    assert {pt.talent_id for pt in saved} == {a.id, b.id, c.id}
+    assert all(pt.choice_group is None for pt in saved)
+
+
 # ── Job/cache file-based persistence ─────────────────────────────────────────
 
 def test_write_and_read_job_roundtrip():

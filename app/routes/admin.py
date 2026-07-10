@@ -998,6 +998,23 @@ def _fuzzy_find(item: str, name_map: dict,
     return None
 
 
+_RE_TRAILING_PAREN = re.compile(r'\s*\([^)]*\)\s*$')
+
+
+def _debase(name: str) -> str:
+    """Strip a trailing '(...)' from a catalog name, e.g. 'Actuar (Varios)' ->
+    'actuar'. Catalog skills/talents that require a specialization store a
+    '(Varios)' marker in name_es/name_en; an item can instead supply its own
+    free-form choice-count descriptor (e.g. 'Actuar (dos cualesquiera)') whose
+    text has little resemblance to the literal word 'Varios', so a fuzzy-ratio
+    comparison against the full catalog name can fall short of the cutoff even
+    though the base skill is obviously valid. Adding this bare form alongside
+    the full name lets base-name lookups succeed via exact match instead of
+    relying on fuzzy similarity to 'Varios'. No-op for names with no
+    parenthetical."""
+    return _RE_TRAILING_PAREN.sub('', name).strip().lower()
+
+
 def _validate_pdf_professions(professions: list, all_skills, all_talents) -> list:
     """
     Enrich each profession dict with validation data:
@@ -1010,14 +1027,18 @@ def _validate_pdf_professions(professions: list, all_skills, all_talents) -> lis
     skill_names  = set()
     for s in all_skills:
         skill_names.add(s.name_es.lower())
+        skill_names.add(_debase(s.name_es))
         if s.name_en:
             skill_names.add(s.name_en.lower())
+            skill_names.add(_debase(s.name_en))
 
     talent_names = set()
     for t in all_talents:
         talent_names.add(t.name_es.lower())
+        talent_names.add(_debase(t.name_es))
         if t.name_en:
             talent_names.add(t.name_en.lower())
+            talent_names.add(_debase(t.name_en))
 
     # Load ES synonyms once — used for both name correction and chip validation
     es_exact, es_prefix = _get_synonyms_dicts()
@@ -1026,8 +1047,16 @@ def _validate_pdf_professions(professions: list, all_skills, all_talents) -> lis
     # same shape _match_and_save_skills/_match_and_save_talents build at save time.
     skill_map  = {s.name_es.lower(): s for s in all_skills}
     skill_map.update({s.name_en.lower(): s for s in all_skills if s.name_en})
+    for s in all_skills:
+        skill_map.setdefault(_debase(s.name_es), s)
+        if s.name_en:
+            skill_map.setdefault(_debase(s.name_en), s)
     talent_map = {t.name_es.lower(): t for t in all_talents}
     talent_map.update({t.name_en.lower(): t for t in all_talents if t.name_en})
+    for t in all_talents:
+        talent_map.setdefault(_debase(t.name_es), t)
+        if t.name_en:
+            talent_map.setdefault(_debase(t.name_en), t)
 
     # All existing profession names, loaded once, used for exact + fuzzy duplicate checks below.
     all_prof_rows = Profession.query.with_entities(Profession.id, Profession.name).all()
@@ -1118,7 +1147,7 @@ def _validate_pdf_professions(professions: list, all_skills, all_talents) -> lis
 
         unmatched_skills = []
         if skill_names:
-            for comma_part in _split_items_top_level(skills_to_check):
+            for comma_part in _split_items_top_level(_strip_choose_n_connector(skills_to_check)):
                 alternatives, _ = _split_top_level(comma_part, _RE_ALT_SPLIT)
                 for raw in alternatives:
                     item = raw.strip()
@@ -1129,7 +1158,7 @@ def _validate_pdf_professions(professions: list, all_skills, all_talents) -> lis
 
         unmatched_talents = []
         if talent_names:
-            for comma_part in _split_items_top_level(talents_to_check):
+            for comma_part in _split_items_top_level(_strip_choose_n_connector(talents_to_check)):
                 alternatives, _ = _split_top_level(comma_part, _RE_ALT_SPLIT)
                 for raw in alternatives:
                     item = raw.strip()
@@ -1228,7 +1257,7 @@ def _canonicalize_catalog_list(raw: str, name_map: dict, exact_syn: dict, prefix
     if not raw:
         return raw
     out = []
-    for item in _split_items_top_level(raw):
+    for item in _split_items_top_level(_strip_choose_n_connector(raw)):
         alt_parts, alt_seps = _split_top_level(item, _RE_ALT_SPLIT)
         canon = [_canonicalize_one_item(p.strip(), name_map, exact_syn, prefix_syn) for p in alt_parts]
         rebuilt = canon[0]
@@ -1253,6 +1282,54 @@ def _split_choice_groups(raw: str) -> list:
     return groups
 
 
+# WFRP2's "pick N of the following" phrasing, e.g. 'Una cualquiera de las
+# siguientes: A, B, C' or 'Dos cualesquiera de los siguientes: A, B, C, D'.
+# This clause always appears as the trailing part of a skills_raw/talents_raw
+# string in the source book, listing the remaining choices after any earlier
+# plain/alternative items.
+_CHOOSE_N_WORDS = {
+    'una': 1, 'uno': 1, 'dos': 2, 'tres': 3, 'cuatro': 4, 'cinco': 5,
+    'seis': 6, 'siete': 7, 'ocho': 8,
+}
+_RE_CHOOSE_N = re.compile(
+    r'\b(?P<num>' + '|'.join(_CHOOSE_N_WORDS) + r')\s+cual(?:quiera|esquiera)\s+de\s+(?:las|los)\s+siguientes\s*:\s*',
+    re.IGNORECASE,
+)
+
+
+def _strip_choose_n_connector(raw: str) -> str:
+    """Turn 'A, B, Una cualquiera de las siguientes: C, D, E' into the plain
+    comma list 'A, B, C, D, E' for display/canonicalization/unmatched-detection
+    purposes — every listed item genuinely exists in the catalog, only the
+    'pick N of these' semantics are lost here. Those semantics are preserved
+    at save time for the pick-exactly-one case by _parse_skill_talent_groups."""
+    return _RE_CHOOSE_N.sub('', raw)
+
+
+def _parse_skill_talent_groups(raw: str) -> list:
+    """Like _split_choice_groups, but also recognizes the '<N> cualquiera(s)
+    de las/los siguientes: A, B, C' pattern. For N == 1 ('Una'/'Uno
+    cualquiera'), every listed item becomes ONE shared choice_group (pick
+    exactly one) — the choice_group column already supports groups larger
+    than two. For N > 1 ('Dos cualesquiera', etc.) there is no schema support
+    for 'pick exactly K of N', so the items are kept ungrouped (individually
+    valid/matchable) for an admin to regroup manually when integrating the
+    profession."""
+    m = _RE_CHOOSE_N.search(raw)
+    if not m:
+        return _split_choice_groups(raw)
+
+    groups = _split_choice_groups(raw[:m.start()])
+    count = _CHOOSE_N_WORDS[m.group('num').lower()]
+    tail_items = _split_items_top_level(raw[m.end():])
+
+    if count == 1 and len(tail_items) > 1:
+        groups.append(tail_items)
+    else:
+        groups.extend([item] for item in tail_items)
+    return groups
+
+
 def _match_and_save_skills(prof, skills_raw: str, skills_raw_en: str = ''):
     # skills_raw_en is intentionally unused here: it holds the ORIGINAL PDF-extracted
     # English text and is never updated by the review page's chip editor, which only
@@ -1261,12 +1338,16 @@ def _match_and_save_skills(prof, skills_raw: str, skills_raw_en: str = ''):
     all_skills = Skill.query.all()
     skill_map  = {s.name_es.lower(): s for s in all_skills}
     skill_map.update({s.name_en.lower(): s for s in all_skills if s.name_en})
+    for s in all_skills:
+        skill_map.setdefault(_debase(s.name_es), s)
+        if s.name_en:
+            skill_map.setdefault(_debase(s.name_en), s)
 
     exact_syn, prefix_syn = _get_synonyms_dicts()
 
     seen: set = set()
     next_group = 1
-    for alternatives in _split_choice_groups(skills_raw):
+    for alternatives in _parse_skill_talent_groups(skills_raw):
         group_id = None
         if len(alternatives) > 1:
             group_id = next_group
@@ -1292,12 +1373,16 @@ def _match_and_save_talents(prof, talents_raw: str, talents_raw_en: str = ''):
     all_talents = Talent.query.all()
     talent_map  = {t.name_es.lower(): t for t in all_talents}
     talent_map.update({t.name_en.lower(): t for t in all_talents if t.name_en})
+    for t in all_talents:
+        talent_map.setdefault(_debase(t.name_es), t)
+        if t.name_en:
+            talent_map.setdefault(_debase(t.name_en), t)
 
     exact_syn, prefix_syn = _get_synonyms_dicts()
 
     seen: set = set()
     next_group = 1
-    for alternatives in _split_choice_groups(talents_raw):
+    for alternatives in _parse_skill_talent_groups(talents_raw):
         group_id = None
         if len(alternatives) > 1:
             group_id = next_group

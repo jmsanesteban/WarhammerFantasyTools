@@ -400,3 +400,32 @@ def _register_cli_commands(app):
             from app.utils import create_default_admin
             create_default_admin()
             click.echo('Admin creation complete.')
+
+    @app.cli.command('normalize-catalog-casing')
+    def normalize_catalog_casing_cmd():
+        """One-off fix: the Habilidades/Talentos catalog was originally loaded
+        with name_es in ALL CAPS. The PDF-import review page canonicalizes
+        matched chips to the catalog's exact name_es, so ALL-CAPS catalog
+        entries made matched chips look inconsistent next to the Title-Case
+        text extracted from the book. Rewrites each known ALL-CAPS name_es to
+        its correct accented Spanish Title Case. Matches by exact current
+        value, so it is safe to re-run (a no-op once already normalized)."""
+        from app.models.skill import Skill
+        from app.models.talent import Talent
+        from app.data.catalog_casing import SKILL_CASING, TALENT_CASING
+
+        with app.app_context():
+            updated = 0
+            for skill in Skill.query.all():
+                new_name = SKILL_CASING.get(skill.name_es)
+                if new_name and new_name != skill.name_es:
+                    skill.name_es = new_name
+                    updated += 1
+            for talent in Talent.query.all():
+                new_name = TALENT_CASING.get(talent.name_es)
+                if new_name and new_name != talent.name_es:
+                    talent.name_es = new_name
+                    updated += 1
+            if updated:
+                db.session.commit()
+            click.echo(f'Normalized casing for {updated} catalog entr{"y" if updated == 1 else "ies"}.')
