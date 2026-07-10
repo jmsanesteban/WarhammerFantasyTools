@@ -443,12 +443,52 @@
   const SKILLS_DB  = {{ skills_data  | tojson }};
   const TALENTS_DB = {{ talents_data | tojson }};
 
+  /** Mirrors the server-side _debase(): strip a trailing '(...)' from a
+   * catalog name, e.g. 'Actuar (Varios)' -> 'actuar'. Without this alias, a
+   * skill/talent supplying its own free-form specialization or choice-count
+   * descriptor (e.g. 'Actuar (dos cualesquiera)', 'Hablar idioma (Bretón)')
+   * can never match here, since the catalog only stores the '(Varios)' form. */
+  function debase(name) {
+    return name.replace(/\s*\([^)]*\)\s*$/, '').trim().toLowerCase();
+  }
+
   const skillSet  = new Set(SKILLS_DB.map(s  => s.es.toLowerCase()));
+  SKILLS_DB.forEach(function(s) { skillSet.add(debase(s.es)); });
   const talentSet = new Set(TALENTS_DB.map(t => t.es.toLowerCase()));
+  TALENTS_DB.forEach(function(t) { talentSet.add(debase(t.es)); });
 
   const CREATE_URL    = { skills: '{{ url_for("skills_talents.create_skill") }}', talents: '{{ url_for("skills_talents.create_talent") }}' };
   const TYPE_LABEL    = { skills: 'habilidad', talents: 'talento' };
   const SECTION_LABEL = { skills: 'Habilidades', talents: 'Talentos' };
+
+  /** Mirrors the server-side _split_top_level(): split `text` on `re`
+   * (a regex WITHOUT the 'g' flag) but only where a match sits at
+   * parenthesis-depth 0, so a specialization's own internal alternative or
+   * comma list (e.g. 'Hablar idioma (Bretón, Reikspiel o Tileano)') is never
+   * mistaken for several different skills/talents. Returns {parts, seps}. */
+  function splitTopLevel(text, re) {
+    var g = new RegExp(re.source, re.flags.indexOf('g') === -1 ? re.flags + 'g' : re.flags);
+    var parts = [], seps = [], pos = 0, m;
+    while ((m = g.exec(text)) !== null) {
+      var before = text.slice(0, m.index);
+      var depth  = (before.match(/\(/g) || []).length - (before.match(/\)/g) || []).length;
+      if (depth === 0) {
+        parts.push(text.slice(pos, m.index));
+        seps.push(m[0]);
+        pos = m.index + m[0].length;
+      }
+      if (m[0].length === 0) g.lastIndex++;
+    }
+    parts.push(text.slice(pos));
+    return { parts: parts, seps: seps };
+  }
+
+  var RE_ALT_SPLIT = /\s+(?:o|u|or)\s+/i;
+  var RE_COMMA     = /,/;
+
+  function splitItemsTopLevel(raw) {
+    return splitTopLevel(raw, RE_COMMA).parts.map(function(p) { return p.trim(); }).filter(Boolean);
+  }
 
   /* ── Synonyms loaded from DB ── */
   const _RAW_SYNONYMS = {{ synonyms_data | tojson }};
@@ -506,12 +546,18 @@
       }
     }
 
-    // "X o Y" / "X or Y" — apply synonym to each part individually
-    var orParts = stripped.split(/\s+(?:o|or)\s+/i);
-    if (orParts.length > 1) {
-      var replaced = orParts.map(function(p) { return _applyOnePart(p.trim()); });
-      var changed  = replaced.some(function(r, i) { return r !== orParts[i].trim(); });
-      if (changed) return replaced.join(' o ');
+    // "X o Y" / "X u Y" / "X or Y" — apply synonym to each part individually.
+    // Paren-depth aware so a specialization's own internal alternative list
+    // (e.g. "Hablar idioma (Bretón, Reikspiel o Tileano)") is left intact.
+    var altSplit = splitTopLevel(stripped, RE_ALT_SPLIT);
+    if (altSplit.parts.length > 1) {
+      var replaced = altSplit.parts.map(function(p) { return _applyOnePart(p.trim()); });
+      var changed  = replaced.some(function(r, i) { return r !== altSplit.parts[i].trim(); });
+      if (changed) {
+        var rebuilt = replaced[0];
+        for (var i = 0; i < altSplit.seps.length; i++) rebuilt += altSplit.seps[i] + replaced[i + 1];
+        return rebuilt;
+      }
     }
 
     return stripped;   // at minimum strip the stat suffix
@@ -542,13 +588,19 @@
       if (dbList[i].es.toLowerCase() === lower) return dbList[i].es;
     }
 
-    // Base-name match: "sabiduría académica (genealogía)" → "Sabiduría Académica" + " (Genealogía)"
-    var base = lower.replace(/\s*\(.*$/, '').trim();
-    if (base && base !== lower) {
+    // Base-name match: "sabiduría académica (genealogía)" → "Sabiduría académica" + " (Genealogía)".
+    // Compared against each catalog entry's OWN base (its name with any trailing
+    // '(Varios)' stripped) - comparing against the full suffixed catalog name
+    // would never match, since the catalog never stores the bare base alone.
+    var parenIdx = text.indexOf('(');
+    if (parenIdx > 0) {
+      var baseLower = text.slice(0, parenIdx).trim().toLowerCase();
       for (var j = 0; j < dbList.length; j++) {
-        if (dbList[j].es.toLowerCase() === base) {
-          var rest = text.slice(base.length);   // e.g. " (Genealogía)"
-          return dbList[j].es + toTitleCase(rest);
+        var dbBase = dbList[j].es.replace(/\s*\([^)]*\)\s*$/, '').trim();
+        if (dbBase.toLowerCase() === baseLower) {
+          // Keep the "(...)"  tail (and anything after it, e.g. an outer "o Cotilleo"
+          // alternative) verbatim - it's book text, not something to re-case.
+          return dbBase + ' ' + text.slice(parenIdx);
         }
       }
     }
@@ -577,7 +629,11 @@
     var dbList = type === 'skills' ? SKILLS_DB : (type === 'talents' ? TALENTS_DB : []);
     var raw    = (this.hidden.value || '').trim();
     if (raw) {
-      this.chips = raw.split(',').map(function(s) {
+      // Paren-depth aware split: a naive raw.split(',') cuts right through a
+      // specialization's own internal comma list, e.g. turns "Hablar idioma
+      // (Bretón, Reikspiel o Tileano)" into a broken "Hablar idioma (Bretón"
+      // chip plus a dangling "Reikspiel o Tileano)" chip.
+      this.chips = splitItemsTopLevel(raw).map(function(s) {
         var t = s.trim();
         if (type !== 'trappings') {
           t = getProperCase(applyReplacement(t), dbList);
@@ -609,12 +665,16 @@
     var syn = applySynonym(stripped);
     if (this.matchSet.has(syn)) return true;
 
-    // 3. Alternatives "A o B" / "A or B"
-    var alts = stripped.split(/\s+(?:o|or)\s+/);
+    // 3. Alternatives "A o B" / "A u B" / "A or B" - paren-depth aware, so a
+    // specialization's own internal alternative list isn't mistaken for a
+    // top-level choice between different skills/talents.
+    var alts = splitTopLevel(stripped, RE_ALT_SPLIT).parts;
     if (alts.length > 1) {
       for (var i = 0; i < alts.length; i++) {
         var a = alts[i].trim();
         if (this.matchSet.has(a) || this.matchSet.has(applySynonym(a))) return true;
+        var altBase = a.replace(/\s*\(.*$/, '').trim();
+        if (altBase && altBase !== a && this.matchSet.has(altBase)) return true;
       }
     }
 
