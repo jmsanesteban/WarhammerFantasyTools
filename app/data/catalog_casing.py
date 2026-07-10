@@ -1,7 +1,11 @@
-# Correction map for the Habilidades/Talentos catalog, which was originally
-# seeded with name_es in ALL CAPS (some entries also missing/misplaced
-# accents, e.g. "SABIDURíA"). Keyed by the exact current DB value so the
-# `flask normalize-catalog-casing` command can match and rewrite it safely;
+# Correction map for the Habilidades/Talentos catalog. Two environments were
+# seeded from two different, independently-inconsistent conventions: wft-prepro
+# had name_es entirely in ALL CAPS (some also missing/misplaced accents, e.g.
+# "SABIDURíA"); wft-prod instead had Every-Word-Capitalized (e.g. "Adiestrar
+# Animales", "Especialista En Armas"), also with some accents missing. Both
+# sets of keys map to the same correct Spanish sentence-case target so a
+# single `flask normalize-catalog-casing` run fixes whichever convention a
+# given environment happens to have. Keyed by the exact current DB value;
 # entries not present in the DB (or already corrected) are simply skipped.
 
 SKILL_CASING = {
@@ -55,6 +59,25 @@ SKILL_CASING = {
     'TASAR': 'Tasar',
     'TORTURA': 'Tortura',
     'VENTRILOQUIA': 'Ventriloquia',
+
+    # wft-prod's original Every-Word-Capitalized convention
+    'Adiestrar Animales': 'Adiestrar animales',
+    'Carisma Animal': 'Carisma animal',
+    'Código Secreto (Varios)': 'Código secreto (Varios)',
+    'Consumir Alcohol': 'Consumir alcohol',
+    'Criar Animales': 'Criar animales',
+    'Forzar Cerraduras': 'Forzar cerraduras',
+    'Hablar Idioma (Varios)': 'Hablar idioma (Varios)',
+    'Leer/Escribir': 'Leer/escribir',
+    'Leer Labios': 'Leer labios',
+    'Lengua Arcana (Varios)': 'Lengua arcana (Varios)',
+    'Lengua Secreta (Varios)': 'Lengua secreta (Varios)',
+    'Movimiento Silencioso': 'Movimiento silencioso',
+    'Poner Trampas': 'Poner trampas',
+    'Preparar Venenos': 'Preparar venenos',
+    'Sabiduría Academica (Varios)': 'Sabiduría académica (Varios)',
+    'Sabiduría Popular (Varios)': 'Sabiduría popular (Varios)',
+    'Sentir Magia': 'Sentir magia',
 }
 
 TALENT_CASING = {
@@ -141,4 +164,65 @@ TALENT_CASING = {
     'VISION NOCTURNA': 'Visión nocturna',
     'VISTA EXCELENTE': 'Vista excelente',
     'VOLADOR': 'Volador',
+
+    # wft-prod's original Every-Word-Capitalized convention
+    '¡A Correr!': '¡A correr!',
+    'Afinidad Con El Aethyr': 'Afinidad con el Aethyr',
+    'Amenazador:': 'Amenazador',
+    'Armas Naturales': 'Armas naturales',
+    'Artesania Enana': 'Artesanía enana',
+    'Cirugia': 'Cirugía',
+    'Cortes': 'Cortés',
+    'Desenvainado Rápido': 'Desenvainado rápido',
+    'Disparo Certero': 'Disparo certero',
+    'Disparo Infalible': 'Disparo infalible',
+    'Don De Gentes': 'Don de gentes',
+    'Dotes Artisticas': 'Dotes artísticas',
+    'Equitacion Acrobatica': 'Equitación acrobática',
+    'Especialista En Armas (Varios)': 'Especialista en armas (Varios)',
+    'Experto En Trampas': 'Experto en trampas',
+    'Frenesi': 'Frenesí',
+    'Gato Callejero': 'Gato callejero',
+    'Genio Aritmetico': 'Genio aritmético',
+    'Golpe Conmocionador': 'Golpe conmocionador',
+    'Golpe Letal': 'Golpe letal',
+    'Golpe Poderoso': 'Golpe poderoso',
+    'Guerrero Nato': 'Guerrero nato',
+    'Hechizos Con Armadura': 'Hechizos con armadura',
+    'Intrepido': 'Intrépido',
+    'Levitacion': 'Levitación',
+    'Linguistica': 'Lingüística',
+    'Magia Menor': 'Magia menor',
+    'Magia Oscura': 'Magia oscura',
+    'Magia Pueril': 'Magia pueril',
+    'Magia Vulgar': 'Magia vulgar',
+    'Manos Rapidas': 'Manos rápidas',
+    'Meditacion': 'Meditación',
+    'Muy Fuerte': 'Muy fuerte',
+    'Muy Resistente': 'Muy resistente',
+    'No Muerto': 'No muerto',
+    'Oido Agudizado': 'Oído agudizado',
+    'Orador Experto': 'Orador experto',
+    'Orientacion': 'Orientación',
+    'Parada Veloz': 'Parada veloz',
+    'Pelea Callejera': 'Pelea callejera',
+    'Pericia Subterranea': 'Pericia subterránea',
+    'Pistolero Experto': 'Pistolero experto',
+    'Proyectil Infalible': 'Proyectil infalible',
+    'Punteria': 'Puntería',
+    'Recarga Rapida': 'Recarga rápida',
+    'Reflejos Rapidos': 'Reflejos rápidos',
+    'Resistencia Al Caos': 'Resistencia al Caos',
+    'Resistencia A Enfermedades': 'Resistencia a enfermedades',
+    'Resistencia A La Magia': 'Resistencia a la magia',
+    'Resistencia A Venenos': 'Resistencia a venenos',
+    'Saber Arcano': 'Saber arcano',
+    'Saber Divino': 'Saber divino',
+    'Saber Oscuro': 'Saber oscuro',
+    'Sangre Fria': 'Sangre fría',
+    'Sentidos Desarrollados': 'Sentidos desarrollados',
+    'Sexto Sentido': 'Sexto sentido',
+    'Viajero Curtido': 'Viajero curtido',
+    'Vision Nocturna': 'Visión nocturna',
+    'Vista Excelente': 'Vista excelente',
 }
