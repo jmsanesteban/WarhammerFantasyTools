@@ -36,17 +36,30 @@ def build_graph(professions: list) -> 'nx.DiGraph':
 
 def find_paths(G, start_id: int, end_id: int, max_paths: int = 5, cutoff: int = 10) -> list:
     """
-    Return up to max_paths simple paths from start to end, sorted by length.
+    Return up to max_paths simple paths from start to end, shortest first.
     Each path is a list of profession IDs (including start and end).
+
+    Uses nx.shortest_simple_paths (Yen's algorithm) instead of
+    all_simple_paths: the latter enumerates EVERY simple path up to `cutoff`
+    hops before sorting, which is exponential in dense graphs - with ~230
+    professions and ~1800 exit edges it can hang for minutes. Yen's algorithm
+    yields paths lazily in increasing-length order, so itertools.islice can
+    stop after max_paths without ever exploring the rest. `cutoff` still caps
+    how long a path is allowed to be, applied as a post-filter.
     """
     if not NX_AVAILABLE or G is None:
         return []
     if start_id not in G or end_id not in G:
         return []
     try:
-        paths = list(nx.all_simple_paths(G, source=start_id, target=end_id, cutoff=cutoff))
-        paths.sort(key=len)
-        return paths[:max_paths]
+        found = []
+        for path in nx.shortest_simple_paths(G, source=start_id, target=end_id):
+            if len(path) - 1 > cutoff:
+                break
+            found.append(path)
+            if len(found) >= max_paths:
+                break
+        return found
     except nx.NetworkXNoPath:
         return []
     except Exception as e:
