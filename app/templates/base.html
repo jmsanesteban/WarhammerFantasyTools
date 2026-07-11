@@ -26,7 +26,7 @@
     <div class="collapse navbar-collapse" id="navMain">
       <ul class="navbar-nav me-auto">
         <li class="nav-item dropdown">
-          <a class="nav-link dropdown-toggle {% if request.blueprint in ('professions', 'pathfinder') %}active{% endif %}"
+          <a class="nav-link dropdown-toggle {% if request.blueprint in ('professions', 'pathfinder') or request.endpoint in ('skills_talents.search_skills', 'skills_talents.search_talents') %}active{% endif %}"
              href="#" data-bs-toggle="dropdown">
             <i class="bi bi-person-badge me-1"></i>Profesiones
           </a>
@@ -39,39 +39,27 @@
                    href="{{ url_for('pathfinder.index') }}">
               <i class="bi bi-signpost-split me-2"></i>Buscador de caminos
             </a></li>
-          </ul>
-        </li>
-        <li class="nav-item dropdown">
-          <a class="nav-link dropdown-toggle {% if request.endpoint in ('skills_talents.list_skills', 'skills_talents.skill_detail', 'skills_talents.search_skills') %}active{% endif %}"
-             href="#" data-bs-toggle="dropdown">
-            <i class="bi bi-book me-1"></i>Habilidades
-          </a>
-          <ul class="dropdown-menu dropdown-menu-dark">
-            <li><a class="dropdown-item {% if request.endpoint in ('skills_talents.list_skills', 'skills_talents.skill_detail') %}active{% endif %}"
-                   href="{{ url_for('skills_talents.list_skills') }}">
-              <i class="bi bi-book me-2"></i>Ver habilidades
-            </a></li>
             <li><a class="dropdown-item {% if request.endpoint == 'skills_talents.search_skills' %}active{% endif %}"
                    href="{{ url_for('skills_talents.search_skills') }}">
-              <i class="bi bi-search me-2"></i>Buscar habilidad
-            </a></li>
-          </ul>
-        </li>
-        <li class="nav-item dropdown">
-          <a class="nav-link dropdown-toggle {% if request.endpoint in ('skills_talents.list_talents', 'skills_talents.talent_detail', 'skills_talents.search_talents') %}active{% endif %}"
-             href="#" data-bs-toggle="dropdown">
-            <i class="bi bi-star me-1"></i>Talentos
-          </a>
-          <ul class="dropdown-menu dropdown-menu-dark">
-            <li><a class="dropdown-item {% if request.endpoint in ('skills_talents.list_talents', 'skills_talents.talent_detail') %}active{% endif %}"
-                   href="{{ url_for('skills_talents.list_talents') }}">
-              <i class="bi bi-star me-2"></i>Ver talentos
+              <i class="bi bi-search me-2"></i>Buscar por habilidad
             </a></li>
             <li><a class="dropdown-item {% if request.endpoint == 'skills_talents.search_talents' %}active{% endif %}"
                    href="{{ url_for('skills_talents.search_talents') }}">
-              <i class="bi bi-search me-2"></i>Buscar talento
+              <i class="bi bi-search me-2"></i>Buscar por talento
             </a></li>
           </ul>
+        </li>
+        <li class="nav-item">
+          <a class="nav-link {% if request.endpoint in ('skills_talents.list_skills', 'skills_talents.skill_detail') %}active{% endif %}"
+             href="{{ url_for('skills_talents.list_skills') }}">
+            <i class="bi bi-book me-1"></i>Habilidades
+          </a>
+        </li>
+        <li class="nav-item">
+          <a class="nav-link {% if request.endpoint in ('skills_talents.list_talents', 'skills_talents.talent_detail') %}active{% endif %}"
+             href="{{ url_for('skills_talents.list_talents') }}">
+            <i class="bi bi-star me-1"></i>Talentos
+          </a>
         </li>
         {% if current_user.is_authenticated %}
         <li class="nav-item">
