@@ -7,7 +7,7 @@
 
   <div class="card wh-card mb-4">
     <div class="card-body">
-      <form method="POST">
+      <form method="POST" id="pathfinder-form">
         <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
         <div class="row g-3 align-items-end">
           <div class="col-md-5">
@@ -39,6 +39,36 @@
             <button type="submit" class="btn btn-wh w-100"><i class="bi bi-search"></i></button>
           </div>
         </div>
+
+        <div class="mt-3">
+          <label class="form-label wh-label">
+            Puntos intermedios <small class="text-muted">(opcional — el orden importa)</small>
+          </label>
+          <div id="waypoints-container">
+            {% for wid in waypoint_ids %}
+            <div class="row g-3 align-items-center mb-2 waypoint-row">
+              <div class="col-md-10">
+                <select name="waypoint_id" class="form-select wh-input">
+                  <option value="">— Selecciona —</option>
+                  {% for p in professions %}
+                  <option value="{{ p.id }}" {% if wid == p.id %}selected{% endif %}>
+                    {{ p.name }} ({{ 'Básica' if p.type=='basic' else 'Avanzada' }})
+                  </option>
+                  {% endfor %}
+                </select>
+              </div>
+              <div class="col-md-2">
+                <button type="button" class="btn btn-outline-danger btn-sm remove-waypoint">
+                  <i class="bi bi-trash"></i>
+                </button>
+              </div>
+            </div>
+            {% endfor %}
+          </div>
+          <button type="button" id="add-waypoint" class="btn btn-outline-secondary btn-sm mt-1">
+            <i class="bi bi-plus-lg me-1"></i>Añadir punto intermedio
+          </button>
+        </div>
       </form>
     </div>
   </div>
@@ -49,7 +79,17 @@
       <div class="card-header wh-card-header d-flex justify-content-between align-items-center">
         <span>
           <i class="bi bi-route me-2"></i>
-          {{ result.path_names | join(' → ') }}
+          {% for name in result.path_names %}
+            {% if not loop.first %}
+              {% if loop.index0 in result.branch_points %}
+                <span class="mx-1 wh-branch-arrow" title="Continúa desde {{ result.branch_points[loop.index0] }}, no desde la profesión anterior">
+                  ⇢<small class="text-muted">(desde {{ result.branch_points[loop.index0] }})</small>⇢
+                </span>
+              {% else %}
+                <span class="mx-1">→</span>
+              {% endif %}
+            {% endif %}{{ name }}
+          {% endfor %}
         </span>
         <span class="badge bg-secondary">{{ result.hops }} salto{{ 's' if result.hops != 1 }}</span>
       </div>
@@ -270,4 +310,43 @@
   </div>
   {% endif %}
 </div>
+
+<template id="waypoint-row-template">
+  <div class="row g-3 align-items-center mb-2 waypoint-row">
+    <div class="col-md-10">
+      <select name="waypoint_id" class="form-select wh-input">
+        <option value="">— Selecciona —</option>
+        {% for p in professions %}
+        <option value="{{ p.id }}">{{ p.name }} ({{ 'Básica' if p.type=='basic' else 'Avanzada' }})</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div class="col-md-2">
+      <button type="button" class="btn btn-outline-danger btn-sm remove-waypoint">
+        <i class="bi bi-trash"></i>
+      </button>
+    </div>
+  </div>
+</template>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+  var container = document.getElementById('waypoints-container');
+  var template = document.getElementById('waypoint-row-template');
+
+  document.getElementById('add-waypoint').addEventListener('click', function () {
+    var clone = template.content.cloneNode(true);
+    container.appendChild(clone);
+  });
+
+  container.addEventListener('click', function (evt) {
+    var btn = evt.target.closest('.remove-waypoint');
+    if (btn) {
+      btn.closest('.waypoint-row').remove();
+    }
+  });
+});
+</script>
 {% endblock %}

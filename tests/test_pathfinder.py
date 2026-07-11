@@ -1,7 +1,9 @@
 """Tests for the career pathfinder: graph building, path search, and the
 accumulated-stats computation (max-across-path rule for characteristics,
 deduplication of skills/talents/trappings across the path)."""
-from app.services.pathfinder_service import build_graph, find_paths, compute_path_stats
+from app.services.pathfinder_service import (
+    build_graph, find_paths, find_path_with_waypoints, compute_path_stats,
+)
 from app.models.profession import ProfessionSkill, ProfessionTalent, ProfessionTrapping
 
 
@@ -87,6 +89,66 @@ def test_find_paths_respects_max_paths(db, make_profession):
     G = build_graph(professions)
     paths = find_paths(G, a.id, e.id, max_paths=1)
     assert len(paths) == 1
+
+
+# ── find_path_with_waypoints ─────────────────────────────────────────────────
+
+def test_waypoints_chains_linear_segments(db, make_profession):
+    a = make_profession(name='A')
+    b = make_profession(name='B')
+    c = make_profession(name='C')
+    a.exits.append(b)
+    b.exits.append(c)
+    db.session.commit()
+
+    G = build_graph([a, b, c])
+    route = find_path_with_waypoints(G, [a.id, b.id, c.id])
+    assert route['path_ids'] == [a.id, b.id, c.id]
+    assert route['branch_points'] == {}
+
+
+def test_waypoints_reuses_exit_from_earlier_stop_when_last_stop_is_a_dead_end(db, make_profession):
+    # Sicario -> Asesino works, but Asesino has no exit reaching Tirador.
+    # Sicario, however, also exits directly to Tirador - the route must
+    # detour back through that earlier unlock rather than fail outright.
+    sicario = make_profession(name='Sicario')
+    asesino = make_profession(name='Asesino')
+    tirador = make_profession(name='Tirador')
+    sicario.exits.append(asesino)
+    sicario.exits.append(tirador)
+    db.session.commit()
+
+    G = build_graph([sicario, asesino, tirador])
+    route = find_path_with_waypoints(G, [sicario.id, asesino.id, tirador.id])
+
+    assert route is not None
+    assert route['path_ids'] == [sicario.id, asesino.id, tirador.id]
+    # Tirador (index 2) branches from Sicario, not from Asesino (index 1).
+    assert route['branch_points'] == {2: sicario.id}
+
+
+def test_waypoints_returns_none_when_final_stop_truly_unreachable(db, make_profession):
+    a = make_profession(name='A')
+    b = make_profession(name='B')
+    c = make_profession(name='C')
+    a.exits.append(b)
+    # c is isolated - unreachable from a or b.
+    db.session.commit()
+
+    G = build_graph([a, b, c])
+    assert find_path_with_waypoints(G, [a.id, b.id, c.id]) is None
+
+
+def test_waypoints_skips_a_stop_already_visited(db, make_profession):
+    a = make_profession(name='A')
+    b = make_profession(name='B')
+    a.exits.append(b)
+    db.session.commit()
+
+    G = build_graph([a, b])
+    # a listed again as an intermediate "waypoint" - already visited, just skip it.
+    route = find_path_with_waypoints(G, [a.id, a.id, b.id])
+    assert route['path_ids'] == [a.id, b.id]
 
 
 # ── compute_path_stats ────────────────────────────────────────────────────────
@@ -194,5 +256,36 @@ def test_pathfinder_reports_no_path_found(client, make_profession):
     b = make_profession(name='B')
     resp = client.post('/buscador/', data={'start_id': str(a.id), 'end_id': str(b.id)},
                        follow_redirects=True)
+    assert resp.status_code == 200
+    assert 'no se encontr'.encode('utf-8') in resp.data.lower()
+
+
+def test_pathfinder_route_with_waypoint_finds_path_via_reused_exit(db, client, make_profession):
+    sicario = make_profession(name='Sicario')
+    asesino = make_profession(name='Asesino')
+    tirador = make_profession(name='Tirador')
+    sicario.exits.append(asesino)
+    sicario.exits.append(tirador)
+    db.session.commit()
+
+    resp = client.post('/buscador/', data={
+        'start_id': str(sicario.id),
+        'end_id': str(tirador.id),
+        'waypoint_id': str(asesino.id),
+    }, follow_redirects=True)
+
+    assert resp.status_code == 200
+    assert 'Sicario'.encode('utf-8') in resp.data
+    assert 'Asesino'.encode('utf-8') in resp.data
+    assert 'Tirador'.encode('utf-8') in resp.data
+
+
+def test_pathfinder_route_with_waypoint_reports_no_path(client, make_profession):
+    a = make_profession(name='A')
+    b = make_profession(name='B')
+    c = make_profession(name='C')
+    resp = client.post('/buscador/', data={
+        'start_id': str(a.id), 'end_id': str(c.id), 'waypoint_id': str(b.id),
+    }, follow_redirects=True)
     assert resp.status_code == 200
     assert 'no se encontr'.encode('utf-8') in resp.data.lower()

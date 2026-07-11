@@ -67,6 +67,85 @@ def find_paths(G, start_id: int, end_id: int, max_paths: int = 5, cutoff: int = 
         return []
 
 
+def _multi_source_shortest_path(G, sources: set, target: int) -> Optional[tuple]:
+    """
+    BFS from several source nodes at once. Returns (path, source_used) where
+    path is the node list from source_used to target (inclusive), or None if
+    target isn't reachable from any source. When several sources could reach
+    target, BFS naturally returns the overall-shortest sub-path.
+    """
+    from collections import deque
+
+    if target in sources:
+        return [target], target
+
+    visited = set(sources)
+    parent = {}
+    queue = deque(sources)
+    while queue:
+        node = queue.popleft()
+        if node not in G:
+            continue
+        for nxt in G.successors(node):
+            if nxt in visited:
+                continue
+            visited.add(nxt)
+            parent[nxt] = node
+            if nxt == target:
+                path = [nxt]
+                cur = nxt
+                while cur not in sources:
+                    cur = parent[cur]
+                    path.append(cur)
+                path.reverse()
+                return path, path[0]
+            queue.append(nxt)
+    return None
+
+
+def find_path_with_waypoints(G, stops: list) -> Optional[dict]:
+    """
+    Find a single route through an ordered list of required stops:
+    stops = [start_id, waypoint1_id, ..., waypoint_n_id, end_id].
+
+    Unlike chaining independent start->end lookups, each leg is searched with
+    ALL professions visited so far as valid jump-off points, not just the
+    immediately previous stop - once a career has been part of the route,
+    its exits stay usable for reaching the next stop (mirrors how a
+    character's full career history, not just their current career, opens up
+    later options).
+
+    Returns {'path_ids': [...], 'branch_points': {idx: source_id}} where
+    branch_points marks, by index into path_ids, any leg that continued from
+    an earlier stop rather than from the immediately preceding profession in
+    the displayed list - or None if no route satisfies all the stops.
+    """
+    if not NX_AVAILABLE or G is None or len(stops) < 2:
+        return None
+    for sid in stops:
+        if sid not in G:
+            return None
+
+    full_path = [stops[0]]
+    visited_set = {stops[0]}
+    branch_points = {}
+
+    for target in stops[1:]:
+        if target in visited_set:
+            continue
+        result = _multi_source_shortest_path(G, visited_set, target)
+        if result is None:
+            return None
+        sub_path, source_used = result
+        new_nodes = sub_path[1:]
+        if source_used != full_path[-1]:
+            branch_points[len(full_path)] = source_used
+        full_path.extend(new_nodes)
+        visited_set.update(new_nodes)
+
+    return {'path_ids': full_path, 'branch_points': branch_points}
+
+
 def compute_path_stats(path_ids: list, profession_map: dict) -> dict:
     """
     Compute accumulated stats for a path of profession IDs.
