@@ -1,5 +1,6 @@
 import difflib
 import os
+from collections import Counter
 from flask import (Blueprint, render_template, request, redirect, url_for,
                    flash, Response)
 from flask_login import login_required
@@ -112,19 +113,32 @@ def _search_by_specialization(assoc_model, catalog_model, catalog_field_name, q)
     if not rows:
         return []
 
-    groups = {}
+    # Group case-insensitively: free-text specialization values aren't a
+    # fixed catalog (unlike Skill/Talent.name_es), so the same specialization
+    # entered with different casing on different professions (e.g.
+    # "Genealogía/Heráldica" vs "Genealogía/heráldica") must still count as
+    # one result rather than silently fragmenting into two - the most common
+    # casing across matching rows wins for display.
+    groups = {}  # lowercased label -> {'professions': set(), 'label_counts': Counter}
     for row in rows:
         catalog_item = getattr(row, catalog_field_name)
         label = f'{catalog_item.name_es} ({row.specialization})' if row.specialization else catalog_item.name_es
-        groups.setdefault(label, set()).add(row.profession_id)
+        key = label.lower()
+        group = groups.setdefault(key, {'professions': set(), 'label_counts': Counter()})
+        group['professions'].add(row.profession_id)
+        group['label_counts'][label] += 1
 
-    all_prof_ids = {pid for ids in groups.values() for pid in ids}
+    all_prof_ids = {pid for g in groups.values() for pid in g['professions']}
     prof_map = {p.id: p for p in Profession.query.filter(Profession.id.in_(all_prof_ids)).all()}
 
     results = []
-    for label, prof_ids in groups.items():
-        professions = sorted((prof_map[pid] for pid in prof_ids if pid in prof_map), key=lambda p: p.name)
-        results.append({'label': label, 'professions': professions})
+    for group in groups.values():
+        canonical_label = group['label_counts'].most_common(1)[0][0]
+        professions = sorted(
+            (prof_map[pid] for pid in group['professions'] if pid in prof_map),
+            key=lambda p: p.name,
+        )
+        results.append({'label': canonical_label, 'professions': professions})
     results.sort(key=lambda r: r['label'])
     return results
 

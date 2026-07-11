@@ -75,6 +75,28 @@ def test_search_skills_by_specialization_text(client, make_skill, make_professio
     assert b'Sabiduria academica (Teologia)' in resp.data
 
 
+def test_search_skills_merges_specialization_case_variants(client, make_skill, make_profession, db):
+    # Free-text specializations aren't a fixed catalog, so the same value
+    # entered with different casing on different professions (a real bug
+    # found in prod/prepro data) must still count as ONE result group, not
+    # silently fragment into two separate cards.
+    from app.models.profession import ProfessionSkill
+    skill = make_skill(name_es='Sabiduria academica')
+    prof_a = make_profession(name='Heraldo')
+    prof_b = make_profession(name='Ayuda de camara')
+    db.session.add(ProfessionSkill(profession_id=prof_a.id, skill_id=skill.id, specialization='Genealogia/Heraldica'))
+    db.session.add(ProfessionSkill(profession_id=prof_b.id, skill_id=skill.id, specialization='Genealogia/heraldica'))
+    db.session.commit()
+
+    resp = client.get('/habilidades/buscar?q=genealogia')
+    assert resp.status_code == 200
+    text = resp.data.decode('utf-8')
+    assert 'Heraldo' in text
+    assert 'Ayuda de camara' in text
+    # Exactly one result card - not one per casing variant.
+    assert text.count('card-header wh-card-header') == 1
+
+
 def test_search_skills_by_text_no_match_reports_empty(client):
     resp = client.get('/habilidades/buscar?q=noexisteestacosa')
     assert resp.status_code == 200
