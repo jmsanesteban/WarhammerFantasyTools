@@ -90,6 +90,13 @@ def list_skills():
     )
 
 
+@skills_talents_bp.route('/habilidades/buscar')
+def search_skills():
+    skills = Skill.query.order_by(Skill.name_es).all()
+    options = [{'id': s.id, 'name': s.name_es} for s in skills]
+    return render_template('skills/search.html', options=options)
+
+
 @skills_talents_bp.route('/habilidades/<int:skill_id>')
 def skill_detail(skill_id):
     skill    = Skill.query.get_or_404(skill_id)
@@ -288,6 +295,13 @@ def list_talents():
 
     talents = query.order_by(Talent.name_es).all()
     return render_template('talents/list.html', talents=talents, search=search, search_all=search_all)
+
+
+@skills_talents_bp.route('/talentos/buscar')
+def search_talents():
+    talents = Talent.query.order_by(Talent.name_es).all()
+    options = [{'id': t.id, 'name': t.name_es} for t in talents]
+    return render_template('talents/search.html', options=options)
 
 
 @skills_talents_bp.route('/talentos/<int:talent_id>')

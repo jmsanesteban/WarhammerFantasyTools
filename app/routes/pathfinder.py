@@ -45,7 +45,7 @@ def index():
                 }
                 results = [{
                     'path_ids': route['path_ids'],
-                    'path_names': [prof_map[pid].name for pid in route['path_ids'] if pid in prof_map],
+                    'path_steps': [{'id': pid, 'name': prof_map[pid].name} for pid in route['path_ids'] if pid in prof_map],
                     'branch_points': branch_points_named,
                     'stats': stats,
                     'hops': len(route['path_ids']) - 1,
@@ -60,7 +60,7 @@ def index():
                     stats = compute_path_stats(path_ids, prof_map)
                     results.append({
                         'path_ids': path_ids,
-                        'path_names': [prof_map[pid].name for pid in path_ids if pid in prof_map],
+                        'path_steps': [{'id': pid, 'name': prof_map[pid].name} for pid in path_ids if pid in prof_map],
                         'branch_points': {},
                         'stats': stats,
                         'hops': len(path_ids) - 1,

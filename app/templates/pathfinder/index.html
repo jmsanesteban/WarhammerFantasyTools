@@ -79,7 +79,7 @@
       <div class="card-header wh-card-header d-flex justify-content-between align-items-center">
         <span>
           <i class="bi bi-route me-2"></i>
-          {% for name in result.path_names %}
+          {% for step in result.path_steps %}
             {% if not loop.first %}
               {% if loop.index0 in result.branch_points %}
                 <span class="mx-1 wh-branch-arrow" title="Continúa desde {{ result.branch_points[loop.index0] }}, no desde la profesión anterior">
@@ -88,7 +88,7 @@
               {% else %}
                 <span class="mx-1">→</span>
               {% endif %}
-            {% endif %}{{ name }}
+            {% endif %}<a href="{{ url_for('professions.detail', prof_id=step.id) }}" class="wh-link">{{ step.name }}</a>
           {% endfor %}
         </span>
         <span class="badge bg-secondary">{{ result.hops }} salto{{ 's' if result.hops != 1 }}</span>

@@ -1,0 +1,44 @@
+{% extends 'base.html' %}
+{% block title %}Buscador de Habilidades — Warhammer Fantasy Tools{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+  <nav aria-label="breadcrumb">
+    <ol class="breadcrumb wh-breadcrumb">
+      <li class="breadcrumb-item"><a href="{{ url_for('skills_talents.list_skills') }}" class="wh-link">Habilidades</a></li>
+      <li class="breadcrumb-item active">Buscador</li>
+    </ol>
+  </nav>
+
+  <h2 class="wh-heading mb-4"><i class="bi bi-search me-2"></i>Buscador de Habilidades</h2>
+
+  <div class="card wh-card mb-4">
+    <div class="card-body">
+      <label class="form-label wh-label">Escribe el nombre de una habilidad</label>
+      <div class="prof-picker" id="skill-picker" style="max-width:480px;">
+        <input type="hidden" class="prof-picker-hidden">
+        <input type="text" class="form-control wh-input prof-picker-input" autocomplete="off"
+               placeholder="Buscar habilidad…" autofocus>
+        <div class="prof-picker-dropdown"></div>
+      </div>
+      <p class="text-muted small mt-2 mb-0">
+        Selecciona una habilidad de la lista para ver todas las profesiones que la otorgan.
+      </p>
+    </div>
+  </div>
+</div>
+
+<script src="{{ url_for('static', filename='js/profession_picker.js') }}"></script>
+<script>
+  const skillOptions = {{ options | tojson }};
+  const skillPickerRoot = document.getElementById('skill-picker');
+  initProfessionPickers(document, { options: skillOptions, exitsMap: null });
+
+  skillPickerRoot.addEventListener('prof-picker:change', function () {
+    const id = skillPickerRoot.querySelector('.prof-picker-hidden').value;
+    if (id) {
+      window.location.href = '{{ url_for("skills_talents.skill_detail", skill_id=999999999) }}'.replace('999999999', id);
+    }
+  });
+</script>
+{% endblock %}

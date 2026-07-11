@@ -48,6 +48,18 @@ def test_skill_detail_shows_professions_using_it(client, make_skill, make_profes
     assert b'Alborotador' in resp.data
 
 
+def test_search_skills_page_embeds_all_skill_names(client, make_skill):
+    # Names picked without accents: they're embedded via Jinja's |tojson
+    # filter (ensure_ascii), so an accented name would show up as a \uXXXX
+    # escape rather than the literal character in the raw response bytes.
+    make_skill(name_es='Regatear')
+    make_skill(name_es='Callejeo')
+    resp = client.get('/habilidades/buscar')
+    assert resp.status_code == 200
+    assert b'Regatear' in resp.data
+    assert b'Callejeo' in resp.data
+
+
 def test_create_skill_requires_permission(client, regular_user, login_as):
     login_as(client, regular_user, 'userpass123')
     resp = client.get('/habilidades/nueva')
@@ -223,6 +235,15 @@ def test_talent_detail_shows_professions_using_it(client, make_talent, make_prof
     resp = client.get(f'/talentos/{talent.id}')
     assert resp.status_code == 200
     assert b'Alborotador' in resp.data
+
+
+def test_search_talents_page_embeds_all_talent_names(client, make_talent):
+    make_talent(name_es='Ambidiestro')
+    make_talent(name_es='Suerte')
+    resp = client.get('/talentos/buscar')
+    assert resp.status_code == 200
+    assert b'Ambidiestro' in resp.data
+    assert b'Suerte' in resp.data
 
 
 def test_create_talent_requires_permission(client, regular_user, login_as):
