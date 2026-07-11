@@ -60,6 +60,27 @@ def test_search_skills_page_embeds_all_skill_names(client, make_skill):
     assert b'Callejeo' in resp.data
 
 
+def test_search_skills_by_specialization_text(client, make_skill, make_profession, db):
+    # "Teologia" isn't its own Skill catalog entry - it only exists as the
+    # `specialization` value on a ProfessionSkill row for "Sabiduria academica".
+    from app.models.profession import ProfessionSkill
+    skill = make_skill(name_es='Sabiduria academica')
+    prof = make_profession(name='Sacerdote')
+    db.session.add(ProfessionSkill(profession_id=prof.id, skill_id=skill.id, specialization='Teologia'))
+    db.session.commit()
+
+    resp = client.get('/habilidades/buscar?q=Teologia')
+    assert resp.status_code == 200
+    assert b'Sacerdote' in resp.data
+    assert b'Sabiduria academica (Teologia)' in resp.data
+
+
+def test_search_skills_by_text_no_match_reports_empty(client):
+    resp = client.get('/habilidades/buscar?q=noexisteestacosa')
+    assert resp.status_code == 200
+    assert 'Sin resultados'.encode('utf-8') in resp.data
+
+
 def test_create_skill_requires_permission(client, regular_user, login_as):
     login_as(client, regular_user, 'userpass123')
     resp = client.get('/habilidades/nueva')
@@ -244,6 +265,19 @@ def test_search_talents_page_embeds_all_talent_names(client, make_talent):
     assert resp.status_code == 200
     assert b'Ambidiestro' in resp.data
     assert b'Suerte' in resp.data
+
+
+def test_search_talents_by_specialization_text(client, make_talent, make_profession, db):
+    from app.models.profession import ProfessionTalent
+    talent = make_talent(name_es='Especialista en armas')
+    prof = make_profession(name='Duelista')
+    db.session.add(ProfessionTalent(profession_id=prof.id, talent_id=talent.id, specialization='Esgrima'))
+    db.session.commit()
+
+    resp = client.get('/talentos/buscar?q=Esgrima')
+    assert resp.status_code == 200
+    assert b'Duelista' in resp.data
+    assert b'Especialista en armas (Esgrima)' in resp.data
 
 
 def test_create_talent_requires_permission(client, regular_user, login_as):

@@ -26,6 +26,52 @@
       </p>
     </div>
   </div>
+
+  <div class="card wh-card mb-4">
+    <div class="card-body">
+      <label class="form-label wh-label">O busca por texto libre</label>
+      <form method="GET" class="d-flex gap-2" style="max-width:480px;">
+        <input type="text" name="q" class="form-control wh-input" value="{{ q or '' }}"
+               placeholder="p. ej. &quot;teología&quot;, &quot;sabiduría académica&quot;…" autocomplete="off">
+        <button class="btn btn-wh px-3" type="submit"><i class="bi bi-search"></i></button>
+      </form>
+      <p class="text-muted small mt-2 mb-0">
+        Busca también en las <strong>especializaciones</strong> (p. ej. "Sabiduría académica (Teología)"),
+        que no son habilidades propias y no aparecen en el desplegable de arriba.
+      </p>
+    </div>
+  </div>
+
+  {% if q %}
+    {% if results %}
+    <h4 class="wh-heading mb-3">Resultados para «{{ q }}»</h4>
+    {% for group in results %}
+    <div class="card wh-card mb-3">
+      <div class="card-header wh-card-header"><i class="bi bi-book me-2"></i>{{ group.label }}</div>
+      <div class="card-body">
+        <div class="row g-2">
+          {% for prof in group.professions %}
+          <div class="col-md-3">
+            <a href="{{ url_for('professions.detail', prof_id=prof.id) }}" class="text-decoration-none">
+              <div class="card wh-card-sm text-center p-2">
+                <small class="wh-name">{{ prof.name }}</small>
+                {% if prof.type == 'basic' %}
+                <span class="badge-wh-basic mt-1">Básica</span>
+                {% else %}
+                <span class="badge-wh-advanced mt-1">Avanzada</span>
+                {% endif %}
+              </div>
+            </a>
+          </div>
+          {% endfor %}
+        </div>
+      </div>
+    </div>
+    {% endfor %}
+    {% else %}
+    <p class="text-muted">Sin resultados para «{{ q }}».</p>
+    {% endif %}
+  {% endif %}
 </div>
 
 <script src="{{ url_for('static', filename='js/profession_picker.js') }}"></script>

@@ -90,11 +90,54 @@ def list_skills():
     )
 
 
+def _search_by_specialization(assoc_model, catalog_model, catalog_field_name, q):
+    """
+    Free-text search across a profession-skill/talent association table,
+    matching either the catalog item's name (name_es) or its specialization
+    text (e.g. 'Sabiduría académica (Teología)' isn't its own catalog entry -
+    'Teología' only exists as the `specialization` value on whichever
+    ProfessionSkill rows chose it). Returns a list of
+    {'label': 'Sabiduría académica (Teología)', 'professions': [Profession]}
+    grouped by (catalog item, specialization) and sorted by label.
+    """
+    rows = (
+        assoc_model.query
+        .join(catalog_model)
+        .filter(
+            catalog_model.name_es.ilike(f'%{q}%')
+            | assoc_model.specialization.ilike(f'%{q}%')
+        )
+        .all()
+    )
+    if not rows:
+        return []
+
+    groups = {}
+    for row in rows:
+        catalog_item = getattr(row, catalog_field_name)
+        label = f'{catalog_item.name_es} ({row.specialization})' if row.specialization else catalog_item.name_es
+        groups.setdefault(label, set()).add(row.profession_id)
+
+    all_prof_ids = {pid for ids in groups.values() for pid in ids}
+    prof_map = {p.id: p for p in Profession.query.filter(Profession.id.in_(all_prof_ids)).all()}
+
+    results = []
+    for label, prof_ids in groups.items():
+        professions = sorted((prof_map[pid] for pid in prof_ids if pid in prof_map), key=lambda p: p.name)
+        results.append({'label': label, 'professions': professions})
+    results.sort(key=lambda r: r['label'])
+    return results
+
+
 @skills_talents_bp.route('/habilidades/buscar')
 def search_skills():
     skills = Skill.query.order_by(Skill.name_es).all()
     options = [{'id': s.id, 'name': s.name_es} for s in skills]
-    return render_template('skills/search.html', options=options)
+
+    q = request.args.get('q', '').strip()
+    results = _search_by_specialization(ProfessionSkill, Skill, 'skill', q) if q else None
+
+    return render_template('skills/search.html', options=options, q=q, results=results)
 
 
 @skills_talents_bp.route('/habilidades/<int:skill_id>')
@@ -301,7 +344,11 @@ def list_talents():
 def search_talents():
     talents = Talent.query.order_by(Talent.name_es).all()
     options = [{'id': t.id, 'name': t.name_es} for t in talents]
-    return render_template('talents/search.html', options=options)
+
+    q = request.args.get('q', '').strip()
+    results = _search_by_specialization(ProfessionTalent, Talent, 'talent', q) if q else None
+
+    return render_template('talents/search.html', options=options, q=q, results=results)
 
 
 @skills_talents_bp.route('/talentos/<int:talent_id>')
