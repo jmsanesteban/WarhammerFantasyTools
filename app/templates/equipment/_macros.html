@@ -48,9 +48,9 @@
 <div class="card wh-card h-100">
   <div class="row g-0 h-100">
     {% if item.image_path %}
-    <div class="col-4">
+    <div class="col-4 wh-card-img-wrap">
       <img src="{{ url_for('main.uploaded_file', filename=item.image_path) }}"
-           class="wh-card-img-left" alt="{{ item.name }}">
+           class="wh-card-img-left wh-lightbox-trigger" alt="{{ item.name }}">
     </div>
     {% endif %}
     <div class="{% if item.image_path %}col-8{% else %}col-12{% endif %} d-flex flex-column">

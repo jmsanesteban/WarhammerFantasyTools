@@ -29,6 +29,25 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   });
 
+  // Equipment images: click to open a full-size lightbox (complements the
+  // hover-zoom in custom.css, which is only meant as a quick peek).
+  const lightbox = document.getElementById('whLightbox');
+  const lightboxImg = lightbox ? lightbox.querySelector('img') : null;
+  if (lightbox && lightboxImg) {
+    document.querySelectorAll('.wh-lightbox-trigger').forEach(img => {
+      img.addEventListener('click', () => {
+        lightboxImg.src = img.src;
+        lightboxImg.alt = img.alt;
+        lightbox.classList.add('wh-lightbox-open');
+      });
+    });
+    const closeLightbox = () => lightbox.classList.remove('wh-lightbox-open');
+    lightbox.addEventListener('click', closeLightbox);
+    document.addEventListener('keydown', e => {
+      if (e.key === 'Escape') closeLightbox();
+    });
+  }
+
   // Contactos: drag-to-reorder field definitions
   const fieldsTbody = document.getElementById('fieldsTbody');
   if (fieldsTbody) {
