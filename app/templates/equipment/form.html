@@ -13,6 +13,10 @@
     <div class="row g-4">
       <div class="col-md-4">
         <div class="wh-detail-img-wrap mb-2" id="image-preview-wrap">
+          <div class="wh-img-backdrop-clip">
+            <div class="wh-img-backdrop" id="image-preview-backdrop"
+                 {% if item and item.image_path %}style="background-image:url('{{ url_for('main.uploaded_file', filename=item.image_path) }}')"{% endif %}></div>
+          </div>
           {% if item and item.image_path %}
           <img src="{{ url_for('main.uploaded_file', filename=item.image_path) }}"
                class="wh-detail-img" alt="" id="image-preview">
@@ -170,13 +174,16 @@ document.addEventListener('DOMContentLoaded', function () {
   const imageInput = document.getElementById('image-input');
   const imagePreview = document.getElementById('image-preview');
   const imagePlaceholder = document.getElementById('image-preview-placeholder');
+  const imageBackdrop = document.getElementById('image-preview-backdrop');
   if (imageInput && imagePreview) {
     imageInput.addEventListener('change', function () {
       const file = imageInput.files[0];
       if (!file) return;
-      imagePreview.src = URL.createObjectURL(file);
+      const url = URL.createObjectURL(file);
+      imagePreview.src = url;
       imagePreview.classList.remove('d-none');
       if (imagePlaceholder) imagePlaceholder.classList.add('d-none');
+      if (imageBackdrop) imageBackdrop.style.backgroundImage = `url('${url}')`;
     });
   }
 });
