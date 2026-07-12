@@ -1077,6 +1077,11 @@
     setPHCredit('historial_caracteristicas', r.history_points || 0);
     updateHorasSueno();
     renderFinalCaracteristicas();
+    const spec = TABLES.razas_caracteristicas[raceGroup(race)];
+    const rolls = r.rolls || {};
+    selectPickerRowByRoll(spec.wounds_table, rolls.heridas_d10);
+    selectPickerRowByRoll(spec.fate_points_table, rolls.destino_d10);
+    selectPickerRowByRoll(spec.history_points_table, rolls.historial_d10);
   }));
 
   /* Tiradas independientes: rehacer solo Heridas/Destino/Historial sin tener
