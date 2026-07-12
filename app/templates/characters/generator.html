@@ -779,8 +779,21 @@
         }
         opts.onSelect(row, btn);
       });
+      row.__pickerBtn = btn;
       container.appendChild(btn);
     });
+  }
+
+  // Marks the picker-row matching a dice roll as selected, mirroring what a
+  // manual click on that row already does (used by the standalone Tirar
+  // buttons for tables whose picker is always rendered, e.g. Heridas/Destino/
+  // Puntos de Historial).
+  function selectPickerRowByRoll(rows, roll) {
+    const row = rows.find(r => roll >= r.min && roll <= r.max);
+    if (!row || !row.__pickerBtn) return;
+    const container = row.__pickerBtn.parentElement;
+    container.querySelectorAll('.picker-row').forEach(b => b.classList.remove('picker-selected'));
+    row.__pickerBtn.classList.add('picker-selected');
   }
 
   function toggleBox(boxId, onFirstShow) {
@@ -1073,18 +1086,21 @@
     if (!race) { alert('Elige primero una raza.'); return; }
     const r = await rollStep('heridas', { raza: race });
     document.getElementById('f-wounds').value = r.value;
+    selectPickerRowByRoll(TABLES.razas_caracteristicas[raceGroup(race)].wounds_table, r.roll);
   }));
   document.getElementById('btn-roll-destino').addEventListener('click', safe(async () => {
     const race = currentRace();
     if (!race) { alert('Elige primero una raza.'); return; }
     const r = await rollStep('destino', { raza: race });
     document.getElementById('f-fate_points').value = r.value;
+    selectPickerRowByRoll(TABLES.razas_caracteristicas[raceGroup(race)].fate_points_table, r.roll);
   }));
   document.getElementById('btn-roll-historial').addEventListener('click', safe(async () => {
     const race = currentRace();
     if (!race) { alert('Elige primero una raza.'); return; }
     const r = await rollStep('historial', { raza: race });
     setPHCredit('historial_caracteristicas', r.value || 0);
+    selectPickerRowByRoll(TABLES.razas_caracteristicas[raceGroup(race)].history_points_table, r.roll);
   }));
 
   /* Renders the dice-formula "explanation" for each stat using the exact same
