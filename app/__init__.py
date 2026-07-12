@@ -224,6 +224,12 @@ def _register_cli_commands(app):
                         'REFERENCES users(id) ON DELETE SET NULL'
                     ))
                     click.echo('  Added users.created_by_id')
+                if 'puede_anadir_equipo_sin_coste' not in user_cols:
+                    conn.execute(text(
+                        'ALTER TABLE users ADD COLUMN puede_anadir_equipo_sin_coste '
+                        'BOOLEAN NOT NULL DEFAULT FALSE'
+                    ))
+                    click.echo('  Added users.puede_anadir_equipo_sin_coste')
 
             # Incremental columns: characters (character creation wizard)
             char_cols = {c['name'] for c in inspector.get_columns('characters')}
@@ -379,7 +385,7 @@ def _register_cli_commands(app):
             # the later block runs.
             if inspector.has_table('equipment_items'):
                 equip_cols = {c['name'] for c in inspector.get_columns('equipment_items')}
-                from app.models.equipment import parse_price_text, is_clase_social_scaled
+                from app.models.equipment import parse_price_text, is_clase_social_scaled, parse_price_units
 
                 if 'precio_peniques' not in equip_cols:
                     with db.engine.begin() as conn:
@@ -425,6 +431,41 @@ def _register_cli_commands(app):
                                     {'p': new_peniques, 'id': row_id},
                                 )
                     click.echo(f'  Flagged {flagged} equipment item(s) as Clase-social-scaled')
+
+                if 'unidades_por_precio' not in equip_cols:
+                    with db.engine.begin() as conn:
+                        conn.execute(text(
+                            'ALTER TABLE equipment_items ADD COLUMN '
+                            'unidades_por_precio INT NOT NULL DEFAULT 1'
+                        ))
+                    click.echo('  Added equipment_items.unidades_por_precio')
+                    with db.engine.begin() as conn:
+                        # Ammo prices like "1C (5)" never matched the old
+                        # parser (no support for a trailing batch size), so
+                        # every ammo row was left with precio_peniques NULL -
+                        # only rows still unparsed are touched here.
+                        rows = conn.execute(text(
+                            'SELECT id, price_text FROM equipment_items '
+                            'WHERE price_text IS NOT NULL AND precio_peniques IS NULL'
+                        )).fetchall()
+                        backfilled = 0
+                        for row_id, price_text in rows:
+                            base_text, units = parse_price_units(price_text)
+                            peniques = parse_price_text(base_text)
+                            if peniques is not None:
+                                conn.execute(
+                                    text('UPDATE equipment_items SET precio_peniques = :p, '
+                                         'unidades_por_precio = :u, precio_escala_clase_social = :c '
+                                         'WHERE id = :id'),
+                                    {'p': peniques, 'u': units, 'c': is_clase_social_scaled(base_text), 'id': row_id},
+                                )
+                                backfilled += 1
+                    click.echo(f'  Backfilled batch pricing for {backfilled} equipment item(s)')
+
+                if 'peso' not in equip_cols:
+                    with db.engine.begin() as conn:
+                        conn.execute(text('ALTER TABLE equipment_items ADD COLUMN peso FLOAT NULL'))
+                    click.echo('  Added equipment_items.peso')
 
             # Incremental column: character_inventory_items.condition
             # (placeholder JSON for the future wear/damage/repair phase - unused today)

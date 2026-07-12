@@ -44,7 +44,10 @@
    catalog (equipment/list.html) and a character's shop (characters/tienda.html).
    Passing buy_url swaps the admin Editar/Eliminar footer for a Comprar button -
    the two contexts never show both actions at once. #}
-{% macro equipment_card(item, buy_url=None) %}
+{% macro equipment_card(item, buy_url=None, quality=None) %}
+{# A quality is only meaningful to show for Arma/Armadura - Ropa's quality
+   IS the row (item.quality is already set), and Especial is GM-priced. #}
+{% set show_quality = quality and item.category in ('arma', 'armadura') %}
 <div class="card wh-card h-100">
   <div class="row g-0 h-100">
     {% if item.image_path %}
@@ -57,15 +60,23 @@
     <div class="{% if item.image_path %}col-8{% else %}col-12{% endif %} d-flex flex-column">
       <div class="card-body">
         <h5 class="card-title wh-name mb-1">
-          <a href="{{ url_for('equipment.detail', item_id=item.id) }}" class="wh-link text-decoration-none">{{ item.name }}</a>
+          <a href="{{ url_for('equipment.detail', item_id=item.id, quality=quality if show_quality else none) }}" class="wh-link text-decoration-none">{{ item.name }}</a>
         </h5>
         <div class="d-flex gap-1 flex-wrap mb-2">
           <span class="badge bg-secondary">{{ item.category_label }}</span>
           {% if item.subcategory %}<span class="badge bg-dark">{{ item.subcategory_label }}</span>{% endif %}
           {% if item.quality %}<span class="badge bg-info text-dark">{{ item.quality_label }}</span>{% endif %}
+          {% if show_quality %}<span class="badge bg-info text-dark">Calidad: {{ item.QUALITY_LABELS[quality] }}</span>{% endif %}
           {% if item.is_special %}<span class="badge bg-warning text-dark">Especial</span>{% endif %}
         </div>
-        {% if item.price_text %}<p class="card-text small text-muted mb-2">{{ item.price_text }}</p>{% endif %}
+        {% if show_quality %}
+          {% set q_price = item.price_for_quality(quality) %}
+          <p class="card-text small text-muted mb-2">{{ q_price | money if q_price is not none else item.price_text }}</p>
+        {% elif item.price_text %}
+          <p class="card-text small text-muted mb-2">{{ item.price_text }}</p>
+        {% endif %}
+        {% set q_peso = item.peso_for_quality(quality) %}
+        {% if q_peso is not none %}<p class="card-text small text-muted mb-2">Peso: {{ q_peso }}</p>{% endif %}
 
         {% if item.base_item %}
         <p class="small mb-2">
@@ -74,7 +85,7 @@
         </p>
         {% endif %}
 
-        {{ stats_table(item.stats) }}
+        {{ stats_table(item.stats_for_quality(quality) if show_quality else item.stats) }}
         {{ stats_table(item.custom_fields) }}
 
         {% if item.description %}

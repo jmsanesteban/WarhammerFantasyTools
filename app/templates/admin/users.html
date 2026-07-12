@@ -107,6 +107,14 @@
                   <i class="bi {% if user.active %}bi-pause-circle{% else %}bi-play-circle{% endif %}"></i>
                 </button>
               </form>
+              <form method="POST" action="{{ url_for('admin.toggle_no_cost_equipment', user_id=user.id) }}"
+                    class="d-inline">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <button class="btn btn-sm {% if user.puede_anadir_equipo_sin_coste %}btn-warning{% else %}btn-outline-secondary{% endif %}"
+                        title="{{ 'Quitar alta de equipo sin coste' if user.puede_anadir_equipo_sin_coste else 'Permitir alta de equipo sin coste' }}">
+                  <i class="bi bi-box-seam"></i>
+                </button>
+              </form>
               {% if user.id != current_user.id %}
               <form method="POST" action="{{ url_for('admin.delete_user', user_id=user.id) }}"
                     class="d-inline"

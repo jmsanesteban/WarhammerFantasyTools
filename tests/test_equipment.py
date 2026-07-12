@@ -55,6 +55,160 @@ def test_list_filters_by_search(client, make_equipment_item):
     assert b'Espada' not in resp.data
 
 
+# ── Per-category menus ───────────────────────────────────────────────────────
+
+def test_category_route_shows_only_that_category(client, make_equipment_item):
+    make_equipment_item(name='Daga', category='arma')
+    make_equipment_item(name='Gorro Acolchado', category='armadura')
+    resp = client.get('/equipamiento/armaduras')
+    assert resp.status_code == 200
+    assert b'Gorro Acolchado' in resp.data
+    assert b'Daga' not in resp.data
+
+
+def test_category_route_header_shows_category_context(client):
+    resp = client.get('/equipamiento/armas')
+    assert 'Equipamiento — Arma'.encode('utf-8') in resp.data
+
+
+def test_category_route_hides_category_dropdown(client):
+    resp = client.get('/equipamiento/armas')
+    assert b'name="category"' not in resp.data
+
+
+def test_full_catalog_keeps_category_dropdown(client):
+    resp = client.get('/equipamiento/')
+    assert b'name="category"' in resp.data
+
+
+def test_category_route_still_respects_other_filters(client, make_equipment_item):
+    make_equipment_item(name='Daga', category='arma', subcategory='cuerpo_a_cuerpo')
+    make_equipment_item(name='Arco Corto', category='arma', subcategory='distancia')
+    resp = client.get('/equipamiento/armas?subcategory=distancia')
+    assert b'Arco Corto' in resp.data
+    assert b'Daga' not in resp.data
+
+
+# ── Quality-dynamic display (armas/armaduras) ───────────────────────────────
+
+def test_quality_filter_does_not_hide_weapons(client, make_equipment_item):
+    """Arma/armadura rows never have `quality` set (it's a purchase-time
+    modifier, not a catalog attribute) - filtering by quality used to zero
+    out the whole list; now it should keep showing the same rows."""
+    make_equipment_item(name='Daga', category='arma')
+    resp = client.get('/equipamiento/armas?quality=mala')
+    assert resp.status_code == 200
+    assert b'Daga' in resp.data
+
+
+def test_quality_filter_shows_adjusted_stats_and_price(client, make_equipment_item):
+    make_equipment_item(name='Daga', category='arma', price_text='4 CO', precio_peniques=960,
+                         stats={'daño': '1D6+1', 'aguante': '40%', 'parada': '-10%'})
+    resp = client.get('/equipamiento/armas?quality=mala')
+    body = resp.data.decode('utf-8')
+    assert '1D6' in body and '1D6+1' not in body  # -1 daño: "1D6+1" -> "1D6"
+    assert '35%' in body  # -5% aguante: 40% -> 35%
+    assert '-15%' in body  # -5% al uso acumulado sobre el -10% propio
+
+
+def test_quality_filter_leaves_ropa_untouched(client, make_equipment_item):
+    """Ropa's quality IS the row - filtering by it should behave exactly as
+    before (only rows of that literal quality)."""
+    make_equipment_item(name='Ropa Harapienta', category='ropa', quality='mala')
+    make_equipment_item(name='Ropa Noble', category='ropa', quality='excelente')
+    resp = client.get('/equipamiento/ropa?quality=mala')
+    assert b'Ropa Harapienta' in resp.data
+    assert b'Ropa Noble' not in resp.data
+
+
+def test_ammo_stats_never_adjusted_by_quality(client, make_equipment_item):
+    make_equipment_item(name='Flecha/virote común', category='arma', subcategory='municion',
+                         stats={'uso': '-', 'daño': '-'})
+    resp = client.get('/equipamiento/armas?quality=excelente')
+    assert resp.status_code == 200  # renders fine, no crash from stats_for_quality on ammo
+
+
+def test_detail_shows_quality_adjusted_stats(client, make_equipment_item):
+    item = make_equipment_item(name='Daga', category='arma', stats={'daño': '1D6+1', 'aguante': '40%'})
+    resp = client.get(f'/equipamiento/{item.id}?quality=excelente')
+    body = resp.data.decode('utf-8')
+    assert '1D6+2' in body  # +1 daño: "1D6+1" -> "1D6+2"
+    assert '45%' in body  # +5% aguante: 40% -> 45%
+
+
+# ── stats_for_quality / adjust_*_stat helpers (model-level) ─────────────────
+
+def test_stats_for_quality_accumulates_on_own_modifier():
+    item = EquipmentItem(name='Daga', category='arma',
+                          stats={'daño': '1D6+1', 'aguante': '40%', 'parada': '-10%', 'ataque': '-'})
+    mala = item.stats_for_quality('mala')
+    assert mala['daño'] == '1D6'
+    assert mala['aguante'] == '35%'
+    assert mala['parada'] == '-15%'
+    assert mala['ataque'] == '-5%'  # own modifier was "-" (0), quality fills it in
+
+    excelente = item.stats_for_quality('excelente')
+    assert excelente['daño'] == '1D6+2'
+    assert excelente['aguante'] == '45%'
+    assert excelente['parada'] == '-5%'
+
+
+def test_stats_for_quality_buena_has_no_stat_change():
+    item = EquipmentItem(name='Espada', category='arma', stats={'daño': '1D10', 'aguante': '50%'})
+    buena = item.stats_for_quality('buena')
+    assert buena == item.stats
+
+
+def test_stats_for_quality_leaves_unparseable_fields_untouched():
+    item = EquipmentItem(name='Maza de guerra', category='arma', stats={'daño': '1D10 + 1D4'})
+    mala = item.stats_for_quality('mala')
+    assert mala['daño'] == '1D10 + 1D4'  # compound dice, no flat bonus to adjust - left as-is
+
+
+def test_stats_for_quality_returns_unchanged_for_armadura():
+    item = EquipmentItem(name='Gorro Acolchado', category='armadura',
+                          stats={'armadura': 1, 'agilidad_por_calidad': {'mala': '-3', 'normal': '-2',
+                                                                          'buena': '-2', 'excelente': '-1'}})
+    assert item.stats_for_quality('mala') == item.stats
+
+
+# ── peso_for_quality ─────────────────────────────────────────────────────────
+
+def test_peso_for_quality_returns_stored_value_for_non_armadura():
+    item = EquipmentItem(name='Daga', category='arma', peso=1.0)
+    assert item.peso_for_quality() == 1.0
+    assert item.peso_for_quality('excelente') == 1.0  # weapon weight never varies by quality
+
+
+def test_peso_for_quality_derives_from_agilidad_por_calidad_for_armadura():
+    item = EquipmentItem(name='Gorro Acolchado', category='armadura', peso=None,
+                          stats={'agilidad_por_calidad': {'mala': '-3', 'normal': '-2',
+                                                           'buena': '-2', 'excelente': '-1'}})
+    assert item.peso_for_quality('mala') == 3.0
+    assert item.peso_for_quality('excelente') == 1.0
+
+
+def test_peso_for_quality_derives_from_agilidad_for_shields():
+    item = EquipmentItem(name='Torre', category='armadura', subcategory='escudos',
+                          peso=None, stats={'agilidad': '-15'})
+    assert item.peso_for_quality() == 15.0
+
+
+def test_peso_for_quality_falls_back_to_stored_peso_when_agilidad_is_dash():
+    """Rodela has agilidad "-" (genuinely zero in the book) but still has
+    real bulk - the book gives it an explicit flat weight instead."""
+    item = EquipmentItem(name='Rodela', category='armadura', subcategory='escudos',
+                          peso=3.0, stats={'agilidad': '-'})
+    assert item.peso_for_quality() == 3.0
+
+
+def test_peso_for_quality_parses_dual_agilidad_values():
+    item = EquipmentItem(name='Perneras', category='armadura', peso=None,
+                          stats={'agilidad_por_calidad': {'mala': '-1/-1', 'normal': '-1/-1',
+                                                           'buena': '-1/-1', 'excelente': '-1/-1'}})
+    assert item.peso_for_quality('normal') == 1.0
+
+
 # ── Detail ───────────────────────────────────────────────────────────────────
 
 def test_detail_is_public(client, make_equipment_item):
@@ -124,6 +278,21 @@ def test_edit_item_updates_custom_fields(db, client, admin_user, login_as, make_
 
     db.session.refresh(item)
     assert item.custom_fields == {'peso': '0.5u'}
+
+
+def test_edit_item_recomputes_batch_pricing_from_price_text(db, client, admin_user, login_as, make_equipment_item):
+    item = make_equipment_item(name='Flecha/virote común', category='arma', subcategory='municion')
+    login_as(client, admin_user, 'adminpass123')
+
+    resp = client.post(f'/equipamiento/{item.id}/editar', data={
+        'name': 'Flecha/virote común', 'category': 'arma', 'subcategory': 'municion',
+        'price_text': '1C (5)',
+    }, follow_redirects=True)
+    assert resp.status_code == 200
+
+    db.session.refresh(item)
+    assert item.unidades_por_precio == 5
+    assert item.precio_peniques == 12  # 1 chelín in peniques
 
 
 def test_image_upload_allowed_for_weapon(db, client, admin_user, login_as):

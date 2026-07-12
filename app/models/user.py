@@ -16,6 +16,11 @@ class User(UserMixin, db.Model):
     template_id   = db.Column(db.Integer, db.ForeignKey('permission_templates.id'), nullable=True)
     must_change_password = db.Column(db.Boolean, default=False, nullable=False)
     created_by_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=True)
+    # Admin-controlled, per-user: lets this player add equipment straight to
+    # a character's inventory at 0 cost (see CharacterPurchase) - meant for
+    # regularizing a character's already-owned gear when migrating to the
+    # shop, not for everyday free purchases.
+    puede_anadir_equipo_sin_coste = db.Column(db.Boolean, default=False, nullable=False)
 
     # Relationships
     characters = db.relationship('Character', backref='owner', lazy='dynamic')

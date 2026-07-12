@@ -130,6 +130,72 @@ def test_carrito_shows_cart_count_on_tienda(client, make_user, make_character, m
     assert b'1' in resp.data  # cart_count badge
 
 
+# ── Alta sin coste al inventario ─────────────────────────────────────────────
+
+def test_anadir_sin_coste_requires_the_flag(client, make_user, make_character, make_equipment_item, login_as):
+    char = _login_owner(client, make_user, make_character, login_as, dinero_coronas=20)
+    item = make_equipment_item(name='Espada', category='arma', precio_peniques=240)
+
+    resp = client.post(f'/personajes/{char.id}/tienda/{item.id}/anadir-sin-coste',
+                        data={'quality': 'normal', 'quantity': '1', 'location': 'equipamiento'})
+    assert resp.status_code == 403
+
+
+def test_anadir_sin_coste_works_when_flag_enabled(db, client, make_user, make_character,
+                                                   make_equipment_item, login_as):
+    owner = make_user(username='owner1', password='ownerpass123', puede_anadir_equipo_sin_coste=True)
+    char = make_character(owner, name='Personaje', dinero_coronas=20)
+    login_as(client, owner, 'ownerpass123')
+    item = make_equipment_item(name='Espada', category='arma', precio_peniques=240)
+
+    resp = client.post(f'/personajes/{char.id}/tienda/{item.id}/anadir-sin-coste', data={
+        'quality': 'excelente', 'quantity': '1', 'location': 'mochila_saco',
+    }, follow_redirects=True)
+    assert resp.status_code == 200
+
+    db.session.refresh(char)
+    assert char.dinero_total_peniques == 20 * 240  # money untouched
+
+    inv_item = CharacterInventoryItem.query.filter_by(character_id=char.id).first()
+    assert inv_item is not None
+    assert inv_item.location == 'mochila_saco'
+    assert inv_item.quality == 'excelente'
+
+    purchase = CharacterPurchase.query.filter_by(character_id=char.id).first()
+    assert purchase.precio_peniques_pagado == 0
+    assert purchase.granted_by_gm is False
+    assert 'sin coste' in purchase.notes.lower()
+
+
+def test_admin_can_always_use_anadir_sin_coste(db, client, admin_user, make_user, make_character,
+                                                make_equipment_item, login_as):
+    player = make_user(username='player1', password='playerpass123')  # flag off
+    char = make_character(player, name='Personaje', dinero_coronas=20)
+    login_as(client, admin_user, 'adminpass123')
+    item = make_equipment_item(name='Espada', category='arma', precio_peniques=240)
+
+    resp = client.post(f'/personajes/{char.id}/tienda/{item.id}/anadir-sin-coste', data={
+        'quality': 'normal', 'quantity': '1', 'location': 'equipamiento',
+    }, follow_redirects=True)
+    assert resp.status_code == 200
+    assert CharacterInventoryItem.query.filter_by(character_id=char.id).count() == 1
+
+
+def test_anadir_sin_coste_respects_batch_quantity(db, client, make_user, make_character,
+                                                   make_equipment_item, login_as):
+    owner = make_user(username='owner1', password='ownerpass123', puede_anadir_equipo_sin_coste=True)
+    char = make_character(owner, name='Personaje', dinero_coronas=20)
+    login_as(client, owner, 'ownerpass123')
+    item = make_equipment_item(name='Flecha/virote común', category='arma', subcategory='municion',
+                                precio_peniques=12, unidades_por_precio=5)
+
+    resp = client.post(f'/personajes/{char.id}/tienda/{item.id}/anadir-sin-coste', data={
+        'quantity': '7', 'location': 'equipamiento',
+    }, follow_redirects=True)
+    assert resp.status_code == 200
+    assert CharacterInventoryItem.query.filter_by(character_id=char.id).count() == 0
+
+
 # ── Checkout: arma/armadura con multiplicador de calidad ────────────────────
 
 def test_checkout_arma_normal_quality_deducts_money(db, client, make_user, make_character,
@@ -275,6 +341,47 @@ def test_checkout_ropa_uses_row_price_without_multiplier(db, client, make_user, 
     assert purchase.quality_snapshot == 'excelente'
 
 
+# ── Munición: precio por lote, sin calidad ──────────────────────────────────
+
+def test_ammo_confirm_page_hides_quality_picker(client, make_user, make_character,
+                                                 make_equipment_item, login_as):
+    char = _login_owner(client, make_user, make_character, login_as, dinero_coronas=20)
+    item = make_equipment_item(name='Flecha/virote común', category='arma', subcategory='municion',
+                                price_text='1C (5)', precio_peniques=12, unidades_por_precio=5)
+
+    resp = client.get(f'/personajes/{char.id}/tienda/{item.id}/anadir-carrito')
+    assert resp.status_code == 200
+    assert b'name="quality"' not in resp.data
+
+
+def test_ammo_add_to_cart_rejects_non_multiple_quantity(db, client, make_user, make_character,
+                                                          make_equipment_item, login_as):
+    char = _login_owner(client, make_user, make_character, login_as, dinero_coronas=20)
+    item = make_equipment_item(name='Flecha/virote común', category='arma', subcategory='municion',
+                                price_text='1C (5)', precio_peniques=12, unidades_por_precio=5)
+
+    resp = _add_to_cart(client, char, item, quantity=7)
+    assert resp.status_code == 200
+    assert CharacterCartItem.query.filter_by(character_id=char.id).count() == 0
+    assert 'lotes de 5'.encode('utf-8') in resp.data
+
+
+def test_ammo_checkout_charges_proportionally_to_batch(db, client, make_user, make_character,
+                                                        make_equipment_item, login_as):
+    char = _login_owner(client, make_user, make_character, login_as, dinero_coronas=20)
+    item = make_equipment_item(name='Flecha/virote común', category='arma', subcategory='municion',
+                                price_text='1C (5)', precio_peniques=12, unidades_por_precio=5)
+
+    _add_to_cart(client, char, item, quantity=10)
+    resp = _checkout(client, char)
+    assert resp.status_code == 200
+
+    purchase = CharacterPurchase.query.filter_by(character_id=char.id).first()
+    assert purchase.precio_peniques_pagado == 24  # 2 batches of 5 at 12 peniques each
+    inv_item = CharacterInventoryItem.query.filter_by(character_id=char.id).first()
+    assert inv_item.quantity == 10
+
+
 # ── Ropa Noble: precio escala con el nivel social del comprador ─────────────
 
 def test_checkout_ropa_noble_scales_with_nivel_social(db, client, make_user, make_character,
@@ -310,6 +417,18 @@ def test_parse_price_text_strips_clase_social_formula():
     assert parse_price_text('36c (base * (Clase-2))') == 36 * 12  # chelines -> peniques
     assert is_clase_social_scaled('36c (base * (Clase-2))') is True
     assert is_clase_social_scaled('20 CO') is False
+
+
+def test_parse_price_units_splits_batch_size():
+    from app.models.equipment import parse_price_units, parse_price_text
+    assert parse_price_units('1C (5)') == ('1C', 5)
+    assert parse_price_units('1C(10)') == ('1C', 10)  # both spacings appear in the real catalog
+    assert parse_price_units('20 CO') == ('20 CO', 1)  # no batch suffix -> untouched, 1 unit
+    # Never confused with the unrelated Clase-social formula suffix (not pure digits).
+    assert parse_price_units('36c (base * (Clase-2))') == ('36c (base * (Clase-2))', 1)
+    base_text, units = parse_price_units('1C (5)')
+    assert parse_price_text(base_text) == 12  # 1 chelín in peniques
+    assert units == 5
 
 
 # ── Objetos especiales "base + modificado": siempre calidad excelente ──────

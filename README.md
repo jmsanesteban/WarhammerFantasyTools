@@ -9,6 +9,7 @@ Aplicación web para gestionar profesiones, habilidades, talentos y personajes d
 - [Características](#características)
 - [Tecnologías](#tecnologías)
 - [Instalación rápida con Docker](#instalación-rápida-con-docker)
+- [Despliegue en NAS Synology (DSM)](#despliegue-en-nas-synology-dsm)
 - [Instalación local para desarrollo](#instalación-local-para-desarrollo)
 - [Configuración](#configuración)
 - [Comandos de administración y mantenimiento](#comandos-de-administración-y-mantenimiento)
@@ -31,8 +32,9 @@ Aplicación web para gestionar profesiones, habilidades, talentos y personajes d
 | **Personajes** | Creación rápida (manual) o mediante el **Generador de Personaje**: asistente con tiradas guiadas (raza, profesión, características, trasfondo completo) siguiendo las reglas caseras de creación de personajes jugadores. Carrera profesional con múltiples profesiones en orden |
 | **Contactos** | Agenda de contactos con campos personalizables (EAV), notas, vínculos con "personas" propias de cada usuario, visibilidad por contacto/campo, e importación/exportación Excel. Módulo integrado a partir del proyecto independiente [ContactosWH](https://github.com/jmsanesteban/ContactosWH) (ahora archivado, ver nota histórica en su README) |
 | **Sistema de permisos** | Control granular por función: plantillas de permisos reutilizables + asignaciones directas por usuario; los administradores tienen acceso total |
-| **Backup y recuperación** | Exportar/importar en JSON Profesiones, Usuarios, Personajes, Plantillas de permisos, Sinónimos y Contactos+Vínculos (además del "Backup completo" que hace las seis a la vez); pensado para no perder el trabajo manual de cargar el catálogo de Profesiones ante un problema con la base de datos |
+| **Backup y recuperación** | Exportar/importar en JSON Profesiones, Usuarios, Equipamiento, Personajes, Plantillas de permisos, Sinónimos y Contactos+Vínculos (además del "Backup completo" que hace las siete a la vez); pensado para no perder el trabajo manual de cargar el catálogo de Profesiones ante un problema con la base de datos |
 | **Comida y bebida** | Catálogo de bebidas por nación con calculadora de precio por cantidad; catálogo de recetas (vigor/moral/coste/duración/complejidad); tablas de referencia de ingredientes y métodos de cocina; página de normas de intoxicación y de vigor/moral diario; cualquier usuario puede proponer una receta nueva (cálculo automático de sus valores), que queda pendiente hasta que un administrador la revisa y aprueba |
+| **Equipamiento** | Catálogo de armas, armaduras, ropa, libros, otros objetos y objetos especiales, con menú propio por categoría además del catálogo completo; ficha de cada objeto con estadísticas (`stats`, las del libro) y campos adicionales (`custom_fields`, añadidos a mano) editables uno a uno o **en bloque** sobre un conjunto filtrado (añadir/renombrar/eliminar un campo a la vez en varios objetos); cada personaje tiene su propia **tienda** (carrito + checkout que descuenta dinero), **inventario** repartido en 5 ubicaciones de almacenaje, e **historial de compras** inmutable; un administrador puede además conceder objetos especiales directamente (sin pasar por caja) |
 
 ---
 
@@ -96,6 +98,40 @@ docker-compose down -v
 docker-compose logs -f app
 docker-compose logs -f db
 ```
+
+---
+
+## Despliegue en NAS Synology (DSM)
+
+Requiere **DSM 7.2 o superior** con el paquete **Container Manager** (sustituyó al antiguo paquete "Docker" y añadió soporte nativo de proyectos `docker-compose`). Instálalo desde el **Centro de paquetes** si no lo tienes ya.
+
+### 1. Subir el proyecto
+
+1. Abre **File Station** y crea una carpeta para el proyecto, p.ej. `docker/wft` (dentro de un volumen compartido, no en la papelera de reciclaje ni en carpetas del sistema).
+2. Sube el contenido del repositorio a esa carpeta (arrastra el ZIP descargado de GitHub y descomprímelo ahí, o usa SFTP/`git clone` si el NAS tiene acceso SSH con `git` instalado — ver más abajo). La carpeta debe contener `docker-compose.yml` en su raíz.
+3. Copia `.env.example` a `.env` dentro de esa misma carpeta (con el editor de texto de File Station, o por SFTP) y cambia `SECRET_KEY` y las contraseñas antes de arrancar — igual que en la instalación estándar (ver [Configuración](#configuración)).
+
+### 2. Crear el proyecto en Container Manager
+
+1. Abre **Container Manager → Proyecto → Crear**.
+2. Nombre del proyecto (p.ej. `wft`) y selecciona como **ruta** la carpeta creada en el paso anterior — Container Manager detecta automáticamente el `docker-compose.yml`.
+3. Pulsa **Compilar** (equivale a `docker-compose up --build -d`). La primera vez tarda varios minutos mientras se construye la imagen.
+4. Una vez arrancado, la app queda accesible en `http://<ip-del-nas>:5000`.
+
+> **Colisión de puertos:** algunos paquetes de DSM u otros proyectos ya usan el puerto 5000. Si Container Manager avisa de un conflicto, edita el mapeo de puertos en `docker-compose.yml` (p.ej. `"5050:5000"`) antes de compilar, y accede por el puerto que hayas elegido.
+
+### 3. Logs y gestión
+
+Desde **Container Manager → Proyecto → (tu proyecto) → Contenedor**, cada contenedor (`wft_app`, `wft_db`) tiene su propia pestaña **Registro** con los logs en tiempo real — equivalente a `docker-compose logs -f` sin necesitar SSH.
+
+### 4. Actualizar la aplicación
+
+- **Si el NAS tiene acceso SSH con `git` instalado** (algunos modelos Synology lo traen, otros no): conecta por SSH, `cd` a la carpeta del proyecto, `git pull`, y luego pulsa **Compilar** de nuevo desde Container Manager (o `docker-compose up -d --build` por línea de comandos si prefieres seguir por SSH — ver [Actualizar la aplicación](#actualizar-la-aplicación-nueva-versión-del-código)).
+- **Si no hay `git` en el NAS**: descarga el ZIP actualizado del repositorio, descomprímelo sustituyendo los ficheros en la carpeta del proyecto en File Station (sin tocar tu `.env` ni la carpeta `uploads/`), y pulsa **Detener** → **Compilar** desde Container Manager para reconstruir con el código nuevo.
+
+### 5. Exponer la app a internet (opcional)
+
+Para acceso remoto sin abrir puertos en el router, el mismo patrón que ya usa esta app en su propio despliegue (Cloudflare Tunnel vía `docker-compose.override.yml`, ver el modelo de datos/infra del proyecto) funciona igual en un NAS Synology — Cloudflare ofrece un paquete/contenedor `cloudflared` que se añade al mismo proyecto. Si no te hace falta acceso externo, con el puerto 5000 (o el que hayas mapeado) accesible en tu red local es suficiente.
 
 ---
 
@@ -509,7 +545,7 @@ pytest --cov=app --cov-report=term-missing
 | `tests/test_auth.py` | Login, registro, logout, redirección a `next`, usuarios inactivos, cambio de contraseña propio, y el bloqueo de `must_change_password` (redirige a cualquier página salvo logout hasta completarlo) |
 | `tests/test_admin_users.py` | Gestión admin de contraseñas: restablecer a una aleatoria, forzar cambio sin tocar la contraseña, y establecer una contraseña concreta (con validación de longitud/confirmación) |
 | `tests/test_professions.py` | CRUD de profesiones, permisos, características primarias/secundarias, habilidades/talentos/enseres/salidas asociados, y el export/import JSON (permiso `professions.edit`, formato con habilidades/talentos anidados) |
-| `tests/test_backup_service.py` | `app/services/backup_service.py`: round-trip export→borrar→reimportar de cada sección (Plantillas de permisos, Sinónimos, Usuarios, Profesiones con habilidades/talentos/enseres/salidas, Personajes con las 7 tablas hijas, Contactos+Vínculos con apodos/salarios/visibilidad) y del Backup completo; modo `update` no duplica; una referencia inexistente (usuario/profesión/habilidad/talento) se omite con aviso en vez de fallar; el export de Usuarios nunca incluye la contraseña y el import nunca la toca al actualizar |
+| `tests/test_backup_service.py` | `app/services/backup_service.py`: round-trip export→borrar→reimportar de cada sección (Plantillas de permisos, Sinónimos, Usuarios, Profesiones con habilidades/talentos/enseres/salidas, Equipamiento incluido el emparejamiento por nombre+categoría+subcategoría+calidad y el objeto base de un especial, Personajes con las 7 tablas hijas, Contactos+Vínculos con apodos/salarios/visibilidad) y del Backup completo; modo `update` no duplica; una referencia inexistente (usuario/profesión/habilidad/talento/objeto base) se omite con aviso en vez de fallar; el export de Usuarios nunca incluye la contraseña y el import nunca la toca al actualizar |
 | `tests/test_admin_backup.py` | Rutas de backup en `/admin/*`: todas exigen admin (salvo Profesiones, que exige `professions.edit` y se cubre en `test_professions.py`), descarga JSON válido, importación end-to-end repuebla los datos tras borrarlos |
 | `tests/test_skills_talents.py` | CRUD de habilidades y talentos, búsqueda/filtros, buscador con autocompletado (páginas `/habilidades/buscar` y `/talentos/buscar`), importación/exportación en texto plano, y el guardián anti-duplicados (bloquea duplicados exactos, avisa de casi-duplicados) al crear/editar/importar |
 | `tests/test_characters.py` | CRUD de personajes WFRP, aislamiento por propietario (admin ve todos, jugador solo los suyos), historial de profesiones ordenado, `es_untersuchung`, salario por profesión |
@@ -523,6 +559,8 @@ pytest --cov=app --cov-report=term-missing
 | `tests/test_wsgi_prefix.py` | `PrefixMiddleware` (servir la app bajo `URL_PREFIX`, p.ej. `/wft`): recorte de prefijo + `SCRIPT_NAME`, tolerancia con peticiones sin prefijo, y generación de URLs correctas de extremo a extremo con `url_for()` |
 | `tests/test_food.py` | Comida y bebida: siembra idempotente del catálogo (`seed_food_catalog`, incluido el backfill de `complejidad` en filas ya sembradas antes de que existiera esa columna), conversión/formateo de moneda (`currency_service`), listado/filtro (incluidos sabor/calidad/disponibilidad) y ordenación por columna (incluidos los costes) de bebidas/recetas, la división de `sabor` en categoría base + variante, ficha de bebida (calculadora de precio, notas) y de receta (ingredientes/condimentos, recetas "solo compra"), páginas de referencia de ingredientes/métodos de cocina, el servicio de cálculo automático de una receta (`recipe_calc_service`, con "Olla podrida" como caso de regresión exacto contra el libro incluida la `calidad` derivada, los umbrales de `calidad_from_complejidad`, y el rechazo de combinaciones incompatibles o con demasiados ingredientes/condimentos), el flujo de propuesta de receta nueva (queda pendiente, oculta del catálogo público y de otros usuarios, visible en "Mis recetas"), y que todas las rutas exigen login |
 | `tests/test_admin_recipes.py` | Revisión admin de recetas propuestas: acceso restringido a administradores, aprobar exige subir una imagen si no la tenía, aprobar publica la receta en el catálogo con la etiqueta "Comunidad" y registra quién/cuándo, rechazar guarda el motivo y el proponente lo ve en "Mis recetas" |
+| `tests/test_equipment.py` | Catálogo de Equipamiento: listado/filtros (categoría, subcategoría, calidad, búsqueda) y sus menús por categoría, ficha, permisos de creación/edición/eliminación (`equipment.edit`), subida de imagen restringida a arma/armadura, `stats`/`custom_fields` uno a uno, edición de campos en bloque (añadir/renombrar/eliminar sobre un conjunto filtrado, respeta filtros y permiso), export/import JSON (`equipment.import`) con el enlace al objeto base de un especial |
+| `tests/test_character_purchases.py` | Tienda/carrito/inventario/historial de un personaje: añadir al carrito con calidad/cantidad/ubicación, cálculo de precio por calidad (multiplicador ×0,5/×1/×3/×10) y por nivel social (Ropa Noble), checkout todo-o-nada (aborta sin cobrar si una línea no tiene precio calculable o falta dinero), reparto del inventario en las 5 ubicaciones, historial inmutable, y la concesión de objetos especiales por un administrador (precio libre, incluido 0) |
 
 ### Notas de diseño
 
@@ -771,9 +809,12 @@ Puedes crear, editar y eliminar plantillas desde esa pantalla. Al eliminar una p
 | `contacts.view` | Consultar listado y ficha de contactos |
 | `contacts.edit` | Crear contactos y editar el propio vínculo (nivel, notas, salario...) de un personaje |
 | `contacts.import` | Importar/exportar contactos desde Excel |
+| `equipment.view` | Consultar catálogo de armas, armaduras, ropas y objetos especiales |
+| `equipment.edit` | Crear, editar y eliminar objetos del catálogo de equipamiento (incluida la edición en bloque) |
+| `equipment.import` | Importar/exportar el catálogo de equipamiento en JSON |
 | `users.manage` | Asignar plantillas y permisos a otros usuarios (no puede convertir en admin) |
 
-> **Nota:** Los administradores (`role = admin`) tienen acceso completo a todas las funciones independientemente de los permisos asignados. El permiso `users.manage` permite a un usuario normal gestionar permisos de otros, pero no puede cambiar roles ni crear administradores. Al igual que `characters.*`, los códigos `contacts.*` están catalogados y disponibles para plantillas, pero las rutas de Contactos autorizan con `login_required` + comprobaciones de propiedad/rol (no con `require_permission`) — mismo patrón ya existente en el resto de la app.
+> **Nota:** Los administradores (`role = admin`) tienen acceso completo a todas las funciones independientemente de los permisos asignados. El permiso `users.manage` permite a un usuario normal gestionar permisos de otros, pero no puede cambiar roles ni crear administradores. Al igual que `characters.*`, los códigos `contacts.*` están catalogados y disponibles para plantillas, pero las rutas de Contactos autorizan con `login_required` + comprobaciones de propiedad/rol (no con `require_permission`) — mismo patrón ya existente en el resto de la app. El catálogo de Equipamiento (listado y ficha de cada objeto) es público, sin necesitar `equipment.view`; ese código existe para catalogarlo en plantillas de permisos, pero solo `equipment.edit`/`equipment.import` están realmente aplicados con `@require_permission` en las rutas de creación/edición/borrado/importación/exportación.
 
 ---
 
@@ -795,11 +836,12 @@ Además de la copia de seguridad completa por `mysqldump` (ver [Copias de seguri
 |---|---|---|
 | **Profesiones** | Profesiones → Exportar/Importar (requiere permiso `professions.edit`) | Todos los campos propios + habilidades/talentos/enseres/salidas de carrera |
 | **Usuarios** | Admin → Usuarios → Exportar/Importar | Todos los campos **salvo la contraseña** (ver más abajo) |
+| **Equipamiento** | Equipamiento → Exportar/Importar (requiere permiso `equipment.import`), o Admin → Panel | Todos los objetos del catálogo (armas, armaduras, ropa, libros, otros, especiales), con sus estadísticas, campos adicionales y el enlace al objeto base para objetos especiales. Empareja por (nombre, categoría, subcategoría, calidad) — no por id — porque el catálogo tiene bastantes objetos que comparten nombre dentro de una categoría (p.ej. cada tier de calidad de ropa) |
 | **Personajes** | Personajes → Exportar/Importar (solo visible para admin) | Ficha completa: características, trasfondo, carrera, habilidades, talentos, rasgos, contactos generados en creación, posesiones, objetos mágicos |
 | **Plantillas de permisos** | Admin → Usuarios → Plantillas de permisos → Exportar/Importar | Nombre, descripción y permisos incluidos |
 | **Diccionario de sinónimos** | Admin → Diccionario de sinónimos → Exportar/Importar | Todas las entradas (término original/correcto, prefijo, notas) |
 | **Contactos + Vínculos** | Admin → Vínculos → Exportar/Importar | Cada contacto con **todos** sus vínculos por personaje (nivel, apodos, salario, GM/misión) y las concesiones de visibilidad — más completo que la exportación Excel de Contactos (que solo cubre nombre/Untersuchung/profesiones y se mantiene aparte, sin cambios) |
-| **Backup completo** | Admin → Backup completo (o el indicador del panel) | Exporta/importa las seis secciones anteriores de golpe, en el orden correcto de dependencias |
+| **Backup completo** | Admin → Backup completo (o el indicador del panel) | Exporta/importa las siete secciones anteriores de golpe, en el orden correcto de dependencias |
 
 Cómo funciona el import (mismo criterio en todas las secciones):
 
@@ -812,7 +854,20 @@ Cómo funciona el import (mismo criterio en todas las secciones):
 
 1. `flask init-db` (crea el esquema y siembra permisos/plantillas por defecto).
 2. Importa **Habilidades** y **Talentos** con su propio import (Profesiones y Personajes los referencian por nombre y no forman parte de este backup).
-3. Importa el **Backup completo** (o, si prefieres ir sección a sección: Plantillas de permisos → Sinónimos → Usuarios → Profesiones → Personajes → Contactos+Vínculos, en ese orden).
+3. Importa el **Backup completo** (o, si prefieres ir sección a sección: Plantillas de permisos → Sinónimos → Usuarios → Profesiones → Equipamiento → Personajes → Contactos+Vínculos, en ese orden).
+
+---
+
+### Gestionar el catálogo de Equipamiento
+
+Ve a **Equipamiento** en el menú principal (requiere permiso `equipment.edit` para crear/editar/eliminar; el listado y la ficha de cada objeto son públicos para cualquier usuario autenticado o no).
+
+- El menú **Equipamiento** se despliega en un enlace por categoría (**Armas**, **Armaduras**, **Ropa**, **Libros**, **Otros objetos**, **Objetos especiales**) más un **Catálogo completo**. Cada enlace de categoría muestra solo esos objetos (el desplegable de categoría desaparece del formulario de filtros, ya que está implícita) y la cabecera indica en cuál estás (p.ej. "Equipamiento — Armas"); el Catálogo completo sigue permitiendo elegir cualquier categoría desde el desplegable, como antes.
+- **Calidad dinámica en Armas y Armaduras**: como la calidad de estas dos categorías es un modificador de compra (no un atributo del objeto), el filtro de calidad no oculta objetos — en su lugar, al elegir una calidad concreta, cada ficha muestra sus estadísticas y precio ya ajustados a esa calidad (en Armas: aguante/ataque-parada/daño según la tabla de fabricación del libro, acumulada sobre el modificador propio del arma; en Armaduras: la penalización de agilidad ya guardada por calidad). Con "Toda calidad" se ve el resumen agrupado de siempre.
+- **Nuevo / Editar**: cada objeto tiene `categoría` (arma/armadura/ropa/libro/otros/especial), `subcategoría` (tipo dentro de la categoría, p.ej. cuerpo a cuerpo/distancia/munición para armas), `calidad` (solo relevante como atributo fijo de catálogo en Ropa, donde cada tier de calidad es una fila distinta — en Armas/Armaduras la calidad es un modificador de compra, no un atributo del objeto), precio (`price_text` libre + el peniques normalizado que se calcula solo si el texto es una cantidad simple — la munición admite además un lote entre paréntesis, p.ej. "1C (5)"), peso (en las unidades de carga del libro; no aplica a armadura/escudos, que derivan su peso de la penalización de agilidad), imagen (solo Arma/Armadura), **Estadísticas** (`stats`, lo que trae el libro — clave/valor libre) y **Campos adicionales** (`custom_fields`, lo que añade un administrador a mano; nunca se pisa al reimportar desde el libro).
+- **Editar campos en bloque** (enlace junto a Exportar/Importar/Nuevo): añade, renombra o elimina un campo de `custom_fields` sobre **todos** los objetos que coincidan con los filtros de categoría/subcategoría/calidad/búsqueda —para no tener que entrar objeto a objeto cuando hace falta un campo nuevo (p.ej. "poder mágico") en todo un conjunto. Añadir no sobreescribe por defecto (casilla opcional "sobreescribir si ya existe"); renombrar solo afecta a quien tenga la clave antigua y avisa si el objeto ya tenía también la nueva (no la pisa); eliminar solo afecta a quien tenga esa clave. Cada operación muestra un resumen de cuántos objetos se han creado/actualizado/omitido.
+- **Exportar/Importar** (requiere además `equipment.import`): JSON de todo el catálogo, empareja por (nombre, categoría, subcategoría, calidad) — ver [Backup y recuperación](#backup-y-recuperación).
+- **Alta sin coste al inventario**: un administrador puede activar, por usuario, la capacidad de que ese jugador añada equipo directamente al inventario de sus personajes **sin cobrarlo** (pensado para dar de alta el equipo que un personaje ya existente tenía antes de migrar a este sistema, no para comprar gratis de forma habitual) — toggle en **Admin → Usuarios**, junto al de Activo/Inactivo. Queda registrado en el historial de compras del personaje con precio 0 y una nota indicándolo, para distinguirlo de una compra real.
 
 ---
 
@@ -932,6 +987,20 @@ Ve a **Contactos** en el menú principal. Un contacto (NPC) tiene datos **global
 - Los administradores gestionan desde **Admin → Contactos**: listado completo de **todos** los contactos del sistema (mostrar/ocultar, eliminar, editar datos globales), e importación/exportación Excel con columnas fijas (`nombre`, `es_untersuchung`, `profesiones` separadas por comas — deben existir ya en el catálogo de Profesiones). Cada fila tiene un botón **"Permisos"** que despliega, sin salir de la lista, la tabla de visibilidad por personaje de ese contacto (mismo panel bulk-save que en su ficha) — no hace falta entrar a cada contacto para ver o cambiar quién tiene acceso. Un admin puede además editar el vínculo de cualquier personaje y conceder/revocar su visibilidad desde la ficha del contacto.
 - En **Admin → Vínculos**, la columna **Notas** ya no es solo un número: el botón despliega el contenido real de las notas personales de ese personaje sobre el contacto, con un formulario para añadir una nueva sin salir de la tabla.
 - **Contactos** en el menú principal es un desplegable para administradores (Contactos + **Vínculos**); para el resto de usuarios es un enlace simple a Contactos, ya que Vínculos es una vista admin-only.
+
+---
+
+### Comprar y gestionar equipo
+
+Cada personaje tiene su propia **Tienda**, accesible desde su ficha.
+
+- **Tienda**: catálogo de Armas, Armaduras y Ropa (los objetos especiales no se compran — los concede un administrador, ver más abajo). Filtra por categoría o busca por nombre.
+- **Añadir al carrito**: al elegir un objeto, se pide **calidad** (Mala/Normal/Buena/Excelente en Armas y Armaduras — el precio se recalcula al vuelo con el multiplicador de esa calidad, ×0,5/×1/×3/×10, y en Armas se muestra también un avance de cómo cambian sus estadísticas con cada calidad; en Ropa la calidad ya es el objeto elegido, cada tier es una ficha distinta), **cantidad** y en qué **ubicación** del inventario se guarda. La munición no tiene calidad (siempre se fabrica normal) y se vende por lotes (p.ej. "5 flechas por 1 chelín") — la cantidad solo acepta múltiplos exactos del tamaño de lote de ese objeto.
+- **Carrito**: revisa lo añadido antes de pagar, quita líneas sueltas, y visualiza el total. Al **finalizar compra**, se descuenta el total del dinero del personaje de una vez (todo o nada: si una línea no tiene precio calculable, o no hay dinero suficiente, no se cobra nada y se explica qué corregir) y cada línea pasa al inventario y al historial de compras.
+- **Inventario**: el equipo del personaje repartido en 5 ubicaciones de almacenaje (Equipado, Mochila/saco, Alforjas, Base, Altdorf).
+- **Historial de compras**: registro inmutable de todo lo comprado o concedido, con fecha, calidad, precio pagado y quién lo concedió si fue un administrador.
+- **Alta sin coste**: si un administrador te ha habilitado esta opción, la pantalla de añadir al carrito incluye una casilla **"Ya lo tenía (no cobrar)"** que manda el objeto directo al inventario sin pasar por caja — pensado para dar de alta el equipo que el personaje ya tenía antes de usar esta tienda, no para uso habitual.
+- **Objetos especiales**: no se compran en la tienda — un administrador los concede desde la ficha del personaje (**Conceder objeto especial**), con calidad, cantidad, precio (puede ser 0) y notas libres.
 
 ---
 
@@ -1070,6 +1139,50 @@ drinks                      (catálogo cerrado — "no se van a crear bebidas nu
   │                            sabor="Extraño" + variante="Picante", sabor="Raro" + variante="Café")
   ├─ precio_taberna_peniques, por_mayor_pct
   └─ notas                   (efectos especiales de bebidas concretas)
+
+equipment_items              (catálogo: arma | armadura | ropa | especial | libro | otros)
+  ├─ category, subcategory   (subcategory: cuerpo_a_cuerpo/distancia/munición para armas,
+  │                           acolchada/cuero/malla/placas/escudos... para armaduras, etc.)
+  ├─ quality                 (solo un atributo de catálogo real en Ropa - cada tier Harapos/
+  │                           Común/Burguesa/Noble es su propia fila; en Arma/Armadura queda
+  │                           NULL, la calidad es un modificador elegido al comprar, no del objeto)
+  ├─ is_special, base_item_id (objetos especiales construidos sobre un objeto mundano base,
+  │                           p.ej. "Espada Flamígera" con base_item = "Espada")
+  ├─ price_text, precio_peniques, precio_escala_clase_social
+  │                          (precio_peniques es el precio ya normalizado a peniques si price_text
+  │                           era una cantidad simple; precio_escala_clase_social marca precios tipo
+  │                           Ropa Noble que escalan con el nivel social del comprador, no un número fijo)
+  ├─ unidades_por_precio     (munición vendida por lotes, p.ej. "1C (5)" = 5 flechas por ese precio -
+  │                           precio_peniques es el precio del lote completo, no de una unidad; 1 para
+  │                           todo lo que no es munición)
+  ├─ image_path               (solo arma/armadura tienen foto de producto)
+  ├─ stats                    (JSON libre: lo que trae el libro - daño, aguante, armadura, etc.
+  │                           - varía demasiado de forma entre categorías para columnas fijas)
+  ├─ custom_fields            (JSON libre añadido a mano por un admin - nunca se pisa al reimportar
+  │                           desde el libro; editable uno a uno o en bloque sobre un conjunto filtrado)
+  └─ peso                     (carga en las unidades del libro "El Imperio y sus viajes"; NULL para
+                              armadura/escudos, cuyo peso se deriva en tiempo real de su propia
+                              penalización de agilidad - stats.agilidad_por_calidad/agilidad - en vez
+                              de guardarse aparte, para no desincronizarse entre las 4 calidades)
+
+character_inventory_items    (una entrada del inventario de un personaje)
+  ├─ character_id, equipment_item_id (o custom_name si no viene del catálogo)
+  ├─ quality, quantity
+  ├─ location                 (una de las 5 ubicaciones: equipamiento/mochila_saco/alforjas/base/altdorf)
+  └─ condition                (reservado para una futura fase de desgaste/reparación - sin usar hoy)
+
+character_cart_items         (línea pendiente de pagar - nunca guarda el precio: se recalcula desde
+  ├─ character_id, equipment_item_id  equipment_item.price_for_quality() en cada vista y en el checkout,
+  ├─ quality, quantity                para que un cambio de nivel_social entre añadir y pagar no quede obsoleto)
+  └─ location
+
+character_purchases          (historial inmutable - nunca se edita ni se borra tras crearse)
+  ├─ character_id, equipment_item_id
+  ├─ item_name_snapshot, category_snapshot, quality_snapshot
+  │                          (congela lo comprado aunque el catálogo cambie/borre después)
+  ├─ precio_peniques_pagado  (0 para objetos concedidos por un admin o dados de alta sin coste)
+  ├─ granted_by_gm, granted_by_user_id
+  └─ notes
 ```
 
 `app/data/food/*.json` (`cooking_methods.json`, `ingredients.json`, `ingredient_compatibility.json`,
@@ -1078,6 +1191,9 @@ idempotente por `app/services/food_seed_service.py` (misma estrategia que el see
 que ya existe por nombre e inserta solo lo que falte, así que ampliar el catálogo en el futuro no duplica filas).
 Los precios se guardan en peniques (`app/services/currency_service.py`: 1 Corona de oro = 20 Chelines de plata =
 240 Peniques; 1 Chelín = 12 Peniques) y se formatean para mostrarse con el filtro de plantilla `food_money`.
+Equipamiento reutiliza este mismo servicio (filtro `money`, alias de `food_money`) en vez de tener su propio
+sistema de moneda — el dinero de un personaje (`Character.dinero_coronas`/`dinero_peniques_extra`) también se
+guarda internamente en peniques.
 
 ### Regla de acumulación de características en el Buscador
 
@@ -1143,17 +1259,19 @@ WarhammerFantasyTools/
     │   ├── contact.py                  # Contact, ContactProfession (hechos globales del NPC)
     │   ├── contact_character_link.py   # ContactCharacterLink, ContactApodo, ContactCharacterSalary
     │   ├── contact_note.py             # ContactNote (por personaje)
-    │   └── food.py                     # CookingMethod, Ingredient, IngredientCookingMethod, Recipe, Drink
+    │   ├── food.py                     # CookingMethod, Ingredient, IngredientCookingMethod, Recipe, Drink
+    │   └── equipment.py    # EquipmentItem, CharacterInventoryItem, CharacterCartItem, CharacterPurchase
     ├── routes/
     │   ├── auth.py         # Login, registro, logout
     │   ├── main.py         # Página de inicio, errores, servicio de uploads
     │   ├── professions.py  # CRUD de profesiones (edición requiere professions.edit)
     │   ├── skills_talents.py  # CRUD de habilidades y talentos (edición requiere skills.edit)
     │   ├── pathfinder.py   # Buscador de caminos
-    │   ├── characters.py   # Gestión de personajes WFRP
+    │   ├── characters.py   # Gestión de personajes WFRP + tienda/carrito/inventario/historial de compras
     │   ├── contacts.py     # Vistas de usuario de Contactos (listado, ficha, vínculo/salario/notas por personaje)
     │   ├── admin.py        # Panel admin: usuarios, permisos, plantillas, PDF, Contactos (listado/import-export)
-    │   └── food.py         # Comida y bebida: bebidas, recetas, ingredientes, métodos de cocina, normas
+    │   ├── food.py         # Comida y bebida: bebidas, recetas, ingredientes, métodos de cocina, normas
+    │   └── equipment.py    # Catálogo (menús por categoría + completo), edición en bloque, export/import
     ├── services/
     │   ├── pdf_processor.py      # OCR, traducción y parsing de PDFs
     │   ├── translation_service.py # Detección de idioma y traducción
@@ -1165,8 +1283,8 @@ WarhammerFantasyTools/
     │   ├── currency_service.py   # Conversión/formateo Coronas de oro / Chelines de plata / Peniques
     │   ├── food_seed_service.py  # Siembra idempotente del catálogo de Comida y bebida desde app/data/food/
     │   ├── recipe_calc_service.py  # Cálculo de vigor/moral/coste/precio/duración/complejidad de una receta
-    │   └── backup_service.py     # Export/import JSON: Profesiones, Usuarios, Personajes, Plantillas,
-    │                             # Sinónimos, Contactos+Vínculos, y el orquestador de Backup completo
+    │   └── backup_service.py     # Export/import JSON: Profesiones, Usuarios, Equipamiento, Personajes,
+    │                             # Plantillas, Sinónimos, Contactos+Vínculos, y el orquestador de Backup completo
     ├── templates/
     │   ├── base.html             # Layout base con nav adaptativo
     │   ├── admin/
@@ -1192,6 +1310,20 @@ WarhammerFantasyTools/
     │   │   ├── index.html         # Listado de contactos (respeta visibilidad, selector "ver como")
     │   │   ├── detail.html        # Ficha: datos globales, vínculo del personaje activo, salario, notas
     │   │   └── new.html           # Alta de contacto + vínculo del personaje que lo registra
+    │   ├── equipment/
+    │   │   ├── list.html          # Catálogo (menú por categoría + completo), filtros, cabecera de contexto
+    │   │   ├── detail.html        # Ficha de un objeto
+    │   │   ├── form.html          # Crear/editar objeto (stats/custom_fields dinámicos, imagen)
+    │   │   ├── bulk_fields.html   # Editor de campos en bloque sobre un conjunto filtrado
+    │   │   ├── import.html
+    │   │   └── _macros.html       # equipment_card (tarjeta reutilizada en catálogo y tienda), stats_table
+    │   ├── characters/
+    │   │   ├── tienda.html                    # Catálogo de compra de un personaje (arma/armadura/ropa)
+    │   │   ├── anadir_carrito_confirmar.html  # Elegir calidad/cantidad/ubicación antes de añadir al carrito
+    │   │   ├── carrito.html                   # Revisar/quitar líneas y finalizar compra
+    │   │   ├── inventario.html                # Equipo del personaje por ubicación de almacenaje
+    │   │   ├── historial_compras.html         # Registro inmutable de compras/concesiones
+    │   │   └── conceder_especial.html         # Admin: conceder un objeto especial directamente
     │   └── ...                   # Resto de plantillas por módulo
     └── static/
         ├── css/custom.css               # Tema oscuro medieval WH

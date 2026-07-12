@@ -1,4 +1,5 @@
 {% extends 'base.html' %}
+{% from 'equipment/_macros.html' import stats_table %}
 {% block title %}Añadir {{ item.name }} al carrito — {{ char.name }}{% endblock %}
 
 {% block content %}
@@ -37,9 +38,19 @@
             {% endfor %}
           </select>
         </div>
+        {% if item.category == 'arma' %}
+        <div class="mb-3">
+          {% for q in qualities %}
+          <div class="quality-stats-preview {% if not loop.first %}d-none{% endif %}" data-quality="{{ q }}">
+            {{ stats_table(item.stats_for_quality(q)) }}
+          </div>
+          {% endfor %}
+        </div>
+        {% endif %}
         {% else %}
-        <p><strong class="wh-label">Calidad:</strong> {{ item.quality_label or 'Excelente' }}
-          {% if fixed_price is not none %} — {{ fixed_price | money }}{% endif %}
+        <p>
+          {% if item.subcategory != 'municion' %}<strong class="wh-label">Calidad:</strong> {{ item.quality_label or 'Excelente' }}{% endif %}
+          {% if fixed_price is not none %} — {{ fixed_price | money }}{% if item.unidades_por_precio > 1 %} <small class="text-muted">(lote de {{ item.unidades_por_precio }})</small>{% endif %}{% endif %}
         </p>
         {% if item.precio_escala_clase_social %}
         <p class="text-muted small">
@@ -51,7 +62,12 @@
 
         <div class="mb-3">
           <label class="form-label wh-label">Cantidad</label>
-          <input type="number" name="quantity" class="form-control wh-input" value="1" min="1" required>
+          <input type="number" name="quantity" class="form-control wh-input"
+                 value="{{ item.unidades_por_precio }}" min="{{ item.unidades_por_precio }}"
+                 step="{{ item.unidades_por_precio }}" required>
+          {% if item.unidades_por_precio > 1 %}
+          <small class="text-muted">Se vende en lotes de {{ item.unidades_por_precio }} — la cantidad debe ser múltiplo de {{ item.unidades_por_precio }}.</small>
+          {% endif %}
         </div>
 
         <div class="mb-3">
@@ -75,14 +91,37 @@
         </div>
         {% endif %}
 
-        <div class="d-flex gap-2">
+        <div class="d-flex gap-2 flex-wrap">
           <button type="submit" class="btn btn-wh" {% if not can_buy %}disabled{% endif %}>
             <i class="bi bi-cart-plus me-1"></i>Añadir al carrito
           </button>
+          {% if puede_sin_coste %}
+          <button type="submit" class="btn btn-outline-warning"
+                  formaction="{{ url_for('characters.anadir_sin_coste', char_id=char.id, item_id=item.id) }}">
+            <i class="bi bi-box-seam me-1"></i>Ya lo tenía (no cobrar)
+          </button>
+          {% endif %}
           <a href="{{ url_for('characters.tienda', char_id=char.id) }}" class="btn btn-outline-secondary">Cancelar</a>
         </div>
       </form>
     </div>
   </div>
 </div>
+{% endblock %}
+
+{% block extra_scripts %}
+{% if item.category == 'arma' and qualities %}
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+  const select = document.getElementById('quality-select');
+  const previews = document.querySelectorAll('.quality-stats-preview');
+  if (!select || !previews.length) return;
+  select.addEventListener('change', function () {
+    previews.forEach(function (p) {
+      p.classList.toggle('d-none', p.dataset.quality !== select.value);
+    });
+  });
+});
+</script>
+{% endif %}
 {% endblock %}

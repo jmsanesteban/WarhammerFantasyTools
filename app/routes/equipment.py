@@ -5,7 +5,7 @@ from flask import (Blueprint, render_template, redirect, url_for,
 from flask_login import current_user
 from werkzeug.utils import secure_filename
 from app.extensions import db
-from app.models.equipment import EquipmentItem
+from app.models.equipment import EquipmentItem, parse_price_text, parse_price_units, is_clase_social_scaled
 from app.utils import require_permission, json_download_response, flash_import_summary
 
 equipment_bp = Blueprint('equipment', __name__, template_folder='../templates')
@@ -33,16 +33,19 @@ def _filtered_query(category, subcategory, quality, search):
         query = query.filter_by(category=category)
     if subcategory:
         query = query.filter_by(subcategory=subcategory)
-    if quality in EquipmentItem.QUALITIES:
+    # Quality is a real catalog attribute only for Ropa (each tier is its own
+    # row); for Arma/Armadura it's a purchase-time modifier, never stored on
+    # the row, so filtering by it there would always return zero results.
+    # Those two categories instead show every matching row with its stats/
+    # price adjusted to the chosen quality (see list.html/_macros.html).
+    if quality in EquipmentItem.QUALITIES and category not in ('arma', 'armadura'):
         query = query.filter_by(quality=quality)
     if search:
         query = query.filter(EquipmentItem.name.ilike(f'%{search}%'))
     return query.order_by(EquipmentItem.category, EquipmentItem.name)
 
 
-@equipment_bp.route('/')
-def list_items():
-    category = request.args.get('category', '').strip()
+def _render_catalog(category, locked_category):
     subcategory = request.args.get('subcategory', '').strip()
     quality = request.args.get('quality', '').strip()
     search = request.args.get('q', '').strip()
@@ -63,13 +66,59 @@ def list_items():
         search=search, subcategories=subcategories, quality_labels=quality_labels,
         category_labels=EquipmentItem.CATEGORY_LABELS,
         subcategory_labels=EquipmentItem.SUBCATEGORY_LABELS,
+        locked_category=locked_category,
     )
+
+
+@equipment_bp.route('/')
+def list_items():
+    """Full catalog: the category dropdown is free to switch/clear."""
+    category = request.args.get('category', '').strip()
+    return _render_catalog(category, locked_category=False)
+
+
+# One dedicated route per category, linked from the nav's "Equipamiento"
+# dropdown - unlike list_items(), the category here is fixed by the URL, not
+# a switchable filter, so the page can never show an object from another
+# catalog and the header can say which one you're in (e.g. "Equipamiento —
+# Armas").
+@equipment_bp.route('/armas')
+def list_armas():
+    return _render_catalog('arma', locked_category=True)
+
+
+@equipment_bp.route('/armaduras')
+def list_armaduras():
+    return _render_catalog('armadura', locked_category=True)
+
+
+@equipment_bp.route('/ropa')
+def list_ropa():
+    return _render_catalog('ropa', locked_category=True)
+
+
+@equipment_bp.route('/libros')
+def list_libros():
+    return _render_catalog('libro', locked_category=True)
+
+
+@equipment_bp.route('/otros')
+def list_otros():
+    return _render_catalog('otros', locked_category=True)
+
+
+@equipment_bp.route('/especiales')
+def list_especiales():
+    return _render_catalog('especial', locked_category=True)
 
 
 @equipment_bp.route('/<int:item_id>')
 def detail(item_id):
     item = EquipmentItem.query.get_or_404(item_id)
-    return render_template('equipment/detail.html', item=item)
+    quality = request.args.get('quality', '').strip() or None
+    if quality not in EquipmentItem.QUALITIES:
+        quality = None
+    return render_template('equipment/detail.html', item=item, quality=quality)
 
 
 @equipment_bp.route('/nuevo', methods=['GET', 'POST'])
@@ -279,6 +328,15 @@ def _item_from_form(item):
     item.base_item_id = int(base_item_id) if base_item_id else None
     item.price_text = f.get('price_text', '').strip() or None
     item.description = f.get('description', '').strip() or None
+
+    # Recompute the normalized price fields from price_text on every save,
+    # so editing a price later (or fixing an ammo batch price like "1C (5)")
+    # doesn't leave precio_peniques stuck at whatever it was when the row
+    # was first migrated/imported.
+    base_price_text, units = parse_price_units(item.price_text)
+    item.unidades_por_precio = units
+    item.precio_peniques = parse_price_text(base_price_text)
+    item.precio_escala_clase_social = is_clase_social_scaled(base_price_text)
 
     # Structured stats: posted as parallel stat_key[]/stat_value[] lists so
     # the form can have an arbitrary number of rows without naming each one.

@@ -30,15 +30,25 @@
           {% endif %}
         </div>
         <div class="card-body">
+          {% set show_quality = quality and item.category in ('arma', 'armadura') %}
           <div class="d-flex gap-2 flex-wrap mb-3">
             <span class="badge bg-secondary">{{ item.category_label }}</span>
             {% if item.subcategory %}<span class="badge bg-dark">{{ item.subcategory_label }}</span>{% endif %}
             {% if item.quality %}<span class="badge bg-info text-dark">{{ item.quality_label }}</span>{% endif %}
+            {% if show_quality %}<span class="badge bg-info text-dark">Calidad: {{ item.QUALITY_LABELS[quality] }}</span>{% endif %}
             {% if item.is_special %}<span class="badge bg-warning text-dark">Especial</span>{% endif %}
           </div>
 
-          {% if item.price_text %}
+          {% if show_quality %}
+            {% set q_price = item.price_for_quality(quality) %}
+            <p class="mb-2"><strong class="wh-label">Precio:</strong> {{ q_price | money if q_price is not none else item.price_text }}</p>
+          {% elif item.price_text %}
           <p class="mb-2"><strong class="wh-label">Precio:</strong> {{ item.price_text }}</p>
+          {% endif %}
+
+          {% set q_peso = item.peso_for_quality(quality) %}
+          {% if q_peso is not none %}
+          <p class="mb-2"><strong class="wh-label">Peso:</strong> {{ q_peso }}</p>
           {% endif %}
 
           {% if item.base_item %}
@@ -50,7 +60,7 @@
 
           {% if item.stats %}
           <h6 class="wh-heading mt-3 mb-2">Estadísticas</h6>
-          {{ stats_table(item.stats) }}
+          {{ stats_table(item.stats_for_quality(quality) if show_quality else item.stats) }}
           {% endif %}
 
           {% if item.custom_fields %}

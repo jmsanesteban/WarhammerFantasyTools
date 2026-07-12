@@ -11,6 +11,11 @@ _PRICE_RE = re.compile(r'^(\d+(?:[.,]\d+)?)\s*(CO|C|P)$', re.IGNORECASE)
 # leading amount is a per-unit base, and the real price scales with the
 # BUYING character's nivel_social (Clase social), not a fixed catalog number.
 _CLASE_SOCIAL_RE = re.compile(r'^(.*?)\s*\(\s*base\s*\*\s*\(\s*clase\s*-\s*2\s*\)\s*\)$', re.IGNORECASE)
+# Ammo is priced per batch, e.g. "1C (5)" = 5 arrows for 1 shilling: the
+# trailing "(N)" is how many units that price buys, not a formula like the
+# Clase-social suffix above (which is why a plain \d+ is enough to tell them
+# apart - "(base * (Clase-2))" never matches this).
+_PRICE_UNITS_RE = re.compile(r'^(.*?)\s*\(\s*(\d+)\s*\)$')
 
 
 def parse_price_text(text):
@@ -43,14 +48,101 @@ def is_clase_social_scaled(text):
     return bool(text) and bool(_CLASE_SOCIAL_RE.match(text.strip()))
 
 
+def parse_price_units(text):
+    """Splits a batch price like "1C (5)" into ("1C", 5) - ammo is sold N
+    units at a time for the price shown, not per single unit. Returns the
+    text unchanged with units=1 when there's no trailing "(N)" (the common
+    case for everything that isn't ammo)."""
+    if not text:
+        return text, 1
+    text = text.strip()
+    match = _PRICE_UNITS_RE.match(text)
+    if not match:
+        return text, 1
+    return match.group(1).strip(), int(match.group(2))
+
+
+_MAGNITUDE_RE = re.compile(r'-?(\d+(?:\.\d+)?)')
+
+
+def _percent_magnitude(value):
+    """Extracts the numeric magnitude out of an agility-penalty-like value
+    ("-5" -> 5.0, "-1/-1" -> 1.0) - used to derive armour/shield weight from
+    their own agility penalty (see EquipmentItem.peso_for_quality). Returns
+    None (no magnitude available, NOT the same as zero) for "-" or anything
+    unparseable."""
+    if value is None:
+        return None
+    text = str(value).strip()
+    if not text or text == '-':
+        return None
+    match = _MAGNITUDE_RE.search(text)
+    return abs(float(match.group(1))) if match else None
+
+
+_PERCENT_RE = re.compile(r'^([+-]?\d+)\s*%$')
+# A trailing flat damage modifier ("1D6+1" -> "+1") is only a plain sign+digits
+# run NOT glued to a die size ("1D10 + 1D4" ends in "D4", not "+4" - the
+# lookbehind keeps that second case untouched rather than misreading it).
+_TRAILING_DAMAGE_MOD_RE = re.compile(r'(?<![Dd])([+-])\s*(\d+)\s*$')
+
+
+def _adjust_percent_part(part, delta, signed):
+    """"40%" + 5 -> "45%"; "-" (no modifier) + -5 -> "-5%"; a result of
+    exactly 0 renders back as "-" when `signed` (matching the book's own
+    "no modifier" convention for ataque/parada). `signed=False` is for plain
+    magnitudes like aguante, which are never written with a leading "+".
+    Anything that isn't a plain percentage (or "-") is left untouched."""
+    part = part.strip()
+    if delta == 0:
+        return part
+    base = 0 if part == '-' else None
+    if base is None:
+        match = _PERCENT_RE.match(part)
+        if not match:
+            return part
+        base = int(match.group(1))
+    new_value = base + delta
+    if not signed:
+        return f'{new_value}%'
+    return '-' if new_value == 0 else f'{new_value:+d}%'
+
+
+def adjust_percent_stat(value, delta, signed=True):
+    """Applies a quality delta to a percent-modifier stat that may hold two
+    slash-separated values (versatile weapons, e.g. "-5%/-3%" for 1h/2h)."""
+    if value is None or delta == 0:
+        return value
+    return '/'.join(_adjust_percent_part(p, delta, signed) for p in str(value).split('/'))
+
+
+def adjust_damage_stat(value, delta):
+    """Applies a quality delta to a damage string's flat bonus ("1D6+1" -> 1
+    -> "1D6+2"). Compound dice with no flat bonus ("1D10 + 1D4") or anything
+    else unparseable is left untouched rather than guessed at."""
+    if not value or delta == 0:
+        return value
+    parts = [p.strip() for p in str(value).split('/')]
+    adjusted = []
+    for part in parts:
+        match = _TRAILING_DAMAGE_MOD_RE.search(part)
+        if not match:
+            adjusted.append(part)
+            continue
+        sign, digits = match.group(1), int(match.group(2))
+        new_value = (digits if sign == '+' else -digits) + delta
+        base = part[:match.start()].rstrip()
+        adjusted.append(base if new_value == 0 else f'{base}{new_value:+d}')
+    return '/'.join(adjusted)
+
+
 class EquipmentItem(db.Model):
     """A catalog item: weapon, armour, clothing, or a special (magic) item
     built on top of one of those. Category-specific stats (damage, armour
     value, range, protection...) live in `stats` since the shape varies too
     much between categories for fixed columns; `custom_fields` is reserved
     for whatever an admin bolts on by hand, so new attributes never need a
-    migration (e.g. weapon weight, still unreleased while the carry-weight
-    rules are being balanced)."""
+    migration."""
     __tablename__ = 'equipment_items'
 
     id = db.Column(db.Integer, primary_key=True)
@@ -67,6 +159,16 @@ class EquipmentItem(db.Model):
     # is a per-unit base that must be multiplied by (buyer.nivel_social - 2)
     # at purchase time, not a fixed price on its own.
     precio_escala_clase_social = db.Column(db.Boolean, nullable=False, default=False)
+    # Ammo is sold in batches ("1C (5)" = 5 arrows for that price): precio_peniques
+    # is the price of a full batch of this many units, not of a single one.
+    # Always 1 for anything that isn't ammo.
+    unidades_por_precio = db.Column(db.Integer, nullable=False, default=1)
+    # Carrying weight in the book's abstract "carga" units ("El Imperio y sus
+    # viajes" p.9). NULL for armour/shields, whose weight is instead derived
+    # in real time from their own agility penalty (see peso_for_quality) -
+    # storing a separate flat number there would drift out of sync with
+    # quality, since agility penalty already varies mala/normal/buena/excelente.
+    peso = db.Column(db.Float, nullable=True)
     image_path = db.Column(db.String(300), nullable=True)
     description = db.Column(db.Text, nullable=True)
     stats = db.Column(db.JSON, nullable=True)
@@ -87,6 +189,18 @@ class EquipmentItem(db.Model):
     # arma/armadura. Ropa's tiers are already separate catalog rows with their
     # own literal price; especial items are priced by the GM, not computed.
     QUALITY_PRICE_MULTIPLIER = {'mala': 0.5, 'normal': 1, 'buena': 3, 'excelente': 10}
+    # Book rule ("Armas fantástico Revisada" p.7, "Datos adicionales -
+    # Calidad armas por fabricación"): manufacture quality shifts a weapon's
+    # aguante, its ataque/parada modifier ("mod. al uso"), and its damage
+    # bonus - on top of whatever the weapon's own printed value already is,
+    # never replacing it. Buena carries no stat change, only the price
+    # multiplier above.
+    QUALITY_WEAPON_STAT_MODIFIERS = {
+        'mala': {'aguante': -5, 'uso': -5, 'daño': -1},
+        'normal': {'aguante': 0, 'uso': 0, 'daño': 0},
+        'buena': {'aguante': 0, 'uso': 0, 'daño': 0},
+        'excelente': {'aguante': 5, 'uso': 5, 'daño': 1},
+    }
 
     CATEGORY_LABELS = {
         'arma': 'Arma', 'armadura': 'Armadura', 'ropa': 'Ropa', 'especial': 'Especial',
@@ -154,10 +268,59 @@ class EquipmentItem(db.Model):
             if nivel_social is None or nivel_social - 2 <= 0:
                 return None
             return self.precio_peniques * (nivel_social - 2)
-        if self.category == 'ropa':
-            return self.precio_peniques  # each quality tier is already its own row
+        if self.category == 'ropa' or self.subcategory == 'municion':
+            # Ropa: each quality tier is already its own row. Ammo: the book
+            # is explicit that manufacture quality never applies to it ("No
+            # hay modificadores por calidad") - price is always the catalog
+            # price of a full batch (unidades_por_precio units).
+            return self.precio_peniques
         multiplier = self.QUALITY_PRICE_MULTIPLIER.get(quality or self.quality, 1)
         return round(self.precio_peniques * multiplier)
+
+    def stats_for_quality(self, quality):
+        """`stats` adjusted for a given manufacture quality. Only weapons
+        vary this way (aguante/ataque/parada/daño accumulate the quality's
+        book modifier on top of whatever the weapon's own value already is -
+        see QUALITY_WEAPON_STAT_MODIFIERS); ammo has no quality concept at
+        all ("No hay modificadores por calidad"). Armour's per-quality
+        agility penalty already lives in `stats` as its own dict
+        (agilidad_por_calidad) and needs no further adjustment here - this
+        returns `stats` unchanged for every other category."""
+        if (not self.stats or not quality or self.category != 'arma'
+                or self.subcategory == 'municion'):
+            return self.stats
+        mods = self.QUALITY_WEAPON_STAT_MODIFIERS.get(quality)
+        if not mods:
+            return self.stats
+        adjusted = dict(self.stats)
+        if 'aguante' in adjusted:
+            adjusted['aguante'] = adjust_percent_stat(adjusted['aguante'], mods['aguante'], signed=False)
+        for key in ('ataque', 'parada'):
+            if key in adjusted:
+                adjusted[key] = adjust_percent_stat(adjusted[key], mods['uso'])
+        if 'daño' in adjusted:
+            adjusted['daño'] = adjust_damage_stat(adjusted['daño'], mods['daño'])
+        return adjusted
+
+    def peso_for_quality(self, quality=None):
+        """Carrying weight in the book's "carga" units. Everything except
+        armour just returns the stored `peso` column (constant regardless of
+        quality). Armour and shields don't store a flat peso at all - their
+        bulk is represented by their own agility penalty (a physical piece
+        that barely restricts movement, like a buckler, still isn't
+        weightless, but re-deriving it from the same number the book already
+        gives keeps it from drifting out of sync across the 4 quality tiers).
+        Falls back to the stored `peso` if no agility magnitude can be
+        found (e.g. Rodela's agility is genuinely "-", so peso=3 is stored
+        for it directly as the book's own explicit exception)."""
+        if self.category != 'armadura' or not self.stats:
+            return self.peso
+        if self.subcategory == 'escudos':
+            magnitude = _percent_magnitude(self.stats.get('agilidad'))
+        else:
+            per_quality = self.stats.get('agilidad_por_calidad') or {}
+            magnitude = _percent_magnitude(per_quality.get(quality or self.quality or 'normal'))
+        return magnitude if magnitude is not None else self.peso
 
     def __repr__(self):
         return f'<EquipmentItem {self.name} ({self.category})>'
@@ -221,12 +384,18 @@ class CharacterCartItem(db.Model):
 
     @property
     def unit_price(self):
+        """Price of a full batch (equipment_item.unidades_por_precio units) -
+        for anything that isn't sold in batches, that's just 1 unit."""
         return self.equipment_item.price_for_quality(self.quality, nivel_social=self.character.nivel_social)
 
     @property
     def subtotal(self):
         price = self.unit_price
-        return None if price is None else price * self.quantity
+        if price is None:
+            return None
+        # quantity is validated at add-to-cart time to be an exact multiple
+        # of unidades_por_precio, so this division is always exact.
+        return price * self.quantity // self.equipment_item.unidades_por_precio
 
 
 class CharacterPurchase(db.Model):

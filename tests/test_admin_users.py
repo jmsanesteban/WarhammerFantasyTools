@@ -95,3 +95,26 @@ def test_set_password_rejects_mismatched_confirmation(db, client, admin_user, ma
 
     db.session.refresh(other)
     assert other.check_password('otherpass123')
+
+
+# ── Alta de equipo sin coste (toggle por usuario) ───────────────────────────
+
+def test_toggle_no_cost_equipment_requires_admin(client, regular_user, make_user, login_as):
+    other = make_user(username='other1', password='otherpass123')
+    login_as(client, regular_user, 'userpass123')
+    resp = client.post(f'/admin/usuarios/{other.id}/toggle-sin-coste')
+    assert resp.status_code == 403
+
+
+def test_toggle_no_cost_equipment_flips_flag(db, client, admin_user, make_user, login_as):
+    other = make_user(username='other1', password='otherpass123')
+    assert other.puede_anadir_equipo_sin_coste is False
+    login_as(client, admin_user, 'adminpass123')
+
+    client.post(f'/admin/usuarios/{other.id}/toggle-sin-coste', follow_redirects=True)
+    db.session.refresh(other)
+    assert other.puede_anadir_equipo_sin_coste is True
+
+    client.post(f'/admin/usuarios/{other.id}/toggle-sin-coste', follow_redirects=True)
+    db.session.refresh(other)
+    assert other.puede_anadir_equipo_sin_coste is False

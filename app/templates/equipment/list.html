@@ -1,11 +1,11 @@
 {% extends 'base.html' %}
 {% from 'equipment/_macros.html' import equipment_card with context %}
-{% block title %}Equipamiento — Warhammer Fantasy Tools{% endblock %}
+{% block title %}Equipamiento{% if locked_category %} — {{ category_labels[category] }}{% endif %} — Warhammer Fantasy Tools{% endblock %}
 
 {% block content %}
 <div class="container mt-4">
   <div class="d-flex justify-content-between align-items-center mb-3">
-    <h2 class="wh-heading"><i class="bi bi-shield-shaded me-2"></i>Equipamiento</h2>
+    <h2 class="wh-heading"><i class="bi bi-shield-shaded me-2"></i>Equipamiento{% if locked_category %} — {{ category_labels[category] }}{% endif %}</h2>
     {% if current_user.is_authenticated and current_user.has_perm('equipment.edit') %}
     <div class="d-flex gap-2">
       {% if current_user.has_perm('equipment.import') %}
@@ -31,14 +31,16 @@
     <div class="col-md-4">
       <input type="text" name="q" class="form-control wh-input" placeholder="Buscar por nombre…" value="{{ search }}">
     </div>
+    {% if not locked_category %}
     <div class="col-md-2">
       <select name="category" class="form-select wh-input" onchange="this.form.submit()">
         <option value="">Todas las categorías</option>
-        {% for cat in ['arma', 'armadura', 'ropa', 'especial'] %}
+        {% for cat in ['arma', 'armadura', 'ropa', 'libro', 'otros', 'especial'] %}
         <option value="{{ cat }}" {% if category == cat %}selected{% endif %}>{{ category_labels[cat] }}</option>
         {% endfor %}
       </select>
     </div>
+    {% endif %}
     <div class="col-md-2">
       <select name="subcategory" class="form-select wh-input">
         <option value="">Todos los tipos</option>
@@ -58,20 +60,24 @@
     <div class="col-md-1">
       <button class="btn btn-wh w-100" type="submit"><i class="bi bi-search"></i></button>
     </div>
-    {% if search or category or subcategory or quality %}
+    {% if search or subcategory or quality or (not locked_category and category) %}
     <div class="col-md-1">
-      <a href="{{ url_for('equipment.list_items') }}" class="btn btn-outline-secondary w-100" title="Limpiar">
+      <a href="{{ url_for(request.endpoint) }}" class="btn btn-outline-secondary w-100" title="Limpiar">
         <i class="bi bi-x-lg"></i>
       </a>
     </div>
     {% endif %}
   </form>
 
+  {% if locked_category %}
+  <p class="mb-3"><a href="{{ url_for('equipment.list_items') }}" class="wh-link"><i class="bi bi-list-ul me-1"></i>Ver catálogo completo</a></p>
+  {% endif %}
+
   {% if items %}
   <div class="row g-3">
     {% for item in items %}
     <div class="col-md-6 col-lg-4">
-      {{ equipment_card(item) }}
+      {{ equipment_card(item, quality=quality) }}
     </div>
     {% endfor %}
   </div>

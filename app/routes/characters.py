@@ -221,10 +221,44 @@ def anadir_carrito_confirmar(char_id, item_id):
 
     # Ropa: quality = the catalog row itself. Special items built on a
     # mundane base (Pincho ocultable = Daga excelente, etc.) are always
-    # excelente - only genuinely-variable-quality arma/armadura show a picker.
-    qualities = [] if (item.category == 'ropa' or item.is_special) else list(EquipmentItem.QUALITIES)
+    # excelente. Ammo never varies by quality ("No hay modificadores por
+    # calidad" - manufacture quality is always treated as normal) - only
+    # genuinely-variable-quality arma/armadura show a picker.
+    qualities = ([] if (item.category == 'ropa' or item.is_special or item.subcategory == 'municion')
+                 else list(EquipmentItem.QUALITIES))
+    puede_sin_coste = current_user.is_admin or current_user.puede_anadir_equipo_sin_coste
     return render_template('characters/anadir_carrito_confirmar.html', char=char, item=item,
-                            qualities=qualities, locations=CharacterInventoryItem.LOCATIONS)
+                            qualities=qualities, locations=CharacterInventoryItem.LOCATIONS,
+                            puede_sin_coste=puede_sin_coste)
+
+
+def _resolve_cart_line(item):
+    """Reads quality/quantity/location from the posted form for a purchase
+    (or a no-cost inventory add - same picker, same rules). Returns
+    (quality, quantity, location, error_message); error_message is None
+    when everything is valid."""
+    # Ropa's "quality" is really which catalog row was picked (Harapos/Común/
+    # Burguesa/Noble are separate rows). Special items built on a mundane base
+    # are always excelente. Ammo has no quality concept at all. None of these
+    # three is a player choice on this one row.
+    if item.category == 'ropa' or item.is_special or item.subcategory == 'municion':
+        quality = item.quality
+    else:
+        quality = request.form.get('quality', '').strip() or None
+    quantity = request.form.get('quantity', '1').strip()
+    quantity = int(quantity) if quantity.isdigit() and int(quantity) > 0 else 1
+    location = request.form.get('location', '').strip()
+
+    if location not in CharacterInventoryItem.LOCATIONS:
+        return quality, quantity, location, 'Ubicación de almacenamiento no válida.'
+
+    if quantity % item.unidades_por_precio != 0:
+        return quality, quantity, location, (
+            f'«{item.name}» se vende en lotes de {item.unidades_por_precio}: '
+            f'la cantidad debe ser múltiplo de {item.unidades_por_precio}.'
+        )
+
+    return quality, quantity, location, None
 
 
 @characters_bp.route('/<int:char_id>/tienda/<int:item_id>/anadir-carrito', methods=['POST'])
@@ -235,19 +269,9 @@ def anadir_carrito(char_id, item_id):
     if item.category not in _TIENDA_CATEGORIES:
         abort(404)
 
-    # Ropa's "quality" is really which catalog row was picked (Harapos/Común/
-    # Burguesa/Noble are separate rows). Special items built on a mundane base
-    # are always excelente. Neither is a player choice on this one row.
-    if item.category == 'ropa' or item.is_special:
-        quality = item.quality
-    else:
-        quality = request.form.get('quality', '').strip() or None
-    quantity = request.form.get('quantity', '1').strip()
-    quantity = int(quantity) if quantity.isdigit() and int(quantity) > 0 else 1
-    location = request.form.get('location', '').strip()
-
-    if location not in CharacterInventoryItem.LOCATIONS:
-        flash('Ubicación de almacenamiento no válida.', 'danger')
+    quality, quantity, location, error = _resolve_cart_line(item)
+    if error:
+        flash(error, 'danger')
         return redirect(url_for('characters.anadir_carrito_confirmar', char_id=char.id, item_id=item.id))
 
     db.session.add(CharacterCartItem(
@@ -257,6 +281,43 @@ def anadir_carrito(char_id, item_id):
     db.session.commit()
     flash(f'«{item.name}» añadido al carrito.', 'success')
     return redirect(url_for('characters.tienda', char_id=char.id))
+
+
+@characters_bp.route('/<int:char_id>/tienda/<int:item_id>/anadir-sin-coste', methods=['POST'])
+@login_required
+def anadir_sin_coste(char_id, item_id):
+    """Regularizes equipment a character already owned before this shop
+    existed: straight to inventory, no cart, no money touched. Gated by the
+    same admin-controlled per-user flag as the "Ya lo tenía" checkbox in the
+    purchase-confirm screen - not a general free-purchase path."""
+    char = _get_owned_character(char_id)
+    item = EquipmentItem.query.get_or_404(item_id)
+    if item.category not in _TIENDA_CATEGORIES:
+        abort(404)
+    if not (current_user.is_admin or current_user.puede_anadir_equipo_sin_coste):
+        abort(403)
+
+    quality, quantity, location, error = _resolve_cart_line(item)
+    if error:
+        flash(error, 'danger')
+        return redirect(url_for('characters.anadir_carrito_confirmar', char_id=char.id, item_id=item.id))
+
+    inv_item = CharacterInventoryItem(
+        character_id=char.id, equipment_item_id=item.id, quality=quality,
+        quantity=quantity, location=location,
+    )
+    db.session.add(inv_item)
+    db.session.flush()
+
+    db.session.add(CharacterPurchase(
+        character_id=char.id, equipment_item_id=item.id,
+        item_name_snapshot=item.name, category_snapshot=item.category, quality_snapshot=quality,
+        precio_peniques_pagado=0, granted_by_gm=False, granted_by_user_id=current_user.id,
+        inventory_item_id=inv_item.id, notes='Alta sin coste (equipo ya en posesión del personaje).',
+    ))
+    db.session.commit()
+    flash(f'«{item.name}» añadido al inventario de {char.name} sin coste.', 'success')
+    return redirect(url_for('characters.inventario', char_id=char.id))
 
 
 @characters_bp.route('/<int:char_id>/carrito')
@@ -292,13 +353,13 @@ def checkout_carrito(char_id):
     # completo sin tocar nada, para que el jugador pueda arreglarla y reintentar.
     total_price = 0
     for cart_item in cart_items:
-        unit_price = cart_item.unit_price
-        if unit_price is None:
+        line_total = cart_item.subtotal
+        if line_total is None:
             flash(f'«{cart_item.equipment_item.name}» no tiene un precio calculable ahora mismo '
                   f'(revisa su precio en el catálogo o el nivel social de {char.name}); '
                   f'quítalo del carrito o corrígelo antes de finalizar la compra.', 'danger')
             return redirect(url_for('characters.carrito', char_id=char.id))
-        total_price += unit_price * cart_item.quantity
+        total_price += line_total
 
     if total_price > char.dinero_total_peniques:
         flash(f'{char.name} no tiene suficiente dinero: hacen falta {format_peniques(total_price)}, '
@@ -318,7 +379,7 @@ def checkout_carrito(char_id):
         db.session.add(CharacterPurchase(
             character_id=char.id, equipment_item_id=cart_item.equipment_item_id,
             item_name_snapshot=cart_item.equipment_item.name, category_snapshot=cart_item.equipment_item.category,
-            quality_snapshot=cart_item.quality, precio_peniques_pagado=cart_item.unit_price * cart_item.quantity,
+            quality_snapshot=cart_item.quality, precio_peniques_pagado=cart_item.subtotal,
             granted_by_gm=False, granted_by_user_id=current_user.id, inventory_item_id=inv_item.id,
         ))
         db.session.delete(cart_item)

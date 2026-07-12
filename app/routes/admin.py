@@ -426,6 +426,18 @@ def toggle_user(user_id):
     return redirect(url_for('admin.users'))
 
 
+@admin_bp.route('/usuarios/<int:user_id>/toggle-sin-coste', methods=['POST'])
+@login_required
+@admin_required
+def toggle_no_cost_equipment(user_id):
+    user = User.query.get_or_404(user_id)
+    user.puede_anadir_equipo_sin_coste = not user.puede_anadir_equipo_sin_coste
+    db.session.commit()
+    status = 'habilitada' if user.puede_anadir_equipo_sin_coste else 'deshabilitada'
+    flash(f'Alta de equipo sin coste {status} para "{user.username}".', 'info')
+    return redirect(url_for('admin.users'))
+
+
 @admin_bp.route('/usuarios/<int:user_id>/rol', methods=['POST'])
 @login_required
 @admin_required
