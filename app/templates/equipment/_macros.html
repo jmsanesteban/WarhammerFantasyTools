@@ -1,0 +1,41 @@
+{# Shared stats-table rendering for equipment cards/detail: most stats are
+   plain key/value pairs, but a couple of keys need special handling -
+   alcance/perforación labels are two words + a "C/L/Ext" sub-label that
+   wraps badly as a single capitalized phrase, and agilidad_por_calidad's
+   value is itself a {mala,normal,buena,excelente} dict, not a scalar. #}
+{% macro stats_table(stats) %}
+{% if stats %}
+<table class="table table-sm wh-stat-table mb-2">
+  <tbody>
+    {% for key, value in stats.items() %}
+    <tr>
+      <th style="width:45%">
+        {% if key in ('alcance_c_l_ext', 'perforacion_c_l_ext') %}
+          <span class="text-capitalize">{{ 'Alcance' if key.startswith('alcance') else 'Perforación' }}</span><br>
+          <small class="text-muted">C / L / Ext</small>
+        {% elif key == 'agilidad_por_calidad' %}
+          Agilidad/Calidad<br><small class="text-muted">M / N / B / E</small>
+        {% else %}
+          <span class="text-capitalize">{{ key.replace('_', ' ') }}</span>
+        {% endif %}
+      </th>
+      <td>
+        {% if value is mapping %}
+          {#- MySQL's JSON type reorders object keys internally (by key
+             length, not insertion order), so a fixed quality sequence is
+             enforced here instead of trusting dict iteration order. -#}
+          {%- set ordered = [] -%}
+          {%- for q in ['mala', 'normal', 'buena', 'excelente'] -%}
+            {%- if q in value -%}{% set _ = ordered.append(value[q]) %}{%- endif -%}
+          {%- endfor -%}
+          {{ ordered | join(' / ') }}
+        {% else %}
+          {{ value }}
+        {% endif %}
+      </td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% endif %}
+{% endmacro %}

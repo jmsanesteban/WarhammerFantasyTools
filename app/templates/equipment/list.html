@@ -1,4 +1,5 @@
 {% extends 'base.html' %}
+{% from 'equipment/_macros.html' import stats_table %}
 {% block title %}Equipamiento — Warhammer Fantasy Tools{% endblock %}
 
 {% block content %}
@@ -95,25 +96,8 @@
               </p>
               {% endif %}
 
-              {% if item.stats %}
-              <table class="table table-sm wh-stat-table mb-2">
-                <tbody>
-                  {% for key, value in item.stats.items() %}
-                  <tr><th class="text-capitalize" style="width:45%">{{ key.replace('_', ' ') }}</th><td>{{ value }}</td></tr>
-                  {% endfor %}
-                </tbody>
-              </table>
-              {% endif %}
-
-              {% if item.custom_fields %}
-              <table class="table table-sm wh-stat-table mb-2">
-                <tbody>
-                  {% for key, value in item.custom_fields.items() %}
-                  <tr><th class="text-capitalize" style="width:45%">{{ key.replace('_', ' ') }}</th><td>{{ value }}</td></tr>
-                  {% endfor %}
-                </tbody>
-              </table>
-              {% endif %}
+              {{ stats_table(item.stats) }}
+              {{ stats_table(item.custom_fields) }}
 
               {% if item.description %}
               <p class="wh-description small mb-0">{{ item.description }}</p>
