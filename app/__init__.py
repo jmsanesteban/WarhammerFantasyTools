@@ -368,32 +368,38 @@ def _register_cli_commands(app):
                             conn.execute(text(f'ALTER TABLE recipes ADD COLUMN {col_name} {col_def}'))
                             click.echo(f'  Added recipes.{col_name}')
 
-            # Incremental column: equipment_items.precio_peniques (normalized
-            # numeric price for the character purchase flow), with a one-time
-            # backfill from the existing price_text for whatever the parser
-            # can cleanly handle - irregular rows (dual prices, formulas) stay
-            # NULL until an admin fills them in by hand.
+            # Incremental columns: equipment_items.precio_peniques (normalized
+            # numeric price for the character purchase flow) and
+            # precio_escala_clase_social (Noble ropa: "36c (base *
+            # (Clase-2))" - price scales with the BUYING character's
+            # nivel_social, computed at purchase time). Both backfills use
+            # raw SQL (not the EquipmentItem ORM query) since an ORM SELECT
+            # pulls every mapped column - including ones this same migration
+            # hasn't added yet on a fresh database - and would 1054 before
+            # the later block runs.
             if inspector.has_table('equipment_items'):
                 equip_cols = {c['name'] for c in inspector.get_columns('equipment_items')}
+                from app.models.equipment import parse_price_text, is_clase_social_scaled
+
                 if 'precio_peniques' not in equip_cols:
                     with db.engine.begin() as conn:
                         conn.execute(text('ALTER TABLE equipment_items ADD COLUMN precio_peniques INT NULL'))
                     click.echo('  Added equipment_items.precio_peniques')
-                    from app.models.equipment import EquipmentItem, parse_price_text
-                    backfilled = 0
-                    for item in EquipmentItem.query.filter(EquipmentItem.price_text.isnot(None)).all():
-                        peniques = parse_price_text(item.price_text)
-                        if peniques is not None:
-                            item.precio_peniques = peniques
-                            backfilled += 1
-                    db.session.commit()
+                    with db.engine.begin() as conn:
+                        rows = conn.execute(text(
+                            'SELECT id, price_text FROM equipment_items WHERE price_text IS NOT NULL'
+                        )).fetchall()
+                        backfilled = 0
+                        for row_id, price_text in rows:
+                            peniques = parse_price_text(price_text)
+                            if peniques is not None:
+                                conn.execute(
+                                    text('UPDATE equipment_items SET precio_peniques = :p WHERE id = :id'),
+                                    {'p': peniques, 'id': row_id},
+                                )
+                                backfilled += 1
                     click.echo(f'  Backfilled precio_peniques for {backfilled} equipment item(s)')
 
-            # Incremental column: equipment_items.precio_escala_clase_social
-            # (Noble ropa: "36c (base * (Clase-2))" - price scales with the
-            # BUYING character's nivel_social, computed at purchase time).
-            if inspector.has_table('equipment_items'):
-                equip_cols = {c['name'] for c in inspector.get_columns('equipment_items')}
                 if 'precio_escala_clase_social' not in equip_cols:
                     with db.engine.begin() as conn:
                         conn.execute(text(
@@ -401,18 +407,23 @@ def _register_cli_commands(app):
                             'precio_escala_clase_social BOOLEAN NOT NULL DEFAULT FALSE'
                         ))
                     click.echo('  Added equipment_items.precio_escala_clase_social')
-                    from app.models.equipment import EquipmentItem, is_clase_social_scaled, parse_price_text
-                    flagged = 0
-                    for item in EquipmentItem.query.filter(EquipmentItem.price_text.isnot(None)).all():
-                        if is_clase_social_scaled(item.price_text):
-                            item.precio_escala_clase_social = True
-                            flagged += 1
-                            # Fixes rows migrated by an earlier version of this
-                            # parser (before it understood the Clase-2 suffix)
-                            # that were left NULL on a prior deploy.
-                            if item.precio_peniques is None:
-                                item.precio_peniques = parse_price_text(item.price_text)
-                    db.session.commit()
+                    with db.engine.begin() as conn:
+                        rows = conn.execute(text(
+                            'SELECT id, price_text, precio_peniques FROM equipment_items WHERE price_text IS NOT NULL'
+                        )).fetchall()
+                        flagged = 0
+                        for row_id, price_text, precio_peniques in rows:
+                            if is_clase_social_scaled(price_text):
+                                flagged += 1
+                                # Fixes rows migrated by an earlier version of
+                                # this parser (before it understood the
+                                # Clase-2 suffix) left NULL on a prior deploy.
+                                new_peniques = precio_peniques if precio_peniques is not None else parse_price_text(price_text)
+                                conn.execute(
+                                    text('UPDATE equipment_items SET precio_escala_clase_social = TRUE, '
+                                         'precio_peniques = :p WHERE id = :id'),
+                                    {'p': new_peniques, 'id': row_id},
+                                )
                     click.echo(f'  Flagged {flagged} equipment item(s) as Clase-social-scaled')
 
             # Incremental column: character_inventory_items.condition
