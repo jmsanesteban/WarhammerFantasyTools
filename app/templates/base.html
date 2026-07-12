@@ -61,6 +61,12 @@
             <i class="bi bi-star me-1"></i>Talentos
           </a>
         </li>
+        <li class="nav-item">
+          <a class="nav-link {% if request.blueprint == 'equipment' %}active{% endif %}"
+             href="{{ url_for('equipment.list_items') }}">
+            <i class="bi bi-shield-shaded me-1"></i>Equipamiento
+          </a>
+        </li>
         {% if current_user.is_authenticated %}
         <li class="nav-item">
           <a class="nav-link {% if request.blueprint == 'characters' %}active{% endif %}"

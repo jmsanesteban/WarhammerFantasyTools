@@ -103,6 +103,17 @@ def make_profession(db):
 
 
 @pytest.fixture
+def make_equipment_item(db):
+    def _make(name='Daga', category='arma', **kwargs):
+        from app.models.equipment import EquipmentItem
+        item = EquipmentItem(name=name, category=category, **kwargs)
+        db.session.add(item)
+        db.session.commit()
+        return item
+    return _make
+
+
+@pytest.fixture
 def make_character(db):
     def _make(user, name='Test Character', **kwargs):
         from app.models.character import Character

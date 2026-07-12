@@ -65,6 +65,9 @@ ALL_PERMISSIONS = [
     ('contacts.edit',      'Editar contactos',       'Crear contactos y editar el propio vínculo de un personaje', 'contacts'),
     ('contacts.import',    'Importar contactos',     'Importar/exportar contactos desde Excel',                 'contacts'),
     ('users.manage',       'Gestionar usuarios',     'Asignar plantillas y permisos a otros usuarios (no convertir en admin)', 'admin'),
+    ('equipment.view',     'Ver equipamiento',       'Consultar catálogo de armas, armaduras, ropas y objetos especiales', 'equipment'),
+    ('equipment.edit',     'Editar equipamiento',    'Crear, editar y eliminar objetos del catálogo de equipamiento', 'equipment'),
+    ('equipment.import',   'Importar equipamiento',  'Importar/exportar el catálogo de equipamiento en JSON',    'equipment'),
 ]
 
 # Default templates seeded on first run.
@@ -73,7 +76,7 @@ DEFAULT_TEMPLATES = [
     (
         'Lector',
         'Acceso de solo consulta a todas las secciones públicas',
-        ['professions.view', 'skills.view', 'pathfinder.use', 'characters.view', 'contacts.view'],
+        ['professions.view', 'skills.view', 'pathfinder.use', 'characters.view', 'contacts.view', 'equipment.view'],
     ),
     (
         'Editor',
@@ -81,7 +84,8 @@ DEFAULT_TEMPLATES = [
         ['professions.view', 'professions.edit', 'professions.import',
          'skills.view', 'skills.edit', 'pathfinder.use',
          'characters.view', 'characters.edit',
-         'contacts.view', 'contacts.edit', 'contacts.import'],
+         'contacts.view', 'contacts.edit', 'contacts.import',
+         'equipment.view', 'equipment.edit', 'equipment.import'],
     ),
     (
         'Gestor',
@@ -89,7 +93,8 @@ DEFAULT_TEMPLATES = [
         ['professions.view', 'professions.edit', 'professions.import',
          'skills.view', 'skills.edit', 'pathfinder.use',
          'characters.view', 'characters.edit',
-         'contacts.view', 'contacts.edit', 'contacts.import', 'users.manage'],
+         'contacts.view', 'contacts.edit', 'contacts.import',
+         'equipment.view', 'equipment.edit', 'equipment.import', 'users.manage'],
     ),
 ]
 

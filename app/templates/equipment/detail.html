@@ -1,0 +1,95 @@
+{% extends 'base.html' %}
+{% block title %}{{ item.name }} — Warhammer Fantasy Tools{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+  <nav aria-label="breadcrumb">
+    <ol class="breadcrumb wh-breadcrumb">
+      <li class="breadcrumb-item"><a href="{{ url_for('equipment.list_items') }}" class="wh-link">Equipamiento</a></li>
+      <li class="breadcrumb-item active">{{ item.name }}</li>
+    </ol>
+  </nav>
+
+  <div class="card wh-card">
+    <div class="row g-0">
+      {% if item.image_path %}
+      <div class="col-md-4">
+        <img src="{{ url_for('main.uploaded_file', filename=item.image_path) }}"
+             class="img-fluid rounded-start" alt="{{ item.name }}">
+      </div>
+      {% endif %}
+      <div class="{% if item.image_path %}col-md-8{% else %}col-12{% endif %}">
+        <div class="card-header wh-card-header d-flex justify-content-between align-items-center">
+          <span><i class="bi bi-box-seam me-2"></i>{{ item.name }}</span>
+          {% if current_user.is_authenticated and current_user.has_perm('equipment.edit') %}
+          <a href="{{ url_for('equipment.edit', item_id=item.id) }}" class="btn btn-outline-warning btn-sm">
+            <i class="bi bi-pencil me-1"></i>Editar
+          </a>
+          {% endif %}
+        </div>
+        <div class="card-body">
+          <div class="d-flex gap-2 flex-wrap mb-3">
+            <span class="badge bg-secondary">{{ item.category_label }}</span>
+            {% if item.subcategory %}<span class="badge bg-dark">{{ item.subcategory_label }}</span>{% endif %}
+            {% if item.quality %}<span class="badge bg-info text-dark">{{ item.quality_label }}</span>{% endif %}
+            {% if item.is_special %}<span class="badge bg-warning text-dark">Especial</span>{% endif %}
+          </div>
+
+          {% if item.price_text %}
+          <p class="mb-2"><strong class="wh-label">Precio:</strong> {{ item.price_text }}</p>
+          {% endif %}
+
+          {% if item.base_item %}
+          <p class="mb-2">
+            <strong class="wh-label">Basado en:</strong>
+            <a href="{{ url_for('equipment.detail', item_id=item.base_item.id) }}" class="wh-link">{{ item.base_item.name }}</a>
+          </p>
+          {% endif %}
+
+          {% if item.stats %}
+          <h6 class="wh-heading mt-3 mb-2">Estadísticas</h6>
+          <table class="table table-sm wh-stat-table">
+            <tbody>
+              {% for key, value in item.stats.items() %}
+              <tr><th class="text-capitalize" style="width:40%">{{ key.replace('_', ' ') }}</th><td>{{ value }}</td></tr>
+              {% endfor %}
+            </tbody>
+          </table>
+          {% endif %}
+
+          {% if item.custom_fields %}
+          <h6 class="wh-heading mt-3 mb-2">Campos adicionales</h6>
+          <table class="table table-sm wh-stat-table">
+            <tbody>
+              {% for key, value in item.custom_fields.items() %}
+              <tr><th class="text-capitalize" style="width:40%">{{ key.replace('_', ' ') }}</th><td>{{ value }}</td></tr>
+              {% endfor %}
+            </tbody>
+          </table>
+          {% endif %}
+
+          {% if item.description %}
+          <h6 class="wh-heading mt-3 mb-2">Especial</h6>
+          <p class="wh-description">{{ item.description }}</p>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+  </div>
+
+  {% if item.special_variants %}
+  <h4 class="wh-heading mt-4 mb-3">Objetos especiales basados en este</h4>
+  <div class="row g-2">
+    {% for variant in item.special_variants %}
+    <div class="col-md-3">
+      <a href="{{ url_for('equipment.detail', item_id=variant.id) }}" class="text-decoration-none">
+        <div class="card wh-card-sm text-center p-2">
+          <small class="wh-name">{{ variant.name }}</small>
+        </div>
+      </a>
+    </div>
+    {% endfor %}
+  </div>
+  {% endif %}
+</div>
+{% endblock %}

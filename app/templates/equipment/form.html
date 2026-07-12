@@ -1,0 +1,158 @@
+{% extends 'base.html' %}
+{% block title %}{{ 'Editar' if item else 'Nuevo' }} Objeto — Warhammer Fantasy Tools{% endblock %}
+
+{% block content %}
+<div class="container mt-4" style="max-width:800px">
+  <h2 class="wh-heading mb-4">
+    <i class="bi bi-box-seam me-2"></i>{{ 'Editar' if item else 'Nuevo' }} Objeto
+  </h2>
+
+  <form method="POST" enctype="multipart/form-data">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+    <div class="row g-3 mb-3">
+      <div class="col-md-6">
+        <label class="form-label wh-label">Nombre</label>
+        <input type="text" name="name" class="form-control wh-input" required
+               value="{{ item.name if item else '' }}">
+      </div>
+      <div class="col-md-3">
+        <label class="form-label wh-label">Categoría</label>
+        <select name="category" id="category-select" class="form-select wh-input" required>
+          {% for cat, label in [('arma','Arma'), ('armadura','Armadura'), ('ropa','Ropa'), ('especial','Especial')] %}
+          <option value="{{ cat }}" {% if item and item.category == cat %}selected{% endif %}>{{ label }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="col-md-3">
+        <label class="form-label wh-label">Calidad</label>
+        <select name="quality" class="form-select wh-input">
+          <option value="">— Sin calidad fija —</option>
+          {% for q, label in [('mala','Mala'), ('normal','Normal'), ('buena','Buena'), ('excelente','Excelente')] %}
+          <option value="{{ q }}" {% if item and item.quality == q %}selected{% endif %}>{{ label }}</option>
+          {% endfor %}
+        </select>
+      </div>
+    </div>
+
+    <div class="row g-3 mb-3">
+      <div class="col-md-4">
+        <label class="form-label wh-label">Subcategoría / tipo</label>
+        <input type="text" name="subcategory" class="form-control wh-input"
+               placeholder="p. ej. cuerpo a cuerpo, distancia, Placas…"
+               value="{{ item.subcategory if item and item.subcategory else '' }}">
+      </div>
+      <div class="col-md-3">
+        <label class="form-label wh-label">Precio</label>
+        <input type="text" name="price_text" class="form-control wh-input" placeholder="p. ej. 12 CO"
+               value="{{ item.price_text if item and item.price_text else '' }}">
+      </div>
+      <div class="col-md-3">
+        <label class="form-label wh-label pt-4 mt-2">
+          <input type="checkbox" name="is_special" class="form-check-input me-1"
+                 {% if item and item.is_special %}checked{% endif %}> Es un objeto especial
+        </label>
+      </div>
+      <div class="col-md-2">
+        <label class="form-label wh-label">Objeto base</label>
+        <select name="base_item_id" class="form-select wh-input">
+          <option value="">— Ninguno —</option>
+          {% for base in base_items %}
+          <option value="{{ base.id }}" {% if item and item.base_item_id == base.id %}selected{% endif %}>{{ base.name }}</option>
+          {% endfor %}
+        </select>
+      </div>
+    </div>
+
+    <div class="mb-3" id="image-field">
+      <label class="form-label wh-label">Imagen (solo armas/armaduras)</label>
+      <input type="file" name="image" class="form-control wh-input" accept=".png,.jpg,.jpeg,.webp,.gif">
+      {% if item and item.image_path %}
+      <img src="{{ url_for('main.uploaded_file', filename=item.image_path) }}" class="mt-2" style="max-height:120px" alt="">
+      {% endif %}
+    </div>
+
+    <div class="mb-3">
+      <label class="form-label wh-label">Especial (texto libre)</label>
+      <textarea name="description" rows="3" class="form-control wh-input">{{ item.description if item and item.description else '' }}</textarea>
+    </div>
+
+    <!-- Structured stats -->
+    <div class="mb-4">
+      <label class="form-label wh-label">Estadísticas</label>
+      <div id="stats-container">
+        {% if item and item.stats %}
+          {% for key, value in item.stats.items() %}
+          <div class="row g-2 mb-2 field-row">
+            <div class="col-md-5"><input type="text" name="stat_key" class="form-control wh-input" value="{{ key }}"></div>
+            <div class="col-md-5"><input type="text" name="stat_value" class="form-control wh-input" value="{{ value }}"></div>
+            <div class="col-md-2"><button type="button" class="btn btn-outline-danger btn-sm remove-field-row"><i class="bi bi-trash"></i></button></div>
+          </div>
+          {% endfor %}
+        {% endif %}
+      </div>
+      <button type="button" class="btn btn-outline-secondary btn-sm add-field-row" data-container="stats-container">
+        <i class="bi bi-plus-lg me-1"></i>Añadir estadística
+      </button>
+    </div>
+
+    <!-- Admin custom fields -->
+    <div class="mb-4">
+      <label class="form-label wh-label">Campos adicionales</label>
+      <div id="custom-container">
+        {% if item and item.custom_fields %}
+          {% for key, value in item.custom_fields.items() %}
+          <div class="row g-2 mb-2 field-row">
+            <div class="col-md-5"><input type="text" name="custom_key" class="form-control wh-input" value="{{ key }}"></div>
+            <div class="col-md-5"><input type="text" name="custom_value" class="form-control wh-input" value="{{ value }}"></div>
+            <div class="col-md-2"><button type="button" class="btn btn-outline-danger btn-sm remove-field-row"><i class="bi bi-trash"></i></button></div>
+          </div>
+          {% endfor %}
+        {% endif %}
+      </div>
+      <button type="button" class="btn btn-outline-secondary btn-sm add-field-row" data-container="custom-container">
+        <i class="bi bi-plus-lg me-1"></i>Añadir campo
+      </button>
+    </div>
+
+    <div class="d-flex gap-2">
+      <button type="submit" class="btn btn-wh">Guardar</button>
+      <a href="{{ url_for('equipment.list_items') }}" class="btn btn-outline-secondary">Cancelar</a>
+    </div>
+  </form>
+</div>
+
+<template id="field-row-template">
+  <div class="row g-2 mb-2 field-row">
+    <div class="col-md-5"><input type="text" name="__KEY_NAME__" class="form-control wh-input" placeholder="Clave"></div>
+    <div class="col-md-5"><input type="text" name="__VALUE_NAME__" class="form-control wh-input" placeholder="Valor"></div>
+    <div class="col-md-2"><button type="button" class="btn btn-outline-danger btn-sm remove-field-row"><i class="bi bi-trash"></i></button></div>
+  </div>
+</template>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+  const template = document.getElementById('field-row-template').innerHTML;
+
+  document.querySelectorAll('.add-field-row').forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      const container = document.getElementById(btn.dataset.container);
+      const isStats = btn.dataset.container === 'stats-container';
+      const html = template
+        .replace('__KEY_NAME__', isStats ? 'stat_key' : 'custom_key')
+        .replace('__VALUE_NAME__', isStats ? 'stat_value' : 'custom_value');
+      const wrapper = document.createElement('div');
+      wrapper.innerHTML = html.trim();
+      container.appendChild(wrapper.firstChild);
+    });
+  });
+
+  document.body.addEventListener('click', function (evt) {
+    const btn = evt.target.closest('.remove-field-row');
+    if (btn) btn.closest('.field-row').remove();
+  });
+});
+</script>
+{% endblock %}

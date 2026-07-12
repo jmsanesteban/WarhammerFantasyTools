@@ -34,6 +34,7 @@ def create_app(config_name='default'):
     from app.routes.contacts import contacts_bp
     from app.routes.admin import admin_bp
     from app.routes.food import food_bp
+    from app.routes.equipment import equipment_bp
 
     app.register_blueprint(auth_bp, url_prefix='/auth')
     app.register_blueprint(main_bp)
@@ -44,11 +45,12 @@ def create_app(config_name='default'):
     app.register_blueprint(contacts_bp, url_prefix='/contactos')
     app.register_blueprint(admin_bp, url_prefix='/admin')
     app.register_blueprint(food_bp, url_prefix='/comida')
+    app.register_blueprint(equipment_bp, url_prefix='/equipamiento')
 
     # Import models so Flask-Migrate detects them
     from app.models import (  # noqa: F401
         user, permission, profession, skill, talent, character, synonym,
-        contact, contact_character_link, contact_note, food,
+        contact, contact_character_link, contact_note, food, equipment,
     )
 
     from app.services.currency_service import format_peniques

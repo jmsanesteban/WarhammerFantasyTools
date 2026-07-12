@@ -35,6 +35,7 @@ from app.models.character import (
     Character, CharacterProfession, CharacterSkill, CharacterTalent,
     CharacterTrait, CharacterAcquaintance, CharacterPossession, CharacterMagicItem,
 )
+from app.models.equipment import EquipmentItem
 from app.models.contact import Contact, ContactProfession
 from app.models.contact_character_link import (
     ContactCharacterLink, ContactApodo, ContactCharacterSalary, ContactCharacterVisibility,
@@ -307,6 +308,76 @@ def import_professions(data, mode='skip'):
 
 
 # ---------------------------------------------------------------------------
+# Equipamiento
+# ---------------------------------------------------------------------------
+
+_EQUIPMENT_SCALAR_FIELDS = (
+    'category', 'subcategory', 'quality', 'is_special', 'price_text',
+    'image_path', 'description', 'stats', 'custom_fields', 'source_book', 'status',
+)
+
+
+def export_equipment():
+    result = []
+    for item in EquipmentItem.query.order_by(EquipmentItem.category, EquipmentItem.name).all():
+        row = {field: getattr(item, field) for field in _EQUIPMENT_SCALAR_FIELDS}
+        row['name'] = item.name
+        if item.base_item_id and item.base_item:
+            row['base_item_name'] = item.base_item.name
+            row['base_item_category'] = item.base_item.category
+        result.append(row)
+    return result
+
+
+def import_equipment(data, mode='skip'):
+    """Matched by (name, category) - not id - so the JSON stays portable
+    across databases, same convention as import_professions."""
+    summary = _new_summary()
+    by_key = {}
+    to_wire_base = {}
+
+    for row in data:
+        key = (row['name'], row['category'])
+        existing = EquipmentItem.query.filter_by(name=row['name'], category=row['category']).first()
+        if existing and mode != 'update':
+            summary['skipped'] += 1
+            by_key[key] = existing
+            continue
+
+        if existing:
+            item = existing
+            summary['updated'] += 1
+        else:
+            item = EquipmentItem(name=row['name'], category=row['category'])
+            db.session.add(item)
+            summary['created'] += 1
+
+        for field in _EQUIPMENT_SCALAR_FIELDS:
+            if field in row:
+                setattr(item, field, row[field])
+
+        by_key[key] = item
+        base_name = row.get('base_item_name')
+        if base_name:
+            to_wire_base[key] = (base_name, row.get('base_item_category'))
+
+    db.session.flush()
+
+    for key, (base_name, base_category) in to_wire_base.items():
+        item = by_key[key]
+        base = by_key.get((base_name, base_category)) or EquipmentItem.query.filter_by(
+            name=base_name, category=base_category).first()
+        if base is None:
+            summary['warnings'].append(
+                f"Objeto '{item.name}': objeto base '{base_name}' no existe, omitido.")
+            continue
+        item.base_item_id = base.id
+
+    db.session.commit()
+    return summary
+
+
+# ---------------------------------------------------------------------------
 # Personajes
 # ---------------------------------------------------------------------------
 
@@ -554,6 +625,7 @@ def export_full_backup():
         'synonyms': export_synonyms(),
         'users': export_users(),
         'professions': export_professions(),
+        'equipment': export_equipment(),
         'characters': export_characters(),
         'contacts': export_contacts_full(),
     }
@@ -565,6 +637,7 @@ def import_full_backup(data, mode='skip'):
         'synonyms': import_synonyms(data.get('synonyms', []), mode),
         'users': import_users(data.get('users', []), mode),
         'professions': import_professions(data.get('professions', []), mode),
+        'equipment': import_equipment(data.get('equipment', []), mode),
         'characters': import_characters(data.get('characters', []), mode),
         'contacts': import_contacts_full(data.get('contacts', []), mode),
     }
