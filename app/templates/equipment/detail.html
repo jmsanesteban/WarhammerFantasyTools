@@ -14,9 +14,10 @@
   <div class="card wh-card">
     <div class="row g-0">
       {% if item.image_path %}
+      {% set image_url = url_for('main.uploaded_file', filename=item.image_path) %}
       <div class="col-md-6 wh-detail-img-wrap">
-        <img src="{{ url_for('main.uploaded_file', filename=item.image_path) }}"
-             class="wh-detail-img wh-lightbox-trigger" alt="{{ item.name }}">
+        <div class="wh-img-backdrop-clip"><div class="wh-img-backdrop" style="background-image:url('{{ image_url }}')"></div></div>
+        <img src="{{ image_url }}" class="wh-detail-img wh-lightbox-trigger" alt="{{ item.name }}">
       </div>
       {% endif %}
       <div class="{% if item.image_path %}col-md-6{% else %}col-12{% endif %}">

@@ -362,32 +362,61 @@ a:hover { color: var(--wh-gold-light); }
   color: var(--wh-border-gold);
 }
 
-/* Equipment images: the FRAME (fixed size, light background matching the
-   product photos' own white background) is a separate element from the
-   IMG itself, which is sized only to its own content (max-width/max-height
-   with width/height:auto - no baked-in letterbox). This split matters for
-   the hover-zoom below: transform:scale() enlarges the whole box it's
-   applied to, so if the frame and the image were the same element, the
-   letterbox padding would visibly stretch along with the photo. Scaling
-   only the inner img leaves the frame untouched. */
-.wh-card-img-wrap {
+/* Equipment images: the FRAME is a separate element from the IMG itself,
+   which is sized only to its own content (max-width/max-height with
+   width/height:auto - no baked-in letterbox). This split matters for the
+   hover-zoom below: transform:scale() enlarges the whole box it's applied
+   to, so if the frame and the image were the same element, the letterbox
+   padding would visibly stretch along with the photo. Scaling only the
+   inner img leaves the frame untouched.
+
+   The leftover space around the (uncropped, contain-fit) photo is filled
+   dynamically with a blurred, cover-scaled copy of that SAME photo - a
+   wood-grain background stays wood-grain-coloured, a gradient stays that
+   gradient, a plain background stays plain - instead of one fixed frame
+   colour for every item. The blur is what makes this safe: baking a sharp
+   reflection of the image's own edges into a padded file (tried earlier)
+   visibly duplicated the weapon itself whenever it reached close to the
+   edge; blurred and softly scaled, that same duplication reads as an
+   ambient glow instead of a repeated shape. A nested clipping layer holds
+   the backdrop so its over-scaled edges never poke out, while the OUTER
+   wrap stays overflow:visible so the sharp hover-zoomed photo can still
+   pop out above neighbouring cards. */
+.wh-card-img-wrap, .wh-detail-img-wrap {
+  position: relative;
   height: 100%;
-  min-height: 220px;
-  background: #e8e2d5;
   display: flex;
   align-items: center;
   justify-content: center;
   overflow: visible;
-  padding: 8px;
+  background: #e8e2d5;
 }
-.wh-card-img-left {
-  max-width: 100%;
-  max-height: 280px;
+.wh-card-img-wrap { min-height: 220px; padding: 8px; }
+.wh-detail-img-wrap { min-height: 480px; padding: 16px; }
+
+.wh-img-backdrop-clip {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+}
+.wh-img-backdrop {
+  position: absolute;
+  inset: -12%;
+  background-size: cover;
+  background-position: center;
+  filter: blur(22px) brightness(0.8) saturate(1.15);
+}
+
+.wh-card-img-left, .wh-detail-img {
+  position: relative;
+  z-index: 1;
   width: auto;
   height: auto;
   display: block;
   filter: sepia(20%) brightness(0.9);
 }
+.wh-card-img-left { max-width: 100%; max-height: 280px; }
+.wh-detail-img { max-width: 100%; max-height: 460px; }
 
 .wh-card-img-left-placeholder {
   height: 100%;
@@ -398,27 +427,6 @@ a:hover { color: var(--wh-gold-light); }
   justify-content: center;
   font-size: 3rem;
   color: var(--wh-border-gold);
-}
-
-/* Equipment detail page: bigger than the list thumbnail so the photo's own
-   detail is actually visible, same frame/img split and light background. */
-.wh-detail-img-wrap {
-  height: 100%;
-  min-height: 480px;
-  background: #e8e2d5;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  overflow: visible;
-  padding: 16px;
-}
-.wh-detail-img {
-  max-width: 100%;
-  max-height: 460px;
-  width: auto;
-  height: auto;
-  display: block;
-  filter: sepia(20%) brightness(0.9);
 }
 
 /* Hover-to-inspect: hold the pointer over an equipment photo for a beat and
