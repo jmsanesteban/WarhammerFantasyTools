@@ -954,7 +954,7 @@ Pasos del asistente, en orden:
 
 1. **Raza** — tira dos veces y elige uno de los dos resultados (te da +1 Punto de Historial), o elige la raza directamente sin tirar.
 2. **Profesión** — tira tres veces (según la raza elegida) y elige un resultado (+1 PH), o selecciona la profesión directamente del catálogo. Si la profesión tirada no existe todavía en el catálogo, créala primero desde **Profesiones** y luego selecciónala aquí.
-3. **Características** — tira el perfil primario y secundario completo según la raza (incluye Bono de Fuerza/Resistencia calculados y las horas de sueño estimadas).
+3. **Características** — tira el perfil primario y secundario completo según la raza (incluye Bono de Fuerza/Resistencia calculados y las horas de sueño estimadas). Heridas, Puntos de Destino y Puntos de Historial también se pueden volver a tirar de forma independiente (un botón 🎲 propio junto a cada uno) sin rehacer el resto del perfil.
 4. **Signo astral** — tira el signo (da un rasgo de personalidad y modificadores, mostrados también en la tabla manual junto a cada signo), o pulsa "Omitir" para no tirarlo y ganar +1 PH en su lugar.
 5. **Altura, peso y edad** — tres tiradas encadenadas (el peso depende de la altura ya tirada).
 6. **Apariencia** — color de pelo, ojos y mano dominante.

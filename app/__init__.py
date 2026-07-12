@@ -14,6 +14,14 @@ def create_app(config_name='default'):
     if url_prefix:
         from app.wsgi_prefix import PrefixMiddleware
         app.config['APPLICATION_ROOT'] = url_prefix
+        # Flask derives the session cookie's Path from APPLICATION_ROOT unless
+        # told otherwise - that would scope every cookie to the prefix even
+        # for the unprefixed requests PrefixMiddleware deliberately still
+        # answers (LAN access to wft-prepro, health checks), making the
+        # browser withhold the cookie on those and silently drop the session.
+        # Pin it to '/' so login works the same whether a request arrives
+        # prefixed (via the Cloudflare Tunnel) or not.
+        app.config['SESSION_COOKIE_PATH'] = '/'
         app.wsgi_app = PrefixMiddleware(app.wsgi_app, url_prefix)
 
     db.init_app(app)

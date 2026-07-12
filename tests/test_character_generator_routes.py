@@ -132,6 +132,17 @@ def test_roll_peso_requires_altura_context(client, regular_user, login_as):
     assert 'kg' in resp.get_json()['result']
 
 
+def test_roll_heridas_destino_historial_independently(client, regular_user, login_as):
+    """Standalone rerolls for Heridas/Puntos de Destino/Puntos de Historial,
+    without needing to redo the whole Características roll."""
+    login_as(client, regular_user, 'userpass123')
+    for paso in ('heridas', 'destino', 'historial'):
+        resp = client.post('/personajes/generador/tirar', json={'paso': paso, 'contexto': {'raza': 'Humano'}})
+        assert resp.status_code == 200
+        result = resp.get_json()['result']
+        assert 'roll' in result and 'value' in result
+
+
 def test_roll_info_racial(client, regular_user, login_as):
     login_as(client, regular_user, 'userpass123')
     resp = client.post('/personajes/generador/tirar', json={'paso': 'info_racial', 'contexto': {'raza': 'Halfling'}})

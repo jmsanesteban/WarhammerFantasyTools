@@ -185,6 +185,31 @@ def roll_characteristics(race: str) -> dict:
     return result
 
 
+def _roll_secondary_table(race: str, table_key: str) -> dict:
+    """Shared by roll_wounds/roll_fate_points/roll_history_points: an
+    independent 1D10 reroll of a single Características sub-table, without
+    touching the rest of the character's stats - lets a player reroll just
+    Heridas/Destino/Historial after the initial combined roll."""
+    races = _load('races.json')
+    group = characteristics_group(race)
+    spec = races['characteristics'][group]
+    roll = d10()
+    value = roll_table(spec[table_key], roll)['value']
+    return {'roll': roll, 'value': value}
+
+
+def roll_wounds(race: str) -> dict:
+    return _roll_secondary_table(race, 'wounds_table')
+
+
+def roll_fate_points(race: str) -> dict:
+    return _roll_secondary_table(race, 'fate_points_table')
+
+
+def roll_history_points(race: str) -> dict:
+    return _roll_secondary_table(race, 'history_points_table')
+
+
 # ---------------------------------------------------------------------------
 # Step 4: Signo astral
 # ---------------------------------------------------------------------------

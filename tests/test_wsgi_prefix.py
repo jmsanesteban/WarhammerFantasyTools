@@ -84,3 +84,16 @@ def test_unprefixed_request_still_works_on_the_same_app(monkeypatch):
     resp = client.get('/auth/login', environ_overrides={'SCRIPT_NAME': ''})
     assert resp.status_code == 200
     assert b'href="/auth/register"' in resp.data
+
+
+def test_session_cookie_path_is_root_not_the_prefix(monkeypatch):
+    """A session started via an unprefixed request (LAN access to wft-prepro)
+    must still be sent back by the browser on later unprefixed requests.
+    Flask defaults the cookie's Path to APPLICATION_ROOT, which would scope
+    it to the prefix and make the browser withhold it on exactly the
+    unprefixed traffic PrefixMiddleware is meant to keep serving - regression
+    caught 2026-07-12 when wft-prepro started using URL_PREFIX for real."""
+    monkeypatch.setenv('URL_PREFIX', '/wft_prepro')
+    from app import create_app
+    app = create_app('testing')
+    assert app.config['SESSION_COOKIE_PATH'] == '/'

@@ -84,6 +84,25 @@ def test_roll_characteristics_never_crashes(race):
 
 
 @pytest.mark.parametrize('race', RACES)
+def test_roll_wounds_fate_points_history_points_independently(race):
+    """Standalone rerolls (e.g. "reroll just Heridas") must agree with the
+    same tables roll_characteristics uses, without needing the rest of the
+    characteristics roll."""
+    for _ in range(50):
+        wounds = svc.roll_wounds(race)
+        assert wounds['value'] > 0
+        assert 1 <= wounds['roll'] <= 10
+
+        fate = svc.roll_fate_points(race)
+        assert fate['value'] >= 0
+        assert 1 <= fate['roll'] <= 10
+
+        history = svc.roll_history_points(race)
+        assert history['value'] >= 0
+        assert 1 <= history['roll'] <= 10
+
+
+@pytest.mark.parametrize('race', RACES)
 def test_roll_altura_peso_edad_never_crash(race):
     for _ in range(50):
         altura = svc.roll_altura(race)

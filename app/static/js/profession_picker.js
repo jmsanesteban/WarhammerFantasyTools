@@ -99,7 +99,15 @@ class ProfessionPicker {
  *   character's very first profession, which has no "previous" career).
  */
 function initProfessionPickers(rootEl, { options, exitsMap }) {
-  rootEl.querySelectorAll('.prof-picker').forEach((root) => {
+  // rootEl is sometimes a wrapper containing one or more .prof-picker rows
+  // (career-history lists) and sometimes the .prof-picker element itself
+  // (the generator's single "matched profession" field) - querySelectorAll
+  // only ever matches descendants, so the latter case needs rootEl included
+  // explicitly or it silently finds nothing and the widget never attaches.
+  const targets = rootEl.matches && rootEl.matches('.prof-picker')
+    ? [rootEl]
+    : rootEl.querySelectorAll('.prof-picker');
+  targets.forEach((root) => {
     if (root.dataset.profPickerInit) return;
     root.dataset.profPickerInit = '1';
     const picker = new ProfessionPicker(root, {

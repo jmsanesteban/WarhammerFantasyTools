@@ -156,15 +156,30 @@
         </div>
         <div class="row g-3 mt-1">
           <div class="col-md-4">
-            <label class="form-label wh-label small">Heridas — elige tu tramo (1D10)</label>
+            <div class="d-flex justify-content-between align-items-center mb-1">
+              <label class="form-label wh-label small mb-0">Heridas (1D10)</label>
+              <button type="button" class="btn btn-wh btn-sm" id="btn-roll-heridas" title="Tirar solo Heridas">
+                <i class="bi bi-dice-5"></i>
+              </button>
+            </div>
             <div id="picker-heridas" class="picker-wrap"></div>
           </div>
           <div class="col-md-4">
-            <label class="form-label wh-label small">Puntos de Destino — tramo (1D10)</label>
+            <div class="d-flex justify-content-between align-items-center mb-1">
+              <label class="form-label wh-label small mb-0">Puntos de Destino (1D10)</label>
+              <button type="button" class="btn btn-wh btn-sm" id="btn-roll-destino" title="Tirar solo Puntos de Destino">
+                <i class="bi bi-dice-5"></i>
+              </button>
+            </div>
             <div id="picker-destino" class="picker-wrap"></div>
           </div>
           <div class="col-md-4">
-            <label class="form-label wh-label small">Puntos de Historial — tramo (1D10)</label>
+            <div class="d-flex justify-content-between align-items-center mb-1">
+              <label class="form-label wh-label small mb-0">Puntos de Historial (1D10)</label>
+              <button type="button" class="btn btn-wh btn-sm" id="btn-roll-historial" title="Tirar solo Puntos de Historial">
+                <i class="bi bi-dice-5"></i>
+              </button>
+            </div>
             <div id="picker-historial" class="picker-wrap"></div>
           </div>
         </div>
@@ -597,6 +612,7 @@
 
   const STEP_LABELS = {
     raza: 'Raza', profesion: 'Profesión', caracteristicas: 'Características',
+    heridas: 'Heridas', destino: 'Puntos de Destino', historial: 'Puntos de Historial',
     signo_astral: 'Signo astral', altura: 'Altura', peso: 'Peso', edad: 'Edad',
     apariencia: 'Apariencia', procedencia: 'Procedencia',
     situacion_familiar: 'Situación familiar', sucesos_juventud: 'Sucesos de juventud',
@@ -617,6 +633,8 @@
           ', Destino(1D10=' + r.destino_d10 + ')=' + result.fate_points +
           ', Historial(1D10=' + r.historial_d10 + ')=' + result.history_points;
       }
+      case 'heridas': case 'destino': case 'historial':
+        return 'tirada ' + result.roll + ' → ' + result.value;
       case 'signo_astral': return 'tirada ' + result.roll + ' → ' + result.signo + ' (' + result.rasgo + ')';
       case 'altura': return 'tirada ' + result.roll + ' → ' + result.cm + ' cm';
       case 'peso': return 'tirada ' + result.roll + ' → ' + result.kg + ' kg';
@@ -982,6 +1000,27 @@
     ].forEach(f => { document.getElementById('f-' + f).value = r[f]; });
     setPHCredit('historial_caracteristicas', r.history_points || 0);
     updateHorasSueno();
+  }));
+
+  /* Tiradas independientes: rehacer solo Heridas/Destino/Historial sin tener
+   * que repetir todo el bloque de Características. */
+  document.getElementById('btn-roll-heridas').addEventListener('click', safe(async () => {
+    const race = currentRace();
+    if (!race) { alert('Elige primero una raza.'); return; }
+    const r = await rollStep('heridas', { raza: race });
+    document.getElementById('f-wounds').value = r.value;
+  }));
+  document.getElementById('btn-roll-destino').addEventListener('click', safe(async () => {
+    const race = currentRace();
+    if (!race) { alert('Elige primero una raza.'); return; }
+    const r = await rollStep('destino', { raza: race });
+    document.getElementById('f-fate_points').value = r.value;
+  }));
+  document.getElementById('btn-roll-historial').addEventListener('click', safe(async () => {
+    const race = currentRace();
+    if (!race) { alert('Elige primero una raza.'); return; }
+    const r = await rollStep('historial', { raza: race });
+    setPHCredit('historial_caracteristicas', r.value || 0);
   }));
 
   /* Renders the dice-formula "explanation" for each stat using the exact same
