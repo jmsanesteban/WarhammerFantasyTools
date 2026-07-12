@@ -23,6 +23,7 @@ from app.models.contact_character_link import ContactCharacterLink, ContactChara
 from app.models.contact_note import ContactNote
 from app.models.character import Character
 from app.models.food import Recipe
+from app.models.equipment import EquipmentItem
 from app.utils import (
     admin_required, allowed_file, generate_secure_password,
     json_download_response, flash_import_summary,
@@ -139,6 +140,7 @@ def dashboard():
         'visible_contacts': Contact.query.filter_by(is_visible=True).count(),
         'characters': Character.query.count(),
         'recipes_pending': Recipe.query.filter_by(status='pendiente').count(),
+        'equipment': EquipmentItem.query.count(),
     }
     return render_template('admin/dashboard.html', stats=stats)
 
@@ -1829,7 +1831,8 @@ def backup_import():
 
     labels = {
         'permission_templates': 'Plantillas de permisos', 'synonyms': 'Sinónimos', 'users': 'Usuarios',
-        'professions': 'Profesiones', 'characters': 'Personajes', 'contacts': 'Contactos y vínculos',
+        'professions': 'Profesiones', 'equipment': 'Equipamiento', 'characters': 'Personajes',
+        'contacts': 'Contactos y vínculos',
     }
     for key, label in labels.items():
         s = summaries[key]

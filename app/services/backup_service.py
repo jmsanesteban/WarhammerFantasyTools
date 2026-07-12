@@ -330,18 +330,27 @@ def export_equipment():
 
 
 def import_equipment(data, mode='skip'):
-    """Matched by (name, category) - not id - so the JSON stays portable
-    across databases, same convention as import_professions."""
+    """Matched by (name, category, subcategory, quality) - not id - so the
+    JSON stays portable across databases, same convention as
+    import_professions. subcategory/quality are part of the key because the
+    catalog legitimately has multiple items sharing a name within a category
+    (e.g. "Abrigo" once per quality tier) - matching on (name, category)
+    alone collapsed those into a single row and silently dropped the rest."""
     summary = _new_summary()
     by_key = {}
+    by_name_category = {}  # base-item lookup only cares about (name, category)
     to_wire_base = {}
 
     for row in data:
-        key = (row['name'], row['category'])
-        existing = EquipmentItem.query.filter_by(name=row['name'], category=row['category']).first()
+        key = (row['name'], row['category'], row.get('subcategory'), row.get('quality'))
+        existing = EquipmentItem.query.filter_by(
+            name=row['name'], category=row['category'],
+            subcategory=row.get('subcategory'), quality=row.get('quality'),
+        ).first()
         if existing and mode != 'update':
             summary['skipped'] += 1
             by_key[key] = existing
+            by_name_category[(row['name'], row['category'])] = existing
             continue
 
         if existing:
@@ -357,6 +366,7 @@ def import_equipment(data, mode='skip'):
                 setattr(item, field, row[field])
 
         by_key[key] = item
+        by_name_category[(row['name'], row['category'])] = item
         base_name = row.get('base_item_name')
         if base_name:
             to_wire_base[key] = (base_name, row.get('base_item_category'))
@@ -365,7 +375,7 @@ def import_equipment(data, mode='skip'):
 
     for key, (base_name, base_category) in to_wire_base.items():
         item = by_key[key]
-        base = by_key.get((base_name, base_category)) or EquipmentItem.query.filter_by(
+        base = by_name_category.get((base_name, base_category)) or EquipmentItem.query.filter_by(
             name=base_name, category=base_category).first()
         if base is None:
             summary['warnings'].append(

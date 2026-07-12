@@ -208,6 +208,89 @@ def test_professions_import_warns_on_missing_skill(app, db):
         assert prof.profession_skills == []
 
 
+# ── Equipamiento ─────────────────────────────────────────────────────────────
+
+def test_equipment_round_trip_with_base_item(app, db, make_equipment_item):
+    with app.app_context():
+        from app.models.equipment import EquipmentItem
+        espada = make_equipment_item(name='Espada', category='arma')
+        make_equipment_item(name='Espada Flamigera', category='arma', is_special=True,
+                             base_item_id=espada.id, stats={'daño': '1D8+2'})
+
+        data = bkp.export_equipment()
+        flamigera_row = next(r for r in data if r['name'] == 'Espada Flamigera')
+        assert flamigera_row['base_item_name'] == 'Espada'
+        assert flamigera_row['base_item_category'] == 'arma'
+        assert flamigera_row['stats'] == {'daño': '1D8+2'}
+
+        EquipmentItem.query.delete()
+        db.session.commit()
+
+        summary = bkp.import_equipment(data)
+        assert summary['created'] == 2
+        restored = EquipmentItem.query.filter_by(name='Espada Flamigera').first()
+        assert restored.base_item is not None
+        assert restored.base_item.name == 'Espada'
+
+
+def test_equipment_import_skip_mode_does_not_duplicate(app, db, make_equipment_item):
+    with app.app_context():
+        from app.models.equipment import EquipmentItem
+        make_equipment_item(name='Daga', category='arma')
+        data = bkp.export_equipment()
+        summary = bkp.import_equipment(data)
+        assert summary['skipped'] == 1
+        assert summary['created'] == 0
+        assert EquipmentItem.query.count() == 1
+
+
+def test_equipment_import_disambiguates_same_name_by_subcategory_and_quality(app, db, make_equipment_item):
+    """The catalog legitimately has several items sharing a name within a
+    category (e.g. clothing quality tiers) - matching only on (name,
+    category) used to collapse them into a single row and silently drop
+    the rest on import."""
+    with app.app_context():
+        from app.models.equipment import EquipmentItem
+        make_equipment_item(name='Abrigo', category='ropa', quality='mala')
+        make_equipment_item(name='Abrigo', category='ropa', quality='normal')
+        make_equipment_item(name='Abrigo', category='ropa', quality='buena')
+        make_equipment_item(name='Abrigo', category='ropa', quality='excelente')
+
+        data = bkp.export_equipment()
+        EquipmentItem.query.delete()
+        db.session.commit()
+
+        summary = bkp.import_equipment(data)
+        assert summary['created'] == 4
+        assert summary['skipped'] == 0
+        assert EquipmentItem.query.filter_by(name='Abrigo', category='ropa').count() == 4
+
+
+def test_equipment_update_mode_overwrites(app, db, make_equipment_item):
+    with app.app_context():
+        from app.models.equipment import EquipmentItem
+        item = make_equipment_item(name='Daga', category='arma', price_text='5 CO')
+        data = bkp.export_equipment()
+        data[0]['price_text'] = '8 CO'
+
+        summary = bkp.import_equipment(data, mode='update')
+        assert summary['updated'] == 1
+        db.session.refresh(item)
+        assert item.price_text == '8 CO'
+
+
+def test_equipment_import_warns_on_missing_base_item(app, db):
+    with app.app_context():
+        from app.models.equipment import EquipmentItem
+        data = [{'name': 'Espada Flamigera', 'category': 'arma', 'is_special': True,
+                 'base_item_name': 'No existe', 'base_item_category': 'arma'}]
+        summary = bkp.import_equipment(data)
+        assert summary['created'] == 1
+        assert any('No existe' in w for w in summary['warnings'])
+        item = EquipmentItem.query.filter_by(name='Espada Flamigera').first()
+        assert item.base_item_id is None
+
+
 # ── Personajes ───────────────────────────────────────────────────────────────
 
 def test_characters_round_trip_with_children(app, db, make_user, make_character, make_profession, make_skill, make_talent):

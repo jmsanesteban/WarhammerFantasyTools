@@ -23,6 +23,7 @@ def test_dashboard_lists_every_export_import_link(client, admin_user, login_as):
         '/habilidades/exportar', '/habilidades/importar',
         '/talentos/exportar', '/talentos/importar',
         '/profesiones/exportar', '/profesiones/importar',
+        '/equipamiento/exportar', '/equipamiento/importar',
         '/admin/usuarios/exportar', '/admin/usuarios/importar',
         '/admin/contactos/exportar', '/admin/contactos/importar',
         '/admin/vinculos/exportar', '/admin/vinculos/importar',

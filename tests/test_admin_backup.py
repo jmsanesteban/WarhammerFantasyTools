@@ -12,6 +12,7 @@ from app.models.profession import Profession
 from app.models.permission import PermissionTemplate
 from app.models.synonym import Synonym
 from app.models.contact import Contact
+from app.models.equipment import EquipmentItem
 
 
 def _upload(client, url, payload, mode='skip'):
@@ -167,20 +168,24 @@ def test_backup_home_requires_admin(client, regular_user, login_as):
     assert resp.status_code == 403
 
 
-def test_backup_export_returns_all_sections(client, admin_user, make_profession, login_as):
+def test_backup_export_returns_all_sections(client, admin_user, make_profession, make_equipment_item, login_as):
     make_profession(name='Soldado')
+    make_equipment_item(name='Daga', category='arma')
     login_as(client, admin_user, 'adminpass123')
     resp = client.get('/admin/backup/exportar')
     assert resp.status_code == 200
     data = json.loads(resp.data)
-    for key in ('version', 'exported_at', 'permission_templates', 'synonyms', 'users', 'professions', 'characters', 'contacts'):
+    for key in ('version', 'exported_at', 'permission_templates', 'synonyms', 'users',
+                'professions', 'equipment', 'characters', 'contacts'):
         assert key in data
     assert any(p['name'] == 'Soldado' for p in data['professions'])
+    assert any(e['name'] == 'Daga' for e in data['equipment'])
 
 
 def test_backup_import_restores_everything(db, client, admin_user, regular_user, make_character,
-                                            make_profession, login_as):
+                                            make_profession, make_equipment_item, login_as):
     make_profession(name='Soldado')
+    make_equipment_item(name='Daga', category='arma')
     make_character(regular_user, name='Grimm')
     login_as(client, admin_user, 'adminpass123')
 
@@ -189,6 +194,7 @@ def test_backup_import_restores_everything(db, client, admin_user, regular_user,
 
     Character.query.delete()
     Profession.query.delete()
+    EquipmentItem.query.delete()
     db.session.commit()
 
     resp = client.post('/admin/backup/importar', data={
@@ -196,4 +202,7 @@ def test_backup_import_restores_everything(db, client, admin_user, regular_user,
     }, content_type='multipart/form-data', follow_redirects=True)
     assert resp.status_code == 200
     assert Profession.query.filter_by(name='Soldado').first() is not None
+    assert EquipmentItem.query.filter_by(name='Daga').first() is not None
     assert Character.query.filter_by(name='Grimm').first() is not None
+    body = resp.data.decode('utf-8')
+    assert 'Equipamiento' in body

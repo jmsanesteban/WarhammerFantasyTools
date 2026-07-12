@@ -71,6 +71,16 @@
         </div>
       </a>
     </div>
+    <div class="col-md-2">
+      <a href="{{ url_for('equipment.list_items') }}" class="text-decoration-none">
+        <div class="card wh-card text-center">
+          <div class="card-body">
+            <div class="wh-stat-number">{{ stats.equipment }}</div>
+            <small>Equipamiento</small>
+          </div>
+        </div>
+      </a>
+    </div>
   </div>
 
   {% if stats.skills == 0 or stats.talents == 0 %}
@@ -175,6 +185,20 @@
     </div>
     <div class="col-md-4">
       <div class="card wh-card">
+        <div class="card-header wh-card-header"><i class="bi bi-shield-shaded me-2"></i>Equipamiento</div>
+        <div class="card-body">
+          <p>Catálogo de armas, armaduras, ropa y objetos especiales.</p>
+          <div class="d-flex gap-2 flex-wrap">
+            <a href="{{ url_for('equipment.list_items') }}" class="btn btn-wh">Ver todo</a>
+            <a href="{{ url_for('equipment.import_equipment_route') }}" class="btn btn-outline-secondary">Importar</a>
+            <a href="{{ url_for('equipment.export') }}" class="btn btn-outline-secondary">Exportar</a>
+            <a href="{{ url_for('equipment.bulk_fields') }}" class="btn btn-outline-secondary">Campos en bloque</a>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="col-md-4">
+      <div class="card wh-card">
         <div class="card-header wh-card-header"><i class="bi bi-people-fill me-2"></i>Personajes</div>
         <div class="card-body">
           <p>Ver y editar los personajes de todos los jugadores.</p>
@@ -216,7 +240,7 @@
       <div class="card wh-card">
         <div class="card-header wh-card-header"><i class="bi bi-shield-check me-2"></i>Backup completo</div>
         <div class="card-body">
-          <p>Exporta o restaura Profesiones, Usuarios, Personajes, Contactos+Vínculos, Plantillas y Sinónimos de golpe.</p>
+          <p>Exporta o restaura Profesiones, Usuarios, Equipamiento, Personajes, Contactos+Vínculos, Plantillas y Sinónimos de golpe.</p>
           <a href="{{ url_for('admin.backup_home') }}" class="btn btn-wh">Abrir</a>
         </div>
       </div>
