@@ -957,6 +957,8 @@ Pasos del asistente, en orden:
 3. **Características** — tira el perfil primario y secundario completo según la raza (incluye Bono de Fuerza/Resistencia calculados y las horas de sueño estimadas). Heridas, Puntos de Destino y Puntos de Historial también se pueden volver a tirar de forma independiente (un botón 🎲 propio junto a cada uno) sin rehacer el resto del perfil.
 4. **Signo astral** — tira el signo (da un rasgo de personalidad y modificadores, mostrados también en la tabla manual junto a cada signo), o pulsa "Omitir" para no tirarlo y ganar +1 PH en su lugar.
 5. **Altura, peso y edad** — tres tiradas encadenadas (el peso depende de la altura ya tirada).
+
+> **Características finales:** el Perfil Principal (HA/HP/F/R/Ag/I/V/Em) se tira o se edita a mano como valor **base**, pero el signo astral y el tramo de altura/peso/edad pueden añadir modificadores porcentuales por encima. Bajo cada característica se muestra en vivo el valor **final** (base + todos los modificadores activos) según se va completando el asistente; volver a tirar o cambiar cualquiera de esos pasos sustituye su aportación anterior en vez de acumularla. Al guardar el personaje, el campo de cada característica se rellena con el valor **final**, no con el base — es el que se usa en partida.
 6. **Apariencia** — color de pelo, ojos y mano dominante.
 7. **Procedencia** — provincia y población de origen (o patria de origen para no humanos).
 8. **Situación familiar** — huérfano, hijo único o número de hermanos (con sexo y edad relativa).

@@ -139,6 +139,7 @@
             <div class="col">
               <label class="form-label wh-stat-lbl text-center d-block mb-1">{{ label }}</label>
               <input type="number" name="{{ field }}" id="f-{{ field }}" class="form-control form-control-sm wh-input text-center">
+              <small class="text-muted d-block text-center mt-1" id="final-{{ field }}"></small>
             </div>
             {% endfor %}
           </div>
@@ -603,6 +604,68 @@
     return text.replace(/a (HA|Hp|F|R|Agi|Int|Vol|Emp)\b/g, (m, code) => STAT_ABBR_MAP[code]);
   }
 
+  /* ── Características finales: el Perfil Principal se tira/edita como base,
+   * pero signo astral/altura/peso/edad le añaden modificadores por encima -
+   * se muestra el valor final junto al base durante la creación, y es el
+   * valor final (no el base) el que se guarda en la ficha del personaje. ── */
+  const FIELD_BY_ABBR = { HA: 'ws', Hp: 'bs', F: 's_char', R: 't_char', Agi: 'ag', Int: 'int_char', Vol: 'wp', Emp: 'fel' };
+  const PRIMARY_FIELDS = Object.values(FIELD_BY_ABBR);
+
+  /* "+3% a R" / "+1% Emp" -> {t_char: 3} / {fel: 1}. Every modifier string in
+   * app/data/character_creation/*.json follows this exact shape (verified
+   * against all of them), so a single regex covers every source. */
+  function parseModificadores(text) {
+    const deltas = {};
+    if (!text) return deltas;
+    const re = /([+-]\d+)%\s*(?:a\s+)?(HA|Hp|F|R|Agi|Int|Vol|Emp)\b/g;
+    let m;
+    while ((m = re.exec(text)) !== null) {
+      const field = FIELD_BY_ABBR[m[2]];
+      deltas[field] = (deltas[field] || 0) + parseInt(m[1], 10);
+    }
+    return deltas;
+  }
+
+  /* Same idea as setPHCredit: track the latest deltas granted per source
+   * (signo_astral/altura/peso/edad) so re-rolling or re-picking one replaces
+   * its contribution instead of stacking it on every reroll. */
+  const charModCredits = {};
+  function setCharModCredit(source, modificadoresText) {
+    charModCredits[source] = parseModificadores(modificadoresText);
+    renderFinalCaracteristicas();
+  }
+
+  function renderFinalCaracteristicas() {
+    PRIMARY_FIELDS.forEach(field => {
+      const input = document.getElementById('f-' + field);
+      const out = document.getElementById('final-' + field);
+      if (!input || !out) return;
+      const base = parseInt(input.value, 10);
+      if (isNaN(base)) { out.textContent = ''; return; }
+      let total = base;
+      Object.values(charModCredits).forEach(deltas => { total += deltas[field] || 0; });
+      out.textContent = total !== base ? ('Final: ' + total + '%') : '';
+    });
+  }
+
+  PRIMARY_FIELDS.forEach(field => {
+    document.getElementById('f-' + field).addEventListener('input', renderFinalCaracteristicas);
+  });
+
+  /* El valor que se guarda es el final (base + modificadores), no el base
+   * que se ve/edita durante la creación - se sustituye justo antes de
+   * enviar el formulario. */
+  document.getElementById('genForm').addEventListener('submit', () => {
+    PRIMARY_FIELDS.forEach(field => {
+      const input = document.getElementById('f-' + field);
+      const base = parseInt(input.value, 10);
+      if (isNaN(base)) return;
+      let total = base;
+      Object.values(charModCredits).forEach(deltas => { total += deltas[field] || 0; });
+      input.value = total;
+    });
+  });
+
   /* ── Registro de tiradas: TODAS las tiradas (automáticas o elegidas de una
    * tabla) quedan aquí, aunque la creación sea "automática" - nunca queda
    * una tirada oculta. ── */
@@ -1000,6 +1063,7 @@
     ].forEach(f => { document.getElementById('f-' + f).value = r[f]; });
     setPHCredit('historial_caracteristicas', r.history_points || 0);
     updateHorasSueno();
+    renderFinalCaracteristicas();
   }));
 
   /* Tiradas independientes: rehacer solo Heridas/Destino/Historial sin tener
@@ -1100,6 +1164,7 @@
     document.getElementById('f-rasgo-signo').value = r.rasgo;
     document.getElementById('signo-modificadores').textContent = 'Modificadores: ' + r.modificadores;
     setPHCredit('signo_omitido', 0);
+    setCharModCredit('signo_astral', r.modificadores);
   }));
   document.getElementById('btn-toggle-signo-table').addEventListener('click', () => {
     toggleBox('signo-table', () => {
@@ -1110,6 +1175,7 @@
           document.getElementById('f-rasgo-signo').value = r.rasgo;
           document.getElementById('signo-modificadores').textContent = 'Modificadores: ' + r.modificadores;
           setPHCredit('signo_omitido', 0);
+          setCharModCredit('signo_astral', r.modificadores);
           logRoll('signo_astral', {}, { roll: r.min + '-' + r.max, signo: r.signo, rasgo: r.rasgo }, true);
         },
       });
@@ -1120,6 +1186,7 @@
     document.getElementById('f-rasgo-signo').value = '';
     document.getElementById('signo-modificadores').textContent = 'Omitido.';
     setPHCredit('signo_omitido', 1);
+    setCharModCredit('signo_astral', '');
   });
 
   /* ── Altura / Peso / Edad ── */
@@ -1128,6 +1195,7 @@
     if (!race) { alert('Elige primero una raza.'); return; }
     const r = await rollStep('altura', { raza: race, genero: currentGender() });
     document.getElementById('f-altura').value = r.cm;
+    setCharModCredit('altura', r.modificadores);
   }));
   document.getElementById('btn-roll-peso').addEventListener('click', safe(async () => {
     const race = currentRace();
@@ -1135,6 +1203,7 @@
     if (!race || !altura) { alert('Necesitas raza y altura primero.'); return; }
     const r = await rollStep('peso', { raza: race, altura_cm: altura });
     document.getElementById('f-peso').value = r.kg;
+    setCharModCredit('peso', r.modificadores);
   }));
   document.getElementById('btn-roll-edad').addEventListener('click', safe(async () => {
     const race = currentRace();
@@ -1144,6 +1213,7 @@
     document.getElementById('f-edad-grado').value = r.grado;
     document.getElementById('edad-modificadores').textContent = r.modificadores ? ('Modificadores: ' + r.modificadores) : '';
     document.getElementById('f-num-sucesos').value = r.grado + 1;
+    setCharModCredit('edad', r.modificadores);
   }));
 
   document.getElementById('btn-toggle-hpe-tables').addEventListener('click', () => {
@@ -1156,6 +1226,7 @@
           document.getElementById('altura-formula').textContent =
             'Tramo ' + r.min + '-' + r.max + ': base ' + r.base + ' (' + r.base_f + ' si mujer) ' + r.formula +
             (r.modificadores ? ' — ' + r.modificadores : '') + '. Escribe el resultado final tras tirar.';
+          setCharModCredit('altura', r.modificadores);
         },
       });
       renderPicker('picker-peso', TABLES.peso.tramos, {
@@ -1164,6 +1235,7 @@
           document.getElementById('peso-formula').textContent =
             'Tramo ' + r.min + '-' + r.max + ': altura + offset ' + r.formula +
             (r.modificadores ? ' — ' + r.modificadores : '') + '. Escribe el resultado final tras tirar.';
+          setCharModCredit('peso', r.modificadores);
         },
       });
       renderPicker('picker-edad', TABLES.edad[group], {
@@ -1175,6 +1247,7 @@
           document.getElementById('edad-formula').textContent =
             'Tramo ' + r.min + '-' + r.max + ': grado ' + r.grado + ', fórmula ' + r.formula + '. Escribe el resultado final tras tirar.';
           document.getElementById('edad-modificadores').textContent = mod ? ('Modificadores: ' + mod) : '';
+          setCharModCredit('edad', mod);
         },
       });
     });
