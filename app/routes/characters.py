@@ -7,6 +7,7 @@ from app.extensions import db
 from app.models.character import (
     Character, CharacterProfession, CharacterSkill, CharacterTalent,
     CharacterTrait, CharacterAcquaintance, CharacterPossession, CharacterMagicItem,
+    CharacterMoneyGrant,
 )
 from app.models.profession import Profession
 from app.models.skill import Skill
@@ -15,7 +16,7 @@ from app.models.user import User
 from app.models.equipment import EquipmentItem, CharacterInventoryItem, CharacterPurchase, CharacterCartItem
 from app.services import character_creation_service as ccs
 from app.services import salary_service
-from app.services.currency_service import format_peniques
+from app.services.currency_service import format_peniques, to_peniques
 from app.utils import admin_required
 
 characters_bp = Blueprint('characters', __name__, template_folder='../templates')
@@ -453,6 +454,37 @@ def conceder_especial(char_id):
 
     return render_template('characters/conceder_especial.html', char=char, especiales=especiales,
                             locations=CharacterInventoryItem.LOCATIONS)
+
+
+@characters_bp.route('/<int:char_id>/conceder-dinero', methods=['GET', 'POST'])
+@admin_required
+def conceder_dinero(char_id):
+    """Manually credits a character's account - a stand-in for salary/reward
+    income the game doesn't automate yet. Kept as a ledger (CharacterMoneyGrant)
+    so it stays visible in the money history even though the balance itself
+    is just a running total on the character."""
+    char = Character.query.get_or_404(char_id)
+
+    if request.method == 'POST':
+        coronas = _form_int('coronas', 0)
+        chelines = _form_int('chelines', 0)
+        peniques = _form_int('peniques', 0)
+        total = to_peniques(coronas, chelines, peniques)
+        motivo = request.form.get('motivo', '').strip() or None
+
+        if total <= 0:
+            flash('Introduce una cantidad mayor que cero.', 'danger')
+            return redirect(url_for('characters.conceder_dinero', char_id=char.id))
+
+        char.set_dinero_desde_peniques(char.dinero_total_peniques + total)
+        db.session.add(CharacterMoneyGrant(
+            character_id=char.id, peniques=total, motivo=motivo, granted_by_user_id=current_user.id,
+        ))
+        db.session.commit()
+        flash(f'Se han añadido {format_peniques(total)} a {char.name}.', 'success')
+        return redirect(url_for('characters.detail', char_id=char.id))
+
+    return render_template('characters/conceder_dinero.html', char=char)
 
 
 # ---------------------------------------------------------------------------

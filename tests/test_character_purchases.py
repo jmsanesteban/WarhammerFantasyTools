@@ -1,8 +1,9 @@
 """Tests for the character equipment shop: cart add/remove, checkout (money
 deduction, quality multiplier, ropa's per-row pricing, Noble ropa's Clase
-social scaling), the especial GM-grant-only path, ownership gating, and
-purchase-history immutability."""
+social scaling), the especial GM-grant-only path, ownership gating,
+purchase-history immutability, and manually granting a character money."""
 from app.models.equipment import EquipmentItem, CharacterInventoryItem, CharacterPurchase, CharacterCartItem
+from app.models.character import CharacterMoneyGrant
 
 
 def _login_owner(client, make_user, make_character, login_as, **char_kwargs):
@@ -494,6 +495,61 @@ def test_conceder_especial_success_with_manual_price_and_quality(db, client, adm
 
     inv = CharacterInventoryItem.query.filter_by(character_id=char.id).first()
     assert inv.custom_name == 'Anillo de invisibilidad'
+
+
+# ── Conceder dinero (temporal, hasta tener sueldos/recompensas reales) ──────
+
+def test_conceder_dinero_requires_admin(client, regular_user, make_character, login_as):
+    char = make_character(regular_user, name='Personaje')
+    login_as(client, regular_user, 'userpass123')
+    resp = client.get(f'/personajes/{char.id}/conceder-dinero')
+    assert resp.status_code == 403
+
+
+def test_conceder_dinero_adds_to_balance_and_logs_grant(db, client, admin_user, regular_user,
+                                                          make_character, login_as):
+    char = make_character(regular_user, name='Personaje', dinero_coronas=10)
+    login_as(client, admin_user, 'adminpass123')
+
+    resp = client.post(f'/personajes/{char.id}/conceder-dinero', data={
+        'coronas': '5', 'chelines': '10', 'peniques': '3', 'motivo': 'Sueldo semanal',
+    }, follow_redirects=True)
+    assert resp.status_code == 200
+
+    db.session.refresh(char)
+    assert char.dinero_total_peniques == 10 * 240 + (5 * 240 + 10 * 12 + 3)
+
+    grant = CharacterMoneyGrant.query.filter_by(character_id=char.id).first()
+    assert grant is not None
+    assert grant.peniques == 5 * 240 + 10 * 12 + 3
+    assert grant.motivo == 'Sueldo semanal'
+    assert grant.granted_by_user_id == admin_user.id
+
+
+def test_conceder_dinero_rejects_zero_amount(db, client, admin_user, regular_user, make_character, login_as):
+    char = make_character(regular_user, name='Personaje', dinero_coronas=10)
+    login_as(client, admin_user, 'adminpass123')
+
+    resp = client.post(f'/personajes/{char.id}/conceder-dinero', data={
+        'coronas': '0', 'chelines': '0', 'peniques': '0', 'motivo': 'Nada',
+    }, follow_redirects=True)
+    assert resp.status_code == 200
+
+    db.session.refresh(char)
+    assert char.dinero_total_peniques == 10 * 240
+    assert CharacterMoneyGrant.query.filter_by(character_id=char.id).count() == 0
+
+
+def test_historial_shows_money_grants(db, client, admin_user, regular_user, make_character, login_as):
+    char = make_character(regular_user, name='Personaje')
+    login_as(client, admin_user, 'adminpass123')
+    client.post(f'/personajes/{char.id}/conceder-dinero', data={
+        'coronas': '5', 'chelines': '0', 'peniques': '0', 'motivo': 'Recompensa de misión',
+    })
+
+    resp = client.get(f'/personajes/{char.id}/historial-compras')
+    assert resp.status_code == 200
+    assert 'Recompensa de misión'.encode('utf-8') in resp.data
 
 
 # ── Histórico: inmutable y sobrevive al borrado del catálogo ────────────────

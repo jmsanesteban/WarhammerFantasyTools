@@ -34,7 +34,7 @@ Aplicación web para gestionar profesiones, habilidades, talentos y personajes d
 | **Sistema de permisos** | Control granular por función: plantillas de permisos reutilizables + asignaciones directas por usuario; los administradores tienen acceso total |
 | **Backup y recuperación** | Exportar/importar en JSON Profesiones, Usuarios, Equipamiento, Personajes, Plantillas de permisos, Sinónimos y Contactos+Vínculos (además del "Backup completo" que hace las siete a la vez); pensado para no perder el trabajo manual de cargar el catálogo de Profesiones ante un problema con la base de datos |
 | **Comida y bebida** | Catálogo de bebidas por nación con calculadora de precio por cantidad; catálogo de recetas (vigor/moral/coste/duración/complejidad); tablas de referencia de ingredientes y métodos de cocina; página de normas de intoxicación y de vigor/moral diario; cualquier usuario puede proponer una receta nueva (cálculo automático de sus valores), que queda pendiente hasta que un administrador la revisa y aprueba |
-| **Equipamiento** | Catálogo de armas, armaduras, ropa, libros, otros objetos y objetos especiales, con menú propio por categoría además del catálogo completo; ficha de cada objeto con estadísticas (`stats`, las del libro) y campos adicionales (`custom_fields`, añadidos a mano) editables uno a uno o **en bloque** sobre un conjunto filtrado (añadir/renombrar/eliminar un campo a la vez en varios objetos); cada personaje tiene su propia **tienda** (carrito + checkout que descuenta dinero), **inventario** repartido en 5 ubicaciones de almacenaje, e **historial de compras** inmutable; un administrador puede además conceder objetos especiales directamente (sin pasar por caja) |
+| **Equipamiento** | Catálogo de armas, armaduras, ropa, libros, otros objetos y objetos especiales, con menú propio por categoría además del catálogo completo; ficha de cada objeto con estadísticas (`stats`, las del libro) y campos adicionales (`custom_fields`, añadidos a mano) editables uno a uno o **en bloque** sobre un conjunto filtrado (añadir/renombrar/eliminar un campo a la vez en varios objetos); cada personaje tiene su propia **tienda** (carrito + checkout que descuenta dinero), **inventario** repartido en 5 ubicaciones de almacenaje, e **historial de compras** inmutable; un administrador puede además conceder objetos especiales directamente (sin pasar por caja) o añadir dinero a mano a la cuenta de un personaje (mientras no haya sueldos/recompensas automáticos) |
 
 ---
 
@@ -560,7 +560,7 @@ pytest --cov=app --cov-report=term-missing
 | `tests/test_food.py` | Comida y bebida: siembra idempotente del catálogo (`seed_food_catalog`, incluido el backfill de `complejidad` en filas ya sembradas antes de que existiera esa columna), conversión/formateo de moneda (`currency_service`), listado/filtro (incluidos sabor/calidad/disponibilidad) y ordenación por columna (incluidos los costes) de bebidas/recetas, la división de `sabor` en categoría base + variante, ficha de bebida (calculadora de precio, notas) y de receta (ingredientes/condimentos, recetas "solo compra"), páginas de referencia de ingredientes/métodos de cocina, el servicio de cálculo automático de una receta (`recipe_calc_service`, con "Olla podrida" como caso de regresión exacto contra el libro incluida la `calidad` derivada, los umbrales de `calidad_from_complejidad`, y el rechazo de combinaciones incompatibles o con demasiados ingredientes/condimentos), el flujo de propuesta de receta nueva (queda pendiente, oculta del catálogo público y de otros usuarios, visible en "Mis recetas"), y que todas las rutas exigen login |
 | `tests/test_admin_recipes.py` | Revisión admin de recetas propuestas: acceso restringido a administradores, aprobar exige subir una imagen si no la tenía, aprobar publica la receta en el catálogo con la etiqueta "Comunidad" y registra quién/cuándo, rechazar guarda el motivo y el proponente lo ve en "Mis recetas" |
 | `tests/test_equipment.py` | Catálogo de Equipamiento: listado/filtros (categoría, subcategoría, calidad, búsqueda) y sus menús por categoría, ficha, permisos de creación/edición/eliminación (`equipment.edit`), subida de imagen restringida a arma/armadura, `stats`/`custom_fields` uno a uno, edición de campos en bloque (añadir/renombrar/eliminar sobre un conjunto filtrado, respeta filtros y permiso), export/import JSON (`equipment.import`) con el enlace al objeto base de un especial |
-| `tests/test_character_purchases.py` | Tienda/carrito/inventario/historial de un personaje: añadir al carrito con calidad/cantidad/ubicación, cálculo de precio por calidad (multiplicador ×0,5/×1/×3/×10) y por nivel social (Ropa Noble), checkout todo-o-nada (aborta sin cobrar si una línea no tiene precio calculable o falta dinero), reparto del inventario en las 5 ubicaciones, historial inmutable, y la concesión de objetos especiales por un administrador (precio libre, incluido 0) |
+| `tests/test_character_purchases.py` | Tienda/carrito/inventario/historial de un personaje: añadir al carrito con calidad/cantidad/ubicación, cálculo de precio por calidad (multiplicador ×0,5/×1/×3/×10) y por nivel social (Ropa Noble), checkout todo-o-nada (aborta sin cobrar si una línea no tiene precio calculable o falta dinero), reparto del inventario en las 5 ubicaciones, historial inmutable, la concesión de objetos especiales por un administrador (precio libre, incluido 0), y conceder dinero a mano (solo admin, suma al saldo y queda registrado en el historial) |
 
 ### Notas de diseño
 
@@ -1001,6 +1001,7 @@ Cada personaje tiene su propia **Tienda**, accesible desde su ficha.
 - **Historial de compras**: registro inmutable de todo lo comprado o concedido, con fecha, calidad, precio pagado y quién lo concedió si fue un administrador.
 - **Alta sin coste**: si un administrador te ha habilitado esta opción, la pantalla de añadir al carrito incluye una casilla **"Ya lo tenía (no cobrar)"** que manda el objeto directo al inventario sin pasar por caja — pensado para dar de alta el equipo que el personaje ya tenía antes de usar esta tienda, no para uso habitual.
 - **Objetos especiales**: no se compran en la tienda — un administrador los concede desde la ficha del personaje (**Conceder objeto especial**), con calidad, cantidad, precio (puede ser 0) y notas libres.
+- **Conceder dinero**: mientras no haya sueldos ni recompensas automáticos, un administrador puede añadir dinero directamente a la cuenta de un personaje desde su ficha (**Conceder dinero**, junto al importe de dinero actual), indicando cantidad (Coronas/Chelines/Peniques) y un motivo libre (p.ej. "Sueldo semanal", "Recompensa de misión"). Cada concesión queda registrada en el **Historial de compras** del personaje (fecha, importe, motivo y quién la concedió), sin tocar el catálogo de equipamiento.
 
 ---
 
@@ -1183,6 +1184,13 @@ character_purchases          (historial inmutable - nunca se edita ni se borra t
   ├─ precio_peniques_pagado  (0 para objetos concedidos por un admin o dados de alta sin coste)
   ├─ granted_by_gm, granted_by_user_id
   └─ notes
+
+character_money_grants       (historial inmutable de dinero concedido a mano - stand-in temporal
+  ├─ character_id             mientras no existan sueldos/recompensas automáticos)
+  ├─ peniques                 (importe añadido, siempre positivo)
+  ├─ motivo                   (texto libre, p.ej. "Sueldo semanal")
+  ├─ granted_by_user_id
+  └─ created_at
 ```
 
 `app/data/food/*.json` (`cooking_methods.json`, `ingredients.json`, `ingredient_compatibility.json`,
@@ -1323,7 +1331,8 @@ WarhammerFantasyTools/
     │   │   ├── carrito.html                   # Revisar/quitar líneas y finalizar compra
     │   │   ├── inventario.html                # Equipo del personaje por ubicación de almacenaje
     │   │   ├── historial_compras.html         # Registro inmutable de compras/concesiones
-    │   │   └── conceder_especial.html         # Admin: conceder un objeto especial directamente
+    │   │   ├── conceder_especial.html         # Admin: conceder un objeto especial directamente
+    │   │   └── conceder_dinero.html            # Admin: añadir dinero directamente a la cuenta
     │   └── ...                   # Resto de plantillas por módulo
     └── static/
         ├── css/custom.css               # Tema oscuro medieval WH

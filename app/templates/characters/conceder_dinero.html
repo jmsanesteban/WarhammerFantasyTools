@@ -1,0 +1,54 @@
+{% extends 'base.html' %}
+{% block title %}Conceder dinero — {{ char.name }}{% endblock %}
+
+{% block content %}
+<div class="container mt-4" style="max-width:600px">
+  <nav aria-label="breadcrumb">
+    <ol class="breadcrumb wh-breadcrumb">
+      <li class="breadcrumb-item"><a href="{{ url_for('characters.list_characters') }}" class="wh-link">Personajes</a></li>
+      <li class="breadcrumb-item"><a href="{{ url_for('characters.detail', char_id=char.id) }}" class="wh-link">{{ char.name }}</a></li>
+      <li class="breadcrumb-item active">Conceder dinero</li>
+    </ol>
+  </nav>
+
+  <div class="card wh-card">
+    <div class="card-header wh-card-header">
+      <i class="bi bi-cash-coin me-2"></i>Conceder dinero a {{ char.name }}
+    </div>
+    <div class="card-body">
+      <p class="text-muted small">
+        Añade dinero directamente a la cuenta de {{ char.name }} — pensado para sueldos, recompensas u otros ingresos
+        que todavía no se gestionan automáticamente. Dinero actual: <strong>{{ char.dinero_total_peniques | money }}</strong>.
+      </p>
+      <form method="POST">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+        <div class="row g-3 mb-3">
+          <div class="col-md-4">
+            <label class="form-label wh-label">Coronas de oro</label>
+            <input type="number" name="coronas" class="form-control wh-input" value="0" min="0">
+          </div>
+          <div class="col-md-4">
+            <label class="form-label wh-label">Chelines de plata</label>
+            <input type="number" name="chelines" class="form-control wh-input" value="0" min="0">
+          </div>
+          <div class="col-md-4">
+            <label class="form-label wh-label">Peniques</label>
+            <input type="number" name="peniques" class="form-control wh-input" value="0" min="0">
+          </div>
+        </div>
+
+        <div class="mb-3">
+          <label class="form-label wh-label">Motivo</label>
+          <input type="text" name="motivo" class="form-control wh-input" placeholder="p. ej. Sueldo semanal, recompensa de misión…">
+        </div>
+
+        <div class="d-flex gap-2">
+          <button type="submit" class="btn btn-wh"><i class="bi bi-cash-coin me-1"></i>Conceder</button>
+          <a href="{{ url_for('characters.detail', char_id=char.id) }}" class="btn btn-outline-secondary">Cancelar</a>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+{% endblock %}

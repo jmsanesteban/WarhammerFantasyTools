@@ -10,6 +10,7 @@ from app.models.talent import Talent
 from app.models.character import (
     Character, CharacterProfession, CharacterSkill, CharacterTalent,
     CharacterTrait, CharacterAcquaintance, CharacterPossession, CharacterMagicItem,
+    CharacterMoneyGrant,
 )
 from app.models.synonym import Synonym
 from app.models.contact import Contact, ContactProfession
@@ -27,6 +28,7 @@ __all__ = [
     'Skill', 'Talent',
     'Character', 'CharacterProfession', 'CharacterSkill', 'CharacterTalent',
     'CharacterTrait', 'CharacterAcquaintance', 'CharacterPossession', 'CharacterMagicItem',
+    'CharacterMoneyGrant',
     'Synonym',
     'Contact', 'ContactProfession',
     'ContactCharacterLink', 'ContactApodo', 'ContactCharacterSalary', 'ContactCharacterVisibility',

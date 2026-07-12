@@ -83,6 +83,28 @@ class CharacterMagicItem(db.Model):
     description = db.Column(db.Text, nullable=False)
 
 
+class CharacterMoneyGrant(db.Model):
+    """Immutable ledger entry: an administrator manually added money to a
+    character's account - a stand-in for real salary/reward income, which
+    doesn't exist yet. Never edited or deleted after creation, same
+    convention as CharacterPurchase (app/models/equipment.py)."""
+    __tablename__ = 'character_money_grants'
+
+    id = db.Column(db.Integer, primary_key=True)
+    character_id = db.Column(db.Integer, db.ForeignKey('characters.id', ondelete='CASCADE'), nullable=False)
+    peniques = db.Column(db.Integer, nullable=False)
+    motivo = db.Column(db.String(200), nullable=True)
+    granted_by_user_id = db.Column(db.Integer, db.ForeignKey('users.id', ondelete='SET NULL'), nullable=True)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+    character = db.relationship('Character', backref=db.backref(
+        'money_grants', cascade='all, delete-orphan', order_by='CharacterMoneyGrant.created_at.desc()'))
+    granted_by = db.relationship('User')
+
+    def __repr__(self):
+        return f'<CharacterMoneyGrant {self.peniques} -> character {self.character_id}>'
+
+
 class Character(db.Model):
     __tablename__ = 'characters'
 

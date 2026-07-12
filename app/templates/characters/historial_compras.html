@@ -50,5 +50,30 @@
     <i class="bi bi-info-circle me-2"></i>Sin compras todavía.
   </div>
   {% endif %}
+
+  <h3 class="wh-heading mt-4 mb-3"><i class="bi bi-cash-coin me-2"></i>Dinero concedido</h3>
+  {% if char.money_grants %}
+  <div class="table-responsive">
+    <table class="table table-sm wh-stat-table">
+      <thead>
+        <tr><th>Fecha</th><th>Importe</th><th>Motivo</th><th>Concedido por</th></tr>
+      </thead>
+      <tbody>
+        {% for g in char.money_grants %}
+        <tr>
+          <td>{{ g.created_at.strftime('%Y-%m-%d %H:%M') }}</td>
+          <td>{{ g.peniques | money }}</td>
+          <td>{{ g.motivo or '—' }}</td>
+          <td>{{ g.granted_by.username if g.granted_by else '—' }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <div class="alert alert-info wh-alert">
+    <i class="bi bi-info-circle me-2"></i>Sin dinero concedido todavía.
+  </div>
+  {% endif %}
 </div>
 {% endblock %}

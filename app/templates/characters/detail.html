@@ -25,7 +25,14 @@
           {% if char.procedencia %}<p><strong class="wh-label">Procedencia:</strong> {{ char.procedencia }}</p>{% endif %}
           {% if char.situacion_familiar %}<p><strong class="wh-label">Familia:</strong> {{ char.situacion_familiar }}</p>{% endif %}
           {% if char.nivel_social is not none %}<p><strong class="wh-label">Nivel social:</strong> {{ char.nivel_social }}</p>{% endif %}
-          <p><strong class="wh-label">Dinero:</strong> {{ char.dinero_total_peniques | money }}</p>
+          <p>
+            <strong class="wh-label">Dinero:</strong> {{ char.dinero_total_peniques | money }}
+            {% if current_user.is_admin %}
+            <a href="{{ url_for('characters.conceder_dinero', char_id=char.id) }}" class="btn btn-outline-warning btn-sm ms-2" title="Conceder dinero">
+              <i class="bi bi-cash-coin"></i>
+            </a>
+            {% endif %}
+          </p>
           <p><strong class="wh-label">Puntos de Historial:</strong> {{ char.history_points_available }} disponibles ({{ char.history_points_spent }} gastados de {{ char.history_points_total }})</p>
           {% if char.notes %}<p class="text-muted small">{{ char.notes }}</p>{% endif %}
         </div>
