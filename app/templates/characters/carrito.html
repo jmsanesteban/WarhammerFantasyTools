@@ -1,0 +1,90 @@
+{% extends 'base.html' %}
+{% block title %}Carrito — {{ char.name }}{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+  <nav aria-label="breadcrumb">
+    <ol class="breadcrumb wh-breadcrumb">
+      <li class="breadcrumb-item"><a href="{{ url_for('characters.list_characters') }}" class="wh-link">Personajes</a></li>
+      <li class="breadcrumb-item"><a href="{{ url_for('characters.detail', char_id=char.id) }}" class="wh-link">{{ char.name }}</a></li>
+      <li class="breadcrumb-item"><a href="{{ url_for('characters.tienda', char_id=char.id) }}" class="wh-link">Tienda</a></li>
+      <li class="breadcrumb-item active">Carrito</li>
+    </ol>
+  </nav>
+
+  <div class="d-flex justify-content-between align-items-center mb-3">
+    <h2 class="wh-heading"><i class="bi bi-cart3 me-2"></i>Carrito de {{ char.name }}</h2>
+    <span class="badge bg-success fs-6">Dinero disponible: {{ char.dinero_total_peniques | money }}</span>
+  </div>
+
+  {% if cart_items %}
+  <div class="card wh-card mb-3">
+    <div class="card-body">
+      <div class="table-responsive">
+        <table class="table table-sm wh-stat-table mb-0">
+          <thead>
+            <tr><th>Objeto</th><th>Calidad</th><th>Cantidad</th><th>Precio unitario</th><th>Subtotal</th><th>Ubicación</th><th></th></tr>
+          </thead>
+          <tbody>
+            {% for ci in cart_items %}
+            <tr>
+              <td><a href="{{ url_for('equipment.detail', item_id=ci.equipment_item.id) }}" class="wh-link">{{ ci.equipment_item.name }}</a></td>
+              <td>
+                {% if ci.quality %}
+                {{ (ci.equipment_item.QUALITY_LABELS_ROPA if ci.equipment_item.category == 'ropa' else ci.equipment_item.QUALITY_LABELS).get(ci.quality, ci.quality) }}
+                {% else %}—{% endif %}
+              </td>
+              <td>{{ ci.quantity }}</td>
+              <td>
+                {% if ci.unit_price is not none %}{{ ci.unit_price | money }}
+                {% else %}<span class="text-danger">Sin precio</span>{% endif %}
+              </td>
+              <td>
+                {% if ci.subtotal is not none %}{{ ci.subtotal | money }}
+                {% else %}<span class="text-danger">—</span>{% endif %}
+              </td>
+              <td>{{ ci.location.replace('_', ' ') | capitalize }}</td>
+              <td>
+                <form method="POST" action="{{ url_for('characters.eliminar_del_carrito', char_id=char.id, cart_item_id=ci.id) }}">
+                  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                  <button class="btn btn-outline-danger btn-sm" title="Quitar"><i class="bi bi-trash"></i></button>
+                </form>
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+          <tfoot>
+            <tr>
+              <th colspan="4" class="text-end">Total</th>
+              <th>{{ cart_total | money }}</th>
+              <th colspan="2"></th>
+            </tr>
+          </tfoot>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  {% if cart_total > char.dinero_total_peniques %}
+  <div class="alert alert-warning wh-alert">
+    <i class="bi bi-exclamation-triangle me-2"></i>El total del carrito supera el dinero disponible de {{ char.name }}.
+  </div>
+  {% endif %}
+
+  <div class="d-flex gap-2">
+    <form method="POST" action="{{ url_for('characters.checkout_carrito', char_id=char.id) }}">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <button type="submit" class="btn btn-wh" {% if cart_total > char.dinero_total_peniques %}disabled{% endif %}>
+        <i class="bi bi-cart-check me-1"></i>Finalizar compra
+      </button>
+    </form>
+    <a href="{{ url_for('characters.tienda', char_id=char.id) }}" class="btn btn-outline-secondary">Seguir comprando</a>
+  </div>
+  {% else %}
+  <div class="alert alert-info wh-alert">
+    <i class="bi bi-info-circle me-2"></i>El carrito está vacío.
+    <a href="{{ url_for('characters.tienda', char_id=char.id) }}" class="wh-link">Ir a la tienda</a>.
+  </div>
+  {% endif %}
+</div>
+{% endblock %}

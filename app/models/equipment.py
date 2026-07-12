@@ -199,6 +199,36 @@ class CharacterInventoryItem(db.Model):
         return labels.get(self.quality, self.quality)
 
 
+class CharacterCartItem(db.Model):
+    """A pending, not-yet-paid-for line in a character's shopping cart.
+    Kept in its own table (not CharacterInventoryItem with a status flag) so
+    abandoned carts never pollute real-inventory queries. Price is never
+    stored here - always recomputed from EquipmentItem.price_for_quality at
+    display and checkout time, since nivel_social (Clase social) can change
+    between adding an item and checking out."""
+    __tablename__ = 'character_cart_items'
+
+    id = db.Column(db.Integer, primary_key=True)
+    character_id = db.Column(db.Integer, db.ForeignKey('characters.id', ondelete='CASCADE'), nullable=False)
+    equipment_item_id = db.Column(db.Integer, db.ForeignKey('equipment_items.id', ondelete='CASCADE'), nullable=False)
+    quality = db.Column(db.String(20), nullable=True)
+    quantity = db.Column(db.Integer, nullable=False, default=1)
+    location = db.Column(db.String(20), nullable=False)
+    added_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+    character = db.relationship('Character', backref=db.backref('cart_items', cascade='all, delete-orphan'))
+    equipment_item = db.relationship('EquipmentItem')
+
+    @property
+    def unit_price(self):
+        return self.equipment_item.price_for_quality(self.quality, nivel_social=self.character.nivel_social)
+
+    @property
+    def subtotal(self):
+        price = self.unit_price
+        return None if price is None else price * self.quantity
+
+
 class CharacterPurchase(db.Model):
     """Immutable purchase-history ledger entry: created once when a character
     buys (or a GM grants) an equipment item, never edited or deleted

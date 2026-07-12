@@ -12,7 +12,7 @@ from app.models.profession import Profession
 from app.models.skill import Skill
 from app.models.talent import Talent
 from app.models.user import User
-from app.models.equipment import EquipmentItem, CharacterInventoryItem, CharacterPurchase
+from app.models.equipment import EquipmentItem, CharacterInventoryItem, CharacterPurchase, CharacterCartItem
 from app.services import character_creation_service as ccs
 from app.services import salary_service
 from app.services.currency_service import format_peniques
@@ -181,6 +181,14 @@ def _get_owned_character(char_id):
     return char
 
 
+def _cart_count_and_total(char):
+    items = char.cart_items
+    count = sum(ci.quantity for ci in items)
+    subtotals = [ci.subtotal for ci in items]
+    total = sum(s for s in subtotals if s is not None) if subtotals else 0
+    return count, total
+
+
 @characters_bp.route('/<int:char_id>/tienda')
 @login_required
 def tienda(char_id):
@@ -195,15 +203,17 @@ def tienda(char_id):
         query = query.filter(EquipmentItem.name.ilike(f'%{search}%'))
     items = query.order_by(EquipmentItem.category, EquipmentItem.name).all()
 
+    cart_count, cart_total = _cart_count_and_total(char)
     return render_template('characters/tienda.html', char=char, items=items,
                             category=category, search=search,
                             category_labels=EquipmentItem.CATEGORY_LABELS,
-                            tienda_categories=_TIENDA_CATEGORIES)
+                            tienda_categories=_TIENDA_CATEGORIES,
+                            cart_count=cart_count, cart_total=cart_total)
 
 
-@characters_bp.route('/<int:char_id>/tienda/<int:item_id>/comprar', methods=['GET'])
+@characters_bp.route('/<int:char_id>/tienda/<int:item_id>/anadir-carrito', methods=['GET'])
 @login_required
-def comprar_confirmar(char_id, item_id):
+def anadir_carrito_confirmar(char_id, item_id):
     char = _get_owned_character(char_id)
     item = EquipmentItem.query.get_or_404(item_id)
     if item.category not in _TIENDA_CATEGORIES:
@@ -213,13 +223,13 @@ def comprar_confirmar(char_id, item_id):
     # mundane base (Pincho ocultable = Daga excelente, etc.) are always
     # excelente - only genuinely-variable-quality arma/armadura show a picker.
     qualities = [] if (item.category == 'ropa' or item.is_special) else list(EquipmentItem.QUALITIES)
-    return render_template('characters/comprar_confirmar.html', char=char, item=item,
+    return render_template('characters/anadir_carrito_confirmar.html', char=char, item=item,
                             qualities=qualities, locations=CharacterInventoryItem.LOCATIONS)
 
 
-@characters_bp.route('/<int:char_id>/tienda/<int:item_id>/comprar', methods=['POST'])
+@characters_bp.route('/<int:char_id>/tienda/<int:item_id>/anadir-carrito', methods=['POST'])
 @login_required
-def comprar(char_id, item_id):
+def anadir_carrito(char_id, item_id):
     char = _get_owned_character(char_id)
     item = EquipmentItem.query.get_or_404(item_id)
     if item.category not in _TIENDA_CATEGORIES:
@@ -238,38 +248,83 @@ def comprar(char_id, item_id):
 
     if location not in CharacterInventoryItem.LOCATIONS:
         flash('Ubicación de almacenamiento no válida.', 'danger')
-        return redirect(url_for('characters.comprar_confirmar', char_id=char.id, item_id=item.id))
+        return redirect(url_for('characters.anadir_carrito_confirmar', char_id=char.id, item_id=item.id))
 
-    unit_price = item.price_for_quality(quality, nivel_social=char.nivel_social)
-    if unit_price is None:
-        flash(f'«{item.name}» no tiene un precio configurado para calcularse automáticamente '
-              f'(o «{char.name}» no tiene el nivel social necesario); pide a un administrador que lo revise.',
-              'danger')
-        return redirect(url_for('characters.comprar_confirmar', char_id=char.id, item_id=item.id))
+    db.session.add(CharacterCartItem(
+        character_id=char.id, equipment_item_id=item.id, quality=quality,
+        quantity=quantity, location=location,
+    ))
+    db.session.commit()
+    flash(f'«{item.name}» añadido al carrito.', 'success')
+    return redirect(url_for('characters.tienda', char_id=char.id))
 
-    total_price = unit_price * quantity
+
+@characters_bp.route('/<int:char_id>/carrito')
+@login_required
+def carrito(char_id):
+    char = _get_owned_character(char_id)
+    cart_count, cart_total = _cart_count_and_total(char)
+    return render_template('characters/carrito.html', char=char, cart_items=char.cart_items,
+                            cart_count=cart_count, cart_total=cart_total)
+
+
+@characters_bp.route('/<int:char_id>/carrito/<int:cart_item_id>/eliminar', methods=['POST'])
+@login_required
+def eliminar_del_carrito(char_id, cart_item_id):
+    char = _get_owned_character(char_id)
+    cart_item = CharacterCartItem.query.filter_by(id=cart_item_id, character_id=char.id).first_or_404()
+    db.session.delete(cart_item)
+    db.session.commit()
+    flash('Objeto quitado del carrito.', 'warning')
+    return redirect(url_for('characters.carrito', char_id=char.id))
+
+
+@characters_bp.route('/<int:char_id>/carrito/checkout', methods=['POST'])
+@login_required
+def checkout_carrito(char_id):
+    char = _get_owned_character(char_id)
+    cart_items = char.cart_items
+    if not cart_items:
+        flash('El carrito está vacío.', 'danger')
+        return redirect(url_for('characters.carrito', char_id=char.id))
+
+    # Todo o nada: cualquier línea sin precio calculable aborta el checkout
+    # completo sin tocar nada, para que el jugador pueda arreglarla y reintentar.
+    total_price = 0
+    for cart_item in cart_items:
+        unit_price = cart_item.unit_price
+        if unit_price is None:
+            flash(f'«{cart_item.equipment_item.name}» no tiene un precio calculable ahora mismo '
+                  f'(revisa su precio en el catálogo o el nivel social de {char.name}); '
+                  f'quítalo del carrito o corrígelo antes de finalizar la compra.', 'danger')
+            return redirect(url_for('characters.carrito', char_id=char.id))
+        total_price += unit_price * cart_item.quantity
+
     if total_price > char.dinero_total_peniques:
         flash(f'{char.name} no tiene suficiente dinero: hacen falta {format_peniques(total_price)}, '
               f'y tiene {format_peniques(char.dinero_total_peniques)}.', 'danger')
-        return redirect(url_for('characters.comprar_confirmar', char_id=char.id, item_id=item.id))
+        return redirect(url_for('characters.carrito', char_id=char.id))
 
     char.set_dinero_desde_peniques(char.dinero_total_peniques - total_price)
 
-    inv_item = CharacterInventoryItem(
-        character_id=char.id, equipment_item_id=item.id, quality=quality,
-        quantity=quantity, location=location,
-    )
-    db.session.add(inv_item)
-    db.session.flush()
+    for cart_item in list(cart_items):
+        inv_item = CharacterInventoryItem(
+            character_id=char.id, equipment_item_id=cart_item.equipment_item_id,
+            quality=cart_item.quality, quantity=cart_item.quantity, location=cart_item.location,
+        )
+        db.session.add(inv_item)
+        db.session.flush()
 
-    db.session.add(CharacterPurchase(
-        character_id=char.id, equipment_item_id=item.id,
-        item_name_snapshot=item.name, category_snapshot=item.category, quality_snapshot=quality,
-        precio_peniques_pagado=total_price, granted_by_gm=False, granted_by_user_id=current_user.id,
-        inventory_item_id=inv_item.id,
-    ))
+        db.session.add(CharacterPurchase(
+            character_id=char.id, equipment_item_id=cart_item.equipment_item_id,
+            item_name_snapshot=cart_item.equipment_item.name, category_snapshot=cart_item.equipment_item.category,
+            quality_snapshot=cart_item.quality, precio_peniques_pagado=cart_item.unit_price * cart_item.quantity,
+            granted_by_gm=False, granted_by_user_id=current_user.id, inventory_item_id=inv_item.id,
+        ))
+        db.session.delete(cart_item)
+
     db.session.commit()
-    flash(f'«{item.name}» comprado por {format_peniques(total_price)}.', 'success')
+    flash(f'Compra completada por {format_peniques(total_price)}.', 'success')
     return redirect(url_for('characters.inventario', char_id=char.id))
 
 
