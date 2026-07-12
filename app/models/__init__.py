@@ -17,7 +17,7 @@ from app.models.contact_character_link import (
     ContactCharacterLink, ContactApodo, ContactCharacterSalary, ContactCharacterVisibility,
 )
 from app.models.contact_note import ContactNote
-from app.models.equipment import EquipmentItem, CharacterInventoryItem
+from app.models.equipment import EquipmentItem, CharacterInventoryItem, CharacterPurchase
 
 __all__ = [
     'Permission', 'PermissionTemplate', 'user_permissions', 'template_permissions',
@@ -31,5 +31,5 @@ __all__ = [
     'Contact', 'ContactProfession',
     'ContactCharacterLink', 'ContactApodo', 'ContactCharacterSalary', 'ContactCharacterVisibility',
     'ContactNote',
-    'EquipmentItem', 'CharacterInventoryItem',
+    'EquipmentItem', 'CharacterInventoryItem', 'CharacterPurchase',
 ]

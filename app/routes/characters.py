@@ -12,12 +12,22 @@ from app.models.profession import Profession
 from app.models.skill import Skill
 from app.models.talent import Talent
 from app.models.user import User
+from app.models.equipment import EquipmentItem, CharacterInventoryItem, CharacterPurchase
 from app.services import character_creation_service as ccs
 from app.services import salary_service
+from app.services.currency_service import format_peniques
+from app.utils import admin_required
 
 characters_bp = Blueprint('characters', __name__, template_folder='../templates')
 
+_TIENDA_CATEGORIES = ('arma', 'armadura', 'ropa')
+
 _RAZAS = ['Humano', 'Halfling', 'Enano', 'Elfo Silvano', 'Alto Elfo']
+
+
+def _form_int(field, default=None):
+    val = request.form.get(field, '').strip()
+    return int(val) if val.lstrip('-').isdigit() else default
 
 
 def _professions_picker_context(professions):
@@ -100,6 +110,8 @@ def create():
             gender=request.form.get('gender', '').strip() or None,
             notes=request.form.get('notes', '').strip() or None,
             es_untersuchung=request.form.get('es_untersuchung') == 'on',
+            nivel_social=_form_int('nivel_social', 1),
+            dinero_coronas=_form_int('dinero_coronas', 0),
         )
         db.session.add(char)
         db.session.flush()
@@ -130,6 +142,8 @@ def edit(char_id):
         char.gender = request.form.get('gender', '').strip() or None
         char.notes = request.form.get('notes', '').strip() or None
         char.es_untersuchung = request.form.get('es_untersuchung') == 'on'
+        char.nivel_social = _form_int('nivel_social', char.nivel_social or 1)
+        char.dinero_coronas = _form_int('dinero_coronas', char.dinero_coronas or 0)
 
         # Rebuild profession list
         CharacterProfession.query.filter_by(character_id=char.id).delete()
@@ -154,6 +168,175 @@ def delete(char_id):
     db.session.commit()
     flash(f'Personaje "{name}" eliminado.', 'warning')
     return redirect(url_for('characters.list_characters'))
+
+
+# ---------------------------------------------------------------------------
+# Tienda / inventario / histórico de compras
+# ---------------------------------------------------------------------------
+
+def _get_owned_character(char_id):
+    char = Character.query.get_or_404(char_id)
+    if char.user_id != current_user.id and not current_user.is_admin:
+        abort(403)
+    return char
+
+
+@characters_bp.route('/<int:char_id>/tienda')
+@login_required
+def tienda(char_id):
+    char = _get_owned_character(char_id)
+
+    category = request.args.get('category', '').strip()
+    search = request.args.get('q', '').strip()
+    query = EquipmentItem.query.filter(EquipmentItem.category.in_(_TIENDA_CATEGORIES))
+    if category in _TIENDA_CATEGORIES:
+        query = query.filter_by(category=category)
+    if search:
+        query = query.filter(EquipmentItem.name.ilike(f'%{search}%'))
+    items = query.order_by(EquipmentItem.category, EquipmentItem.name).all()
+
+    return render_template('characters/tienda.html', char=char, items=items,
+                            category=category, search=search,
+                            category_labels=EquipmentItem.CATEGORY_LABELS,
+                            tienda_categories=_TIENDA_CATEGORIES)
+
+
+@characters_bp.route('/<int:char_id>/tienda/<int:item_id>/comprar', methods=['GET'])
+@login_required
+def comprar_confirmar(char_id, item_id):
+    char = _get_owned_character(char_id)
+    item = EquipmentItem.query.get_or_404(item_id)
+    if item.category not in _TIENDA_CATEGORIES:
+        abort(404)
+
+    # Ropa: quality = the catalog row itself. Special items built on a
+    # mundane base (Pincho ocultable = Daga excelente, etc.) are always
+    # excelente - only genuinely-variable-quality arma/armadura show a picker.
+    qualities = [] if (item.category == 'ropa' or item.is_special) else list(EquipmentItem.QUALITIES)
+    return render_template('characters/comprar_confirmar.html', char=char, item=item,
+                            qualities=qualities, locations=CharacterInventoryItem.LOCATIONS)
+
+
+@characters_bp.route('/<int:char_id>/tienda/<int:item_id>/comprar', methods=['POST'])
+@login_required
+def comprar(char_id, item_id):
+    char = _get_owned_character(char_id)
+    item = EquipmentItem.query.get_or_404(item_id)
+    if item.category not in _TIENDA_CATEGORIES:
+        abort(404)
+
+    # Ropa's "quality" is really which catalog row was picked (Harapos/Común/
+    # Burguesa/Noble are separate rows). Special items built on a mundane base
+    # are always excelente. Neither is a player choice on this one row.
+    if item.category == 'ropa' or item.is_special:
+        quality = item.quality
+    else:
+        quality = request.form.get('quality', '').strip() or None
+    quantity = request.form.get('quantity', '1').strip()
+    quantity = int(quantity) if quantity.isdigit() and int(quantity) > 0 else 1
+    location = request.form.get('location', '').strip()
+
+    if location not in CharacterInventoryItem.LOCATIONS:
+        flash('Ubicación de almacenamiento no válida.', 'danger')
+        return redirect(url_for('characters.comprar_confirmar', char_id=char.id, item_id=item.id))
+
+    unit_price = item.price_for_quality(quality, nivel_social=char.nivel_social)
+    if unit_price is None:
+        flash(f'«{item.name}» no tiene un precio configurado para calcularse automáticamente '
+              f'(o «{char.name}» no tiene el nivel social necesario); pide a un administrador que lo revise.',
+              'danger')
+        return redirect(url_for('characters.comprar_confirmar', char_id=char.id, item_id=item.id))
+
+    total_price = unit_price * quantity
+    if total_price > char.dinero_total_peniques:
+        flash(f'{char.name} no tiene suficiente dinero: hacen falta {format_peniques(total_price)}, '
+              f'y tiene {format_peniques(char.dinero_total_peniques)}.', 'danger')
+        return redirect(url_for('characters.comprar_confirmar', char_id=char.id, item_id=item.id))
+
+    char.set_dinero_desde_peniques(char.dinero_total_peniques - total_price)
+
+    inv_item = CharacterInventoryItem(
+        character_id=char.id, equipment_item_id=item.id, quality=quality,
+        quantity=quantity, location=location,
+    )
+    db.session.add(inv_item)
+    db.session.flush()
+
+    db.session.add(CharacterPurchase(
+        character_id=char.id, equipment_item_id=item.id,
+        item_name_snapshot=item.name, category_snapshot=item.category, quality_snapshot=quality,
+        precio_peniques_pagado=total_price, granted_by_gm=False, granted_by_user_id=current_user.id,
+        inventory_item_id=inv_item.id,
+    ))
+    db.session.commit()
+    flash(f'«{item.name}» comprado por {format_peniques(total_price)}.', 'success')
+    return redirect(url_for('characters.inventario', char_id=char.id))
+
+
+@characters_bp.route('/<int:char_id>/inventario')
+@login_required
+def inventario(char_id):
+    char = _get_owned_character(char_id)
+    items_by_location = {loc: [] for loc in CharacterInventoryItem.LOCATIONS}
+    for inv_item in char.inventory_items:
+        items_by_location.setdefault(inv_item.location, []).append(inv_item)
+    return render_template('characters/inventario.html', char=char, items_by_location=items_by_location,
+                            locations=CharacterInventoryItem.LOCATIONS)
+
+
+@characters_bp.route('/<int:char_id>/historial-compras')
+@login_required
+def historial_compras(char_id):
+    char = _get_owned_character(char_id)
+    return render_template('characters/historial_compras.html', char=char)
+
+
+@characters_bp.route('/<int:char_id>/conceder-especial', methods=['GET', 'POST'])
+@admin_required
+def conceder_especial(char_id):
+    char = Character.query.get_or_404(char_id)
+    especiales = EquipmentItem.query.filter_by(category='especial').order_by(EquipmentItem.name).all()
+
+    if request.method == 'POST':
+        equipment_item_id = request.form.get('equipment_item_id', '').strip()
+        item = EquipmentItem.query.get(int(equipment_item_id)) if equipment_item_id else None
+        custom_name = request.form.get('custom_name', '').strip() or None
+        if not item and not custom_name:
+            flash('Elige un objeto especial del catálogo o escribe un nombre.', 'danger')
+            return redirect(url_for('characters.conceder_especial', char_id=char.id))
+
+        quality = request.form.get('quality', '').strip() or None
+        quantity = request.form.get('quantity', '1').strip()
+        quantity = int(quantity) if quantity.isdigit() and int(quantity) > 0 else 1
+        location = request.form.get('location', '').strip()
+        if location not in CharacterInventoryItem.LOCATIONS:
+            flash('Ubicación de almacenamiento no válida.', 'danger')
+            return redirect(url_for('characters.conceder_especial', char_id=char.id))
+        price_str = request.form.get('precio_peniques', '').strip()
+        precio_peniques = int(price_str) if price_str.isdigit() else 0
+        notes = request.form.get('notes', '').strip() or None
+
+        inv_item = CharacterInventoryItem(
+            character_id=char.id, equipment_item_id=item.id if item else None,
+            custom_name=custom_name if not item else None, quality=quality,
+            quantity=quantity, location=location, notes=notes,
+        )
+        db.session.add(inv_item)
+        db.session.flush()
+
+        db.session.add(CharacterPurchase(
+            character_id=char.id, equipment_item_id=item.id if item else None,
+            item_name_snapshot=item.name if item else custom_name,
+            category_snapshot='especial', quality_snapshot=quality,
+            precio_peniques_pagado=precio_peniques, granted_by_gm=True, granted_by_user_id=current_user.id,
+            inventory_item_id=inv_item.id, notes=notes,
+        ))
+        db.session.commit()
+        flash(f'Objeto especial concedido a «{char.name}».', 'success')
+        return redirect(url_for('characters.inventario', char_id=char.id))
+
+    return render_template('characters/conceder_especial.html', char=char, especiales=especiales,
+                            locations=CharacterInventoryItem.LOCATIONS)
 
 
 # ---------------------------------------------------------------------------

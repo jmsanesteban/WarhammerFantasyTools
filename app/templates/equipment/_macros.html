@@ -39,3 +39,66 @@
 </table>
 {% endif %}
 {% endmacro %}
+
+{# Shared equipment card: image left + full stats, used by both the public
+   catalog (equipment/list.html) and a character's shop (characters/tienda.html).
+   Passing buy_url swaps the admin Editar/Eliminar footer for a Comprar button -
+   the two contexts never show both actions at once. #}
+{% macro equipment_card(item, buy_url=None) %}
+<div class="card wh-card h-100">
+  <div class="row g-0 h-100">
+    {% if item.image_path %}
+    <div class="col-4">
+      <img src="{{ url_for('main.uploaded_file', filename=item.image_path) }}"
+           class="wh-card-img-left" alt="{{ item.name }}">
+    </div>
+    {% endif %}
+    <div class="{% if item.image_path %}col-8{% else %}col-12{% endif %} d-flex flex-column">
+      <div class="card-body">
+        <h5 class="card-title wh-name mb-1">
+          <a href="{{ url_for('equipment.detail', item_id=item.id) }}" class="wh-link text-decoration-none">{{ item.name }}</a>
+        </h5>
+        <div class="d-flex gap-1 flex-wrap mb-2">
+          <span class="badge bg-secondary">{{ item.category_label }}</span>
+          {% if item.subcategory %}<span class="badge bg-dark">{{ item.subcategory_label }}</span>{% endif %}
+          {% if item.quality %}<span class="badge bg-info text-dark">{{ item.quality_label }}</span>{% endif %}
+          {% if item.is_special %}<span class="badge bg-warning text-dark">Especial</span>{% endif %}
+        </div>
+        {% if item.price_text %}<p class="card-text small text-muted mb-2">{{ item.price_text }}</p>{% endif %}
+
+        {% if item.base_item %}
+        <p class="small mb-2">
+          <strong class="wh-label">Basado en:</strong>
+          <a href="{{ url_for('equipment.detail', item_id=item.base_item.id) }}" class="wh-link">{{ item.base_item.name }}</a>
+        </p>
+        {% endif %}
+
+        {{ stats_table(item.stats) }}
+        {{ stats_table(item.custom_fields) }}
+
+        {% if item.description %}
+        <p class="wh-description small mb-0">{{ item.description }}</p>
+        {% endif %}
+      </div>
+      {% if buy_url %}
+      <div class="card-footer mt-auto">
+        <a href="{{ buy_url }}" class="btn btn-wh btn-sm w-100">
+          <i class="bi bi-cart-plus me-1"></i>Comprar
+        </a>
+      </div>
+      {% elif current_user.is_authenticated and current_user.has_perm('equipment.edit') %}
+      <div class="card-footer d-flex gap-2 mt-auto">
+        <a href="{{ url_for('equipment.edit', item_id=item.id) }}" class="btn btn-outline-warning btn-sm flex-grow-1">
+          <i class="bi bi-pencil me-1"></i>Editar
+        </a>
+        <form method="POST" action="{{ url_for('equipment.delete', item_id=item.id) }}"
+              onsubmit="return confirm('¿Eliminar «{{ item.name }}»?')">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+          <button class="btn btn-outline-danger btn-sm"><i class="bi bi-trash"></i></button>
+        </form>
+      </div>
+      {% endif %}
+    </div>
+  </div>
+</div>
+{% endmacro %}

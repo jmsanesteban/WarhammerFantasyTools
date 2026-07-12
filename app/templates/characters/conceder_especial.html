@@ -1,0 +1,82 @@
+{% extends 'base.html' %}
+{% block title %}Conceder objeto especial — {{ char.name }}{% endblock %}
+
+{% block content %}
+<div class="container mt-4" style="max-width:700px">
+  <nav aria-label="breadcrumb">
+    <ol class="breadcrumb wh-breadcrumb">
+      <li class="breadcrumb-item"><a href="{{ url_for('characters.list_characters') }}" class="wh-link">Personajes</a></li>
+      <li class="breadcrumb-item"><a href="{{ url_for('characters.detail', char_id=char.id) }}" class="wh-link">{{ char.name }}</a></li>
+      <li class="breadcrumb-item active">Conceder objeto especial</li>
+    </ol>
+  </nav>
+
+  <div class="card wh-card">
+    <div class="card-header wh-card-header">
+      <i class="bi bi-stars me-2"></i>Conceder objeto especial a {{ char.name }}
+    </div>
+    <div class="card-body">
+      <p class="text-muted small">
+        Los objetos especiales no siguen el flujo normal de compra: la calidad y el precio los decide el DJ a mano.
+      </p>
+      <form method="POST">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+        <div class="mb-3">
+          <label class="form-label wh-label">Objeto del catálogo (opcional)</label>
+          <select name="equipment_item_id" class="form-select wh-input">
+            <option value="">— Ninguno (usar nombre libre) —</option>
+            {% for e in especiales %}
+            <option value="{{ e.id }}">{{ e.name }}</option>
+            {% endfor %}
+          </select>
+        </div>
+
+        <div class="mb-3">
+          <label class="form-label wh-label">Nombre libre (si no eliges uno del catálogo)</label>
+          <input type="text" name="custom_name" class="form-control wh-input">
+        </div>
+
+        <div class="row g-3 mb-3">
+          <div class="col-md-4">
+            <label class="form-label wh-label">Calidad</label>
+            <select name="quality" class="form-select wh-input">
+              <option value="">— Sin calidad —</option>
+              {% for q, label in [('mala','Mala'), ('normal','Normal'), ('buena','Buena'), ('excelente','Excelente')] %}
+              <option value="{{ q }}">{{ label }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="col-md-4">
+            <label class="form-label wh-label">Cantidad</label>
+            <input type="number" name="quantity" class="form-control wh-input" value="1" min="1">
+          </div>
+          <div class="col-md-4">
+            <label class="form-label wh-label">Precio (en peniques)</label>
+            <input type="number" name="precio_peniques" class="form-control wh-input" value="0" min="0">
+          </div>
+        </div>
+
+        <div class="mb-3">
+          <label class="form-label wh-label">Guardar en</label>
+          <select name="location" class="form-select wh-input" required>
+            {% for loc in locations %}
+            <option value="{{ loc }}">{{ loc.replace('_', ' ') | capitalize }}</option>
+            {% endfor %}
+          </select>
+        </div>
+
+        <div class="mb-3">
+          <label class="form-label wh-label">Notas (motivo de la concesión)</label>
+          <textarea name="notes" rows="2" class="form-control wh-input"></textarea>
+        </div>
+
+        <div class="d-flex gap-2">
+          <button type="submit" class="btn btn-wh"><i class="bi bi-stars me-1"></i>Conceder</button>
+          <a href="{{ url_for('characters.detail', char_id=char.id) }}" class="btn btn-outline-secondary">Cancelar</a>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+{% endblock %}

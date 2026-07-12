@@ -55,6 +55,7 @@ def create_app(config_name='default'):
 
     from app.services.currency_service import format_peniques
     app.jinja_env.filters['food_money'] = format_peniques
+    app.jinja_env.filters['money'] = format_peniques
 
     _register_cli_commands(app)
     _register_error_handlers(app)
@@ -240,6 +241,7 @@ def _register_cli_commands(app):
                 ('mano_dominante', 'VARCHAR(20) NULL'),
                 ('procedencia', 'VARCHAR(150) NULL'), ('situacion_familiar', 'VARCHAR(255) NULL'),
                 ('nivel_social', 'INT NULL DEFAULT 1'), ('dinero_coronas', 'INT NULL DEFAULT 0'),
+                ('dinero_peniques_extra', 'INT NOT NULL DEFAULT 0'),
                 ('history_points_total', 'INT NOT NULL DEFAULT 0'),
                 ('history_points_spent', 'INT NOT NULL DEFAULT 0'),
             ]
@@ -365,6 +367,62 @@ def _register_cli_commands(app):
                         if col_name not in recipe_cols:
                             conn.execute(text(f'ALTER TABLE recipes ADD COLUMN {col_name} {col_def}'))
                             click.echo(f'  Added recipes.{col_name}')
+
+            # Incremental column: equipment_items.precio_peniques (normalized
+            # numeric price for the character purchase flow), with a one-time
+            # backfill from the existing price_text for whatever the parser
+            # can cleanly handle - irregular rows (dual prices, formulas) stay
+            # NULL until an admin fills them in by hand.
+            if inspector.has_table('equipment_items'):
+                equip_cols = {c['name'] for c in inspector.get_columns('equipment_items')}
+                if 'precio_peniques' not in equip_cols:
+                    with db.engine.begin() as conn:
+                        conn.execute(text('ALTER TABLE equipment_items ADD COLUMN precio_peniques INT NULL'))
+                    click.echo('  Added equipment_items.precio_peniques')
+                    from app.models.equipment import EquipmentItem, parse_price_text
+                    backfilled = 0
+                    for item in EquipmentItem.query.filter(EquipmentItem.price_text.isnot(None)).all():
+                        peniques = parse_price_text(item.price_text)
+                        if peniques is not None:
+                            item.precio_peniques = peniques
+                            backfilled += 1
+                    db.session.commit()
+                    click.echo(f'  Backfilled precio_peniques for {backfilled} equipment item(s)')
+
+            # Incremental column: equipment_items.precio_escala_clase_social
+            # (Noble ropa: "36c (base * (Clase-2))" - price scales with the
+            # BUYING character's nivel_social, computed at purchase time).
+            if inspector.has_table('equipment_items'):
+                equip_cols = {c['name'] for c in inspector.get_columns('equipment_items')}
+                if 'precio_escala_clase_social' not in equip_cols:
+                    with db.engine.begin() as conn:
+                        conn.execute(text(
+                            'ALTER TABLE equipment_items ADD COLUMN '
+                            'precio_escala_clase_social BOOLEAN NOT NULL DEFAULT FALSE'
+                        ))
+                    click.echo('  Added equipment_items.precio_escala_clase_social')
+                    from app.models.equipment import EquipmentItem, is_clase_social_scaled, parse_price_text
+                    flagged = 0
+                    for item in EquipmentItem.query.filter(EquipmentItem.price_text.isnot(None)).all():
+                        if is_clase_social_scaled(item.price_text):
+                            item.precio_escala_clase_social = True
+                            flagged += 1
+                            # Fixes rows migrated by an earlier version of this
+                            # parser (before it understood the Clase-2 suffix)
+                            # that were left NULL on a prior deploy.
+                            if item.precio_peniques is None:
+                                item.precio_peniques = parse_price_text(item.price_text)
+                    db.session.commit()
+                    click.echo(f'  Flagged {flagged} equipment item(s) as Clase-social-scaled')
+
+            # Incremental column: character_inventory_items.condition
+            # (placeholder JSON for the future wear/damage/repair phase - unused today)
+            if inspector.has_table('character_inventory_items'):
+                inv_cols = {c['name'] for c in inspector.get_columns('character_inventory_items')}
+                if 'condition' not in inv_cols:
+                    with db.engine.begin() as conn:
+                        conn.execute(text('ALTER TABLE character_inventory_items ADD COLUMN `condition` JSON NULL'))
+                    click.echo('  Added character_inventory_items.condition')
 
             click.echo('Database tables created/verified.')
 

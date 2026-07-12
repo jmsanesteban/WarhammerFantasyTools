@@ -1,0 +1,59 @@
+{% extends 'base.html' %}
+{% block title %}Inventario — {{ char.name }}{% endblock %}
+
+{% set location_labels = {
+  'equipamiento': 'Equipamiento', 'mochila_saco': 'Mochila/Saco',
+  'alforjas': 'Alforjas', 'base': 'Base', 'altdorf': 'Altdorf',
+} %}
+
+{% block content %}
+<div class="container mt-4">
+  <nav aria-label="breadcrumb">
+    <ol class="breadcrumb wh-breadcrumb">
+      <li class="breadcrumb-item"><a href="{{ url_for('characters.list_characters') }}" class="wh-link">Personajes</a></li>
+      <li class="breadcrumb-item"><a href="{{ url_for('characters.detail', char_id=char.id) }}" class="wh-link">{{ char.name }}</a></li>
+      <li class="breadcrumb-item active">Inventario</li>
+    </ol>
+  </nav>
+
+  <div class="d-flex justify-content-between align-items-center mb-3">
+    <h2 class="wh-heading"><i class="bi bi-bag me-2"></i>Inventario de {{ char.name }}</h2>
+    <a href="{{ url_for('characters.tienda', char_id=char.id) }}" class="btn btn-wh btn-sm">
+      <i class="bi bi-shop me-1"></i>Ir a la tienda
+    </a>
+  </div>
+
+  {% for loc in locations %}
+  <div class="card wh-card mb-3">
+    <div class="card-header wh-card-header">{{ location_labels.get(loc, loc) }}</div>
+    <div class="card-body">
+      {% if items_by_location[loc] %}
+      <div class="table-responsive">
+        <table class="table table-sm wh-stat-table mb-0">
+          <thead><tr><th>Nombre</th><th>Calidad</th><th>Cantidad</th><th>Notas</th></tr></thead>
+          <tbody>
+            {% for inv in items_by_location[loc] %}
+            <tr>
+              <td>
+                {% if inv.equipment_item %}
+                <a href="{{ url_for('equipment.detail', item_id=inv.equipment_item.id) }}" class="wh-link">{{ inv.equipment_item.name }}</a>
+                {% else %}
+                {{ inv.custom_name }}
+                {% endif %}
+              </td>
+              <td>{{ inv.quality_label or '—' }}</td>
+              <td>{{ inv.quantity }}</td>
+              <td class="text-muted small">{{ inv.notes or '' }}</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      {% else %}
+      <p class="text-muted mb-0">Vacío.</p>
+      {% endif %}
+    </div>
+  </div>
+  {% endfor %}
+</div>
+{% endblock %}

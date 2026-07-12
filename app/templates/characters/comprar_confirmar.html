@@ -1,0 +1,88 @@
+{% extends 'base.html' %}
+{% block title %}Comprar {{ item.name }} — {{ char.name }}{% endblock %}
+
+{% block content %}
+<div class="container mt-4" style="max-width:600px">
+  <nav aria-label="breadcrumb">
+    <ol class="breadcrumb wh-breadcrumb">
+      <li class="breadcrumb-item"><a href="{{ url_for('characters.list_characters') }}" class="wh-link">Personajes</a></li>
+      <li class="breadcrumb-item"><a href="{{ url_for('characters.detail', char_id=char.id) }}" class="wh-link">{{ char.name }}</a></li>
+      <li class="breadcrumb-item"><a href="{{ url_for('characters.tienda', char_id=char.id) }}" class="wh-link">Tienda</a></li>
+      <li class="breadcrumb-item active">Comprar {{ item.name }}</li>
+    </ol>
+  </nav>
+
+  <div class="card wh-card">
+    <div class="card-header wh-card-header">
+      <i class="bi bi-cart-plus me-2"></i>Comprar «{{ item.name }}»
+    </div>
+    <div class="card-body">
+      <p><strong class="wh-label">Dinero disponible:</strong> {{ char.dinero_total_peniques | money }}</p>
+
+      {% set fixed_price = item.price_for_quality(item.quality, nivel_social=char.nivel_social) if not qualities else none %}
+      {% set can_buy = (item.precio_peniques is not none) if qualities else (fixed_price is not none) %}
+
+      <form method="POST">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+        {% if qualities %}
+        <div class="mb-3">
+          <label class="form-label wh-label">Calidad</label>
+          <select name="quality" id="quality-select" class="form-select wh-input" required>
+            {% for q in qualities %}
+            <option value="{{ q }}">
+              {{ item.QUALITY_LABELS[q] }}
+              {% if item.price_for_quality(q) is not none %} — {{ item.price_for_quality(q) | money }}{% endif %}
+            </option>
+            {% endfor %}
+          </select>
+        </div>
+        {% else %}
+        <p><strong class="wh-label">Calidad:</strong> {{ item.quality_label or 'Excelente' }}
+          {% if fixed_price is not none %} — {{ fixed_price | money }}{% endif %}
+        </p>
+        {% if item.precio_escala_clase_social %}
+        <p class="text-muted small">
+          Precio escalado por nivel social de {{ char.name }} ({{ char.nivel_social }}): base
+          {{ item.precio_peniques | money }} × (Clase - 2).
+        </p>
+        {% endif %}
+        {% endif %}
+
+        <div class="mb-3">
+          <label class="form-label wh-label">Cantidad</label>
+          <input type="number" name="quantity" class="form-control wh-input" value="1" min="1" required>
+        </div>
+
+        <div class="mb-3">
+          <label class="form-label wh-label">Guardar en</label>
+          <select name="location" class="form-select wh-input" required>
+            {% for loc in locations %}
+            <option value="{{ loc }}">{{ loc.replace('_', ' ') | capitalize }}</option>
+            {% endfor %}
+          </select>
+        </div>
+
+        {% if not can_buy %}
+        <div class="alert alert-warning wh-alert">
+          <i class="bi bi-exclamation-triangle me-2"></i>
+          {% if item.precio_escala_clase_social %}
+          {{ char.name }} no tiene el nivel social necesario para comprar este objeto (requiere Clase &gt; 2).
+          {% else %}
+          Este objeto no tiene un precio configurado para calcularse automáticamente. Pide a un administrador que lo
+          rellene en el catálogo antes de comprarlo.
+          {% endif %}
+        </div>
+        {% endif %}
+
+        <div class="d-flex gap-2">
+          <button type="submit" class="btn btn-wh" {% if not can_buy %}disabled{% endif %}>
+            <i class="bi bi-cart-check me-1"></i>Confirmar compra
+          </button>
+          <a href="{{ url_for('characters.tienda', char_id=char.id) }}" class="btn btn-outline-secondary">Cancelar</a>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+{% endblock %}

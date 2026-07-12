@@ -1,0 +1,54 @@
+{% extends 'base.html' %}
+{% block title %}Historial de compras — {{ char.name }}{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+  <nav aria-label="breadcrumb">
+    <ol class="breadcrumb wh-breadcrumb">
+      <li class="breadcrumb-item"><a href="{{ url_for('characters.list_characters') }}" class="wh-link">Personajes</a></li>
+      <li class="breadcrumb-item"><a href="{{ url_for('characters.detail', char_id=char.id) }}" class="wh-link">{{ char.name }}</a></li>
+      <li class="breadcrumb-item active">Historial de compras</li>
+    </ol>
+  </nav>
+
+  <h2 class="wh-heading mb-3"><i class="bi bi-receipt me-2"></i>Historial de compras de {{ char.name }}</h2>
+
+  {% if char.purchases %}
+  <div class="table-responsive">
+    <table class="table table-sm wh-stat-table">
+      <thead>
+        <tr><th>Fecha</th><th>Objeto</th><th>Categoría</th><th>Calidad</th><th>Precio pagado</th><th>Origen</th></tr>
+      </thead>
+      <tbody>
+        {% for p in char.purchases %}
+        <tr>
+          <td>{{ p.created_at.strftime('%Y-%m-%d %H:%M') }}</td>
+          <td>
+            {% if p.equipment_item %}
+            <a href="{{ url_for('equipment.detail', item_id=p.equipment_item.id) }}" class="wh-link">{{ p.item_name_snapshot }}</a>
+            {% else %}
+            {{ p.item_name_snapshot }}
+            {% endif %}
+          </td>
+          <td>{{ p.category_snapshot or '—' }}</td>
+          <td>{{ p.quality_snapshot or '—' }}</td>
+          <td>{{ p.precio_peniques_pagado | money }}</td>
+          <td>
+            {% if p.granted_by_gm %}
+            <span class="badge bg-warning text-dark">Concedido por DJ</span>
+            {% else %}
+            <span class="badge bg-secondary">Compra</span>
+            {% endif %}
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <div class="alert alert-info wh-alert">
+    <i class="bi bi-info-circle me-2"></i>Sin compras todavía.
+  </div>
+  {% endif %}
+</div>
+{% endblock %}

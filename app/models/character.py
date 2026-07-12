@@ -1,5 +1,6 @@
 from datetime import datetime
 from app.extensions import db
+from app.services.currency_service import PENIQUES_POR_CORONA
 
 
 class CharacterProfession(db.Model):
@@ -126,6 +127,11 @@ class Character(db.Model):
     situacion_familiar = db.Column(db.String(255), nullable=True)
     nivel_social = db.Column(db.Integer, nullable=True, default=1)
     dinero_coronas = db.Column(db.Integer, nullable=True, default=0)
+    # Sub-Corona remainder (0-239 peniques) for the equipment purchase flow:
+    # dinero_coronas alone only tracks whole Coronas, but plenty of catalog
+    # prices (ropa harapos, munición...) are a few chelines/peniques - total
+    # wealth in peniques is `dinero_coronas * PENIQUES_POR_CORONA + dinero_peniques_extra`.
+    dinero_peniques_extra = db.Column(db.Integer, nullable=False, default=0)
     history_points_total = db.Column(db.Integer, nullable=False, default=0)
     history_points_spent = db.Column(db.Integer, nullable=False, default=0)
 
@@ -186,6 +192,16 @@ class Character(db.Model):
     @property
     def history_points_available(self):
         return self.history_points_total - self.history_points_spent
+
+    @property
+    def dinero_total_peniques(self):
+        return (self.dinero_coronas or 0) * PENIQUES_POR_CORONA + (self.dinero_peniques_extra or 0)
+
+    def set_dinero_desde_peniques(self, peniques):
+        """Split a total peniques amount back into dinero_coronas (whole
+        Coronas, the value shown on the character sheet) + the sub-Corona
+        remainder."""
+        self.dinero_coronas, self.dinero_peniques_extra = divmod(max(peniques, 0), PENIQUES_POR_CORONA)
 
     def __repr__(self):
         return f'<Character {self.name}>'
