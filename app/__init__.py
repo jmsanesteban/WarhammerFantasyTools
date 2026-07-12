@@ -65,6 +65,22 @@ def create_app(config_name='default'):
     app.jinja_env.filters['food_money'] = format_peniques
     app.jinja_env.filters['money'] = format_peniques
 
+    def static_url(filename):
+        """url_for('static', ...) plus a ?v=<mtime> cache-buster. Static JS/CSS
+        had no versioning at all, so a fixed asset URL never changes across a
+        deploy - browsers (and Cloudflare, on wft-prepro) can keep serving a
+        cached pre-fix copy of a file for hours after the server-side content
+        has already changed. Bumping the query string on every deploy (mtime
+        changes whenever the file does) forces a real refetch."""
+        try:
+            path = os.path.join(app.static_folder, filename)
+            version = int(os.path.getmtime(path))
+        except OSError:
+            version = 0
+        return url_for('static', filename=filename) + f'?v={version}'
+
+    app.jinja_env.globals['static_url'] = static_url
+
     _register_cli_commands(app)
     _register_error_handlers(app)
     _register_security_headers(app)

@@ -74,7 +74,7 @@
   {% endif %}
 </div>
 
-<script src="{{ url_for('static', filename='js/profession_picker.js') }}"></script>
+<script src="{{ static_url('js/profession_picker.js') }}"></script>
 <script>
   const talentOptions = {{ options | tojson }};
   const talentPickerRoot = document.getElementById('talent-picker');
