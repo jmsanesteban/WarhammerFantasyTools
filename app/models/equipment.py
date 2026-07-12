@@ -278,16 +278,34 @@ class EquipmentItem(db.Model):
         return round(self.precio_peniques * multiplier)
 
     def stats_for_quality(self, quality):
-        """`stats` adjusted for a given manufacture quality. Only weapons
-        vary this way (aguante/ataque/parada/daño accumulate the quality's
-        book modifier on top of whatever the weapon's own value already is -
-        see QUALITY_WEAPON_STAT_MODIFIERS); ammo has no quality concept at
-        all ("No hay modificadores por calidad"). Armour's per-quality
-        agility penalty already lives in `stats` as its own dict
-        (agilidad_por_calidad) and needs no further adjustment here - this
-        returns `stats` unchanged for every other category."""
-        if (not self.stats or not quality or self.category != 'arma'
-                or self.subcategory == 'municion'):
+        """`stats` adjusted for a given manufacture quality.
+
+        Weapons: aguante/ataque/parada/daño accumulate the quality's book
+        modifier on top of whatever the weapon's own value already is (see
+        QUALITY_WEAPON_STAT_MODIFIERS). Ammo has no quality concept at all
+        ("No hay modificadores por calidad") and is never touched.
+
+        Armour: `agilidad_por_calidad` (the {mala,normal,buena,excelente}
+        dict) collapses to a single `agilidad` value for the given quality -
+        showing all four at once only makes sense when no specific quality
+        is selected (the "toda calidad" summary view); once one is chosen,
+        only that quality's own value is relevant.
+
+        Everything else (ropa, especial, shields - whose `agilidad` is
+        already a single value, not a per-quality dict) returns `stats`
+        unchanged."""
+        if not self.stats or not quality:
+            return self.stats
+
+        if self.category == 'armadura':
+            per_quality = self.stats.get('agilidad_por_calidad')
+            if not isinstance(per_quality, dict) or quality not in per_quality:
+                return self.stats
+            adjusted = dict(self.stats)
+            adjusted['agilidad'] = adjusted.pop('agilidad_por_calidad')[quality]
+            return adjusted
+
+        if self.category != 'arma' or self.subcategory == 'municion':
             return self.stats
         mods = self.QUALITY_WEAPON_STAT_MODIFIERS.get(quality)
         if not mods:

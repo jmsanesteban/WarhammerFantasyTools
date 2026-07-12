@@ -46,8 +46,9 @@
    the two contexts never show both actions at once. #}
 {% macro equipment_card(item, buy_url=None, quality=None) %}
 {# A quality is only meaningful to show for Arma/Armadura - Ropa's quality
-   IS the row (item.quality is already set), and Especial is GM-priced. #}
-{% set show_quality = quality and item.category in ('arma', 'armadura') %}
+   IS the row (item.quality is already set), Especial is GM-priced, and
+   ammo is always manufactured "normal" (no quality concept at all). #}
+{% set show_quality = quality and item.category in ('arma', 'armadura') and item.subcategory != 'municion' %}
 <div class="card wh-card h-100">
   <div class="row g-0 h-100">
     {% if item.image_path %}

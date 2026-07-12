@@ -128,6 +128,20 @@ def test_ammo_stats_never_adjusted_by_quality(client, make_equipment_item):
     assert resp.status_code == 200  # renders fine, no crash from stats_for_quality on ammo
 
 
+def test_ammo_card_never_shows_quality_badge(client, make_equipment_item):
+    """Ammo is always manufactured "normal" - the quality filter on the
+    catalog page shouldn't tag ammo cards with a calidad they don't have."""
+    make_equipment_item(name='Flecha/virote común', category='arma', subcategory='municion')
+    resp = client.get('/equipamiento/armas?quality=excelente')
+    assert 'Calidad: Excelente'.encode('utf-8') not in resp.data
+
+
+def test_ammo_detail_never_shows_quality_badge(client, make_equipment_item):
+    item = make_equipment_item(name='Flecha/virote común', category='arma', subcategory='municion')
+    resp = client.get(f'/equipamiento/{item.id}?quality=excelente')
+    assert 'Calidad: Excelente'.encode('utf-8') not in resp.data
+
+
 def test_detail_shows_quality_adjusted_stats(client, make_equipment_item):
     item = make_equipment_item(name='Daga', category='arma', stats={'daño': '1D6+1', 'aguante': '40%'})
     resp = client.get(f'/equipamiento/{item.id}?quality=excelente')
@@ -165,10 +179,31 @@ def test_stats_for_quality_leaves_unparseable_fields_untouched():
     assert mala['daño'] == '1D10 + 1D4'  # compound dice, no flat bonus to adjust - left as-is
 
 
-def test_stats_for_quality_returns_unchanged_for_armadura():
+def test_stats_for_quality_none_returns_full_grouped_view_for_armadura():
+    """"Toda calidad" (no quality picked) keeps showing the M/N/B/E summary."""
     item = EquipmentItem(name='Gorro Acolchado', category='armadura',
                           stats={'armadura': 1, 'agilidad_por_calidad': {'mala': '-3', 'normal': '-2',
                                                                           'buena': '-2', 'excelente': '-1'}})
+    assert item.stats_for_quality(None) == item.stats
+
+
+def test_stats_for_quality_collapses_agilidad_por_calidad_for_armadura():
+    """Once a specific quality is picked, only that quality's own agilidad
+    value is relevant - not the whole M/N/B/E table."""
+    item = EquipmentItem(name='Gorro Acolchado', category='armadura',
+                          stats={'armadura': 1, 'agilidad_por_calidad': {'mala': '-3', 'normal': '-2',
+                                                                          'buena': '-2', 'excelente': '-1'}})
+    adjusted = item.stats_for_quality('excelente')
+    assert adjusted['agilidad'] == '-1'
+    assert 'agilidad_por_calidad' not in adjusted
+    assert adjusted['armadura'] == 1
+    # original stats untouched
+    assert 'agilidad_por_calidad' in item.stats
+
+
+def test_stats_for_quality_leaves_shields_unchanged():
+    """Shields' agilidad is already a single value (not per-quality)."""
+    item = EquipmentItem(name='Torre', category='armadura', subcategory='escudos', stats={'agilidad': '-15'})
     assert item.stats_for_quality('mala') == item.stats
 
 
