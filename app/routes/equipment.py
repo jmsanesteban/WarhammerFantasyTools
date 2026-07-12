@@ -24,13 +24,10 @@ def _distinct_values(model, column, category=None):
             .distinct().order_by(column).all()]
 
 
-@equipment_bp.route('/')
-def list_items():
-    category = request.args.get('category', '').strip()
-    subcategory = request.args.get('subcategory', '').strip()
-    quality = request.args.get('quality', '').strip()
-    search = request.args.get('q', '').strip()
-
+def _filtered_query(category, subcategory, quality, search):
+    """Shared scoping logic behind the public catalog list and the bulk
+    custom_fields editor - both define "the matching set of objects" the
+    same way, from the same 4 filters."""
     query = EquipmentItem.query
     if category in EquipmentItem.CATEGORIES:
         query = query.filter_by(category=category)
@@ -40,8 +37,17 @@ def list_items():
         query = query.filter_by(quality=quality)
     if search:
         query = query.filter(EquipmentItem.name.ilike(f'%{search}%'))
+    return query.order_by(EquipmentItem.category, EquipmentItem.name)
 
-    items = query.order_by(EquipmentItem.category, EquipmentItem.name).all()
+
+@equipment_bp.route('/')
+def list_items():
+    category = request.args.get('category', '').strip()
+    subcategory = request.args.get('subcategory', '').strip()
+    quality = request.args.get('quality', '').strip()
+    search = request.args.get('q', '').strip()
+
+    items = _filtered_query(category, subcategory, quality, search).all()
     # Scope the "tipo" dropdown to whatever subcategories actually exist for
     # the selected category, so picking "Arma" doesn't show armour families.
     scoped_category = category if category in EquipmentItem.CATEGORIES else None
@@ -106,6 +112,115 @@ def delete(item_id):
     db.session.commit()
     flash(f'Objeto "{name}" eliminado.', 'warning')
     return redirect(url_for('equipment.list_items'))
+
+
+# ---------------------------------------------------------------------------
+# Edición en bloque de custom_fields sobre el conjunto filtrado
+# ---------------------------------------------------------------------------
+
+def _flash_bulk_summary(summary):
+    flash(
+        f"Hecho: {summary['updated']} objeto(s) actualizados, {summary['skipped']} omitidos.",
+        'success',
+    )
+    if summary['warnings']:
+        shown = summary['warnings'][:20]
+        more = '' if len(summary['warnings']) <= 20 else f" (+{len(summary['warnings']) - 20} más)"
+        flash('Avisos: ' + '; '.join(shown) + more, 'warning')
+
+
+@equipment_bp.route('/campos-en-bloque', methods=['GET', 'POST'])
+@require_permission('equipment.edit')
+def bulk_fields():
+    if request.method == 'POST':
+        category = request.form.get('category', '').strip()
+        subcategory = request.form.get('subcategory', '').strip()
+        quality = request.form.get('quality', '').strip()
+        search = request.form.get('q', '').strip()
+        items = _filtered_query(category, subcategory, quality, search).all()
+
+        mode = request.form.get('mode', '').strip()
+        summary = {'updated': 0, 'skipped': 0, 'warnings': []}
+
+        if mode == 'add':
+            key = request.form.get('add_key', '').strip()
+            value = request.form.get('add_value', '').strip()
+            overwrite = request.form.get('overwrite') == 'on'
+            if not key:
+                flash('Indica el nombre del campo a añadir.', 'danger')
+            else:
+                for item in items:
+                    fields = dict(item.custom_fields or {})
+                    if key in fields and not overwrite:
+                        summary['skipped'] += 1
+                        continue
+                    fields[key] = value
+                    item.custom_fields = fields
+                    summary['updated'] += 1
+                db.session.commit()
+                _flash_bulk_summary(summary)
+
+        elif mode == 'rename':
+            old_key = request.form.get('rename_old_key', '').strip()
+            new_key = request.form.get('rename_new_key', '').strip()
+            if not old_key or not new_key:
+                flash('Indica la clave antigua y la nueva.', 'danger')
+            else:
+                for item in items:
+                    fields = item.custom_fields or {}
+                    if old_key not in fields:
+                        continue  # fuera de alcance para esta operación
+                    if new_key in fields:
+                        summary['skipped'] += 1
+                        summary['warnings'].append(f'«{item.name}» ya tenía «{new_key}», no se renombró.')
+                        continue
+                    new_fields = dict(fields)
+                    new_fields[new_key] = new_fields.pop(old_key)
+                    item.custom_fields = new_fields
+                    summary['updated'] += 1
+                db.session.commit()
+                _flash_bulk_summary(summary)
+
+        elif mode == 'delete':
+            key = request.form.get('delete_key', '').strip()
+            if not key:
+                flash('Indica el nombre del campo a eliminar.', 'danger')
+            else:
+                for item in items:
+                    fields = item.custom_fields or {}
+                    if key not in fields:
+                        continue  # fuera de alcance para esta operación
+                    new_fields = dict(fields)
+                    del new_fields[key]
+                    item.custom_fields = new_fields or None
+                    summary['updated'] += 1
+                db.session.commit()
+                _flash_bulk_summary(summary)
+
+        else:
+            flash('Modo de operación no válido.', 'danger')
+
+        return redirect(url_for('equipment.bulk_fields', category=category, subcategory=subcategory,
+                                 quality=quality, q=search))
+
+    category = request.args.get('category', '').strip()
+    subcategory = request.args.get('subcategory', '').strip()
+    quality = request.args.get('quality', '').strip()
+    search = request.args.get('q', '').strip()
+
+    items = _filtered_query(category, subcategory, quality, search).all()
+    scoped_category = category if category in EquipmentItem.CATEGORIES else None
+    subcategories = _distinct_values(EquipmentItem, EquipmentItem.subcategory, category=scoped_category)
+    quality_labels = (EquipmentItem.QUALITY_LABELS_ROPA if category == 'ropa'
+                      else EquipmentItem.QUALITY_LABELS)
+
+    return render_template(
+        'equipment/bulk_fields.html',
+        items=items, category=category, subcategory=subcategory, quality=quality, search=search,
+        subcategories=subcategories, quality_labels=quality_labels,
+        category_labels=EquipmentItem.CATEGORY_LABELS,
+        subcategory_labels=EquipmentItem.SUBCATEGORY_LABELS,
+    )
 
 
 # ---------------------------------------------------------------------------

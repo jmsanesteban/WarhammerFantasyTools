@@ -16,6 +16,9 @@
         <i class="bi bi-upload me-1"></i>Importar
       </a>
       {% endif %}
+      <a href="{{ url_for('equipment.bulk_fields') }}" class="btn btn-outline-secondary btn-sm">
+        <i class="bi bi-list-check me-1"></i>Editar campos en bloque
+      </a>
       <a href="{{ url_for('equipment.create') }}" class="btn btn-wh btn-sm">
         <i class="bi bi-plus-circle me-1"></i>Nuevo
       </a>

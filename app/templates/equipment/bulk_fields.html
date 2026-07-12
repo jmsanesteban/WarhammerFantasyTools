@@ -1,0 +1,164 @@
+{% extends 'base.html' %}
+{% block title %}Editar campos en bloque — Warhammer Fantasy Tools{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+  <nav aria-label="breadcrumb">
+    <ol class="breadcrumb wh-breadcrumb">
+      <li class="breadcrumb-item"><a href="{{ url_for('equipment.list_items') }}" class="wh-link">Equipamiento</a></li>
+      <li class="breadcrumb-item active">Editar campos en bloque</li>
+    </ol>
+  </nav>
+
+  <h2 class="wh-heading mb-3"><i class="bi bi-list-check me-2"></i>Editar campos en bloque</h2>
+  <p class="text-muted mb-4">
+    Añade, renombra o elimina un "campo adicional" (<code>custom_fields</code>) sobre todos los objetos
+    que coincidan con los filtros de abajo. No toca las estadísticas del libro, solo los campos añadidos a mano.
+  </p>
+
+  <!-- Filters -->
+  <form method="GET" class="row g-2 mb-4">
+    <div class="col-md-4">
+      <input type="text" name="q" class="form-control wh-input" placeholder="Buscar por nombre…" value="{{ search }}">
+    </div>
+    <div class="col-md-2">
+      <select name="category" class="form-select wh-input" onchange="this.form.submit()">
+        <option value="">Todas las categorías</option>
+        {% for cat in ['arma', 'armadura', 'ropa', 'especial'] %}
+        <option value="{{ cat }}" {% if category == cat %}selected{% endif %}>{{ category_labels[cat] }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div class="col-md-2">
+      <select name="subcategory" class="form-select wh-input">
+        <option value="">Todos los tipos</option>
+        {% for sub in subcategories %}
+        <option value="{{ sub }}" {% if subcategory == sub %}selected{% endif %}>{{ subcategory_labels.get(sub, sub) }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div class="col-md-2">
+      <select name="quality" class="form-select wh-input">
+        <option value="">Toda calidad</option>
+        {% for q in ['mala', 'normal', 'buena', 'excelente'] %}
+        <option value="{{ q }}" {% if quality == q %}selected{% endif %}>{{ quality_labels[q] }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div class="col-md-1">
+      <button class="btn btn-wh w-100" type="submit"><i class="bi bi-search"></i></button>
+    </div>
+    {% if search or category or subcategory or quality %}
+    <div class="col-md-1">
+      <a href="{{ url_for('equipment.bulk_fields') }}" class="btn btn-outline-secondary w-100" title="Limpiar">
+        <i class="bi bi-x-lg"></i>
+      </a>
+    </div>
+    {% endif %}
+  </form>
+
+  <div class="alert alert-info wh-alert mb-4">
+    <i class="bi bi-info-circle me-2"></i>
+    <strong>{{ items|length }}</strong> objeto(s) coinciden con estos filtros.
+  </div>
+
+  {% if items %}
+  <div class="table-responsive mb-4">
+    <table class="table table-sm wh-stat-table">
+      <thead><tr><th>Nombre</th><th>Categoría</th><th>Tipo</th><th>Campos adicionales actuales</th></tr></thead>
+      <tbody>
+        {% for item in items %}
+        <tr>
+          <td><a href="{{ url_for('equipment.detail', item_id=item.id) }}" class="wh-link">{{ item.name }}</a></td>
+          <td>{{ item.category_label }}</td>
+          <td>{{ item.subcategory_label or '—' }}</td>
+          <td>{{ (item.custom_fields.keys() | list | join(', ')) if item.custom_fields else '—' }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+  <form method="POST" class="wh-card p-3">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <input type="hidden" name="category" value="{{ category }}">
+    <input type="hidden" name="subcategory" value="{{ subcategory }}">
+    <input type="hidden" name="quality" value="{{ quality }}">
+    <input type="hidden" name="q" value="{{ search }}">
+
+    <div class="mb-3">
+      <label class="form-label wh-label">Operación</label>
+      <select name="mode" id="mode-select" class="form-select wh-input">
+        <option value="add">Añadir campo</option>
+        <option value="rename">Renombrar campo</option>
+        <option value="delete">Eliminar campo</option>
+      </select>
+    </div>
+
+    <div class="mode-block" data-mode="add">
+      <div class="row g-2 mb-2">
+        <div class="col-md-5">
+          <label class="form-label wh-label">Nombre del campo</label>
+          <input type="text" name="add_key" class="form-control wh-input" placeholder="p. ej. Poder mágico">
+        </div>
+        <div class="col-md-5">
+          <label class="form-label wh-label">Valor</label>
+          <input type="text" name="add_value" class="form-control wh-input">
+        </div>
+        <div class="col-md-2 d-flex align-items-end">
+          <label class="form-label wh-label mb-2">
+            <input type="checkbox" name="overwrite" class="form-check-input me-1">Sobreescribir si ya existe
+          </label>
+        </div>
+      </div>
+    </div>
+
+    <div class="mode-block d-none" data-mode="rename">
+      <div class="row g-2 mb-2">
+        <div class="col-md-6">
+          <label class="form-label wh-label">Clave antigua</label>
+          <input type="text" name="rename_old_key" class="form-control wh-input">
+        </div>
+        <div class="col-md-6">
+          <label class="form-label wh-label">Clave nueva</label>
+          <input type="text" name="rename_new_key" class="form-control wh-input">
+        </div>
+      </div>
+    </div>
+
+    <div class="mode-block d-none" data-mode="delete">
+      <div class="row g-2 mb-2">
+        <div class="col-md-6">
+          <label class="form-label wh-label">Clave a eliminar</label>
+          <input type="text" name="delete_key" class="form-control wh-input">
+        </div>
+      </div>
+    </div>
+
+    <button type="submit" class="btn btn-wh" {% if not items %}disabled{% endif %}>
+      <i class="bi bi-check-lg me-1"></i>Aplicar a {{ items|length }} objeto(s)
+    </button>
+  </form>
+  {% else %}
+  <div class="alert alert-warning wh-alert">
+    <i class="bi bi-exclamation-triangle me-2"></i>Ningún objeto coincide con estos filtros.
+  </div>
+  {% endif %}
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+  const modeSelect = document.getElementById('mode-select');
+  if (!modeSelect) return;
+  function updateBlocks() {
+    document.querySelectorAll('.mode-block').forEach(function (block) {
+      block.classList.toggle('d-none', block.dataset.mode !== modeSelect.value);
+    });
+  }
+  modeSelect.addEventListener('change', updateBlocks);
+  updateBlocks();
+});
+</script>
+{% endblock %}

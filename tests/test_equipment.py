@@ -227,3 +227,103 @@ def test_import_wires_base_item_by_name_and_category(db, client, admin_user, log
     assert special is not None
     assert special.base_item is not None
     assert special.base_item.name == 'Espada'
+
+
+# ── Bulk custom_fields editor ────────────────────────────────────────────────
+
+def test_bulk_fields_requires_permission(client, regular_user, login_as):
+    login_as(client, regular_user, 'userpass123')
+    resp = client.get('/equipamiento/campos-en-bloque')
+    assert resp.status_code == 403
+
+
+def test_bulk_fields_add_only_touches_items_without_key(db, client, admin_user, login_as, make_equipment_item):
+    daga = make_equipment_item(name='Daga', category='arma')
+    espada = make_equipment_item(name='Espada', category='arma', custom_fields={'poder_magico': 'ya tenía'})
+    login_as(client, admin_user, 'adminpass123')
+
+    resp = client.post('/equipamiento/campos-en-bloque', data={
+        'category': 'arma', 'subcategory': '', 'quality': '', 'q': '',
+        'mode': 'add', 'add_key': 'poder_magico', 'add_value': 'Nivel 1',
+    }, follow_redirects=True)
+    assert resp.status_code == 200
+
+    db.session.refresh(daga)
+    db.session.refresh(espada)
+    assert daga.custom_fields == {'poder_magico': 'Nivel 1'}
+    assert espada.custom_fields == {'poder_magico': 'ya tenía'}
+
+
+def test_bulk_fields_add_with_overwrite_updates_existing(db, client, admin_user, login_as, make_equipment_item):
+    espada = make_equipment_item(name='Espada', category='arma', custom_fields={'poder_magico': 'viejo'})
+    login_as(client, admin_user, 'adminpass123')
+
+    client.post('/equipamiento/campos-en-bloque', data={
+        'category': 'arma', 'subcategory': '', 'quality': '', 'q': '',
+        'mode': 'add', 'add_key': 'poder_magico', 'add_value': 'nuevo', 'overwrite': 'on',
+    })
+
+    db.session.refresh(espada)
+    assert espada.custom_fields == {'poder_magico': 'nuevo'}
+
+
+def test_bulk_fields_rename_only_affects_items_with_old_key(db, client, admin_user, login_as, make_equipment_item):
+    daga = make_equipment_item(name='Daga', category='arma', custom_fields={'poder_magico': 'x'})
+    espada = make_equipment_item(name='Espada', category='arma')
+    login_as(client, admin_user, 'adminpass123')
+
+    client.post('/equipamiento/campos-en-bloque', data={
+        'category': 'arma', 'subcategory': '', 'quality': '', 'q': '',
+        'mode': 'rename', 'rename_old_key': 'poder_magico', 'rename_new_key': 'poder_arcano',
+    })
+
+    db.session.refresh(daga)
+    db.session.refresh(espada)
+    assert daga.custom_fields == {'poder_arcano': 'x'}
+    assert espada.custom_fields is None
+
+
+def test_bulk_fields_rename_skips_item_that_already_has_new_key(db, client, admin_user, login_as, make_equipment_item):
+    item = make_equipment_item(name='Daga', category='arma',
+                                custom_fields={'poder_magico': 'x', 'poder_arcano': 'y'})
+    login_as(client, admin_user, 'adminpass123')
+
+    client.post('/equipamiento/campos-en-bloque', data={
+        'category': 'arma', 'subcategory': '', 'quality': '', 'q': '',
+        'mode': 'rename', 'rename_old_key': 'poder_magico', 'rename_new_key': 'poder_arcano',
+    })
+
+    db.session.refresh(item)
+    assert item.custom_fields == {'poder_magico': 'x', 'poder_arcano': 'y'}
+
+
+def test_bulk_fields_delete_only_affects_items_with_key(db, client, admin_user, login_as, make_equipment_item):
+    daga = make_equipment_item(name='Daga', category='arma', custom_fields={'peso': '0.5u', 'poder_magico': 'x'})
+    espada = make_equipment_item(name='Espada', category='arma')
+    login_as(client, admin_user, 'adminpass123')
+
+    client.post('/equipamiento/campos-en-bloque', data={
+        'category': 'arma', 'subcategory': '', 'quality': '', 'q': '',
+        'mode': 'delete', 'delete_key': 'poder_magico',
+    })
+
+    db.session.refresh(daga)
+    db.session.refresh(espada)
+    assert daga.custom_fields == {'peso': '0.5u'}
+    assert espada.custom_fields is None
+
+
+def test_bulk_fields_respects_filters(db, client, admin_user, login_as, make_equipment_item):
+    arma = make_equipment_item(name='Daga', category='arma')
+    armadura = make_equipment_item(name='Casco', category='armadura')
+    login_as(client, admin_user, 'adminpass123')
+
+    client.post('/equipamiento/campos-en-bloque', data={
+        'category': 'arma', 'subcategory': '', 'quality': '', 'q': '',
+        'mode': 'add', 'add_key': 'poder_magico', 'add_value': 'x',
+    })
+
+    db.session.refresh(arma)
+    db.session.refresh(armadura)
+    assert arma.custom_fields == {'poder_magico': 'x'}
+    assert armadura.custom_fields is None
