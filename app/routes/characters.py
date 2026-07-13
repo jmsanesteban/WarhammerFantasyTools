@@ -16,6 +16,7 @@ from app.models.user import User
 from app.models.equipment import EquipmentItem, CharacterInventoryItem, CharacterPurchase, CharacterCartItem
 from app.models.untersuchung import (
     UNTERSUCHUNG_GRADOS, UNTERSUCHUNG_GRADOS_CON_MARCA, clamp_grados, has_marca, marca_image_path,
+    grados_display, MAX_GRADOS,
 )
 from app.services import character_creation_service as ccs
 from app.services import salary_service
@@ -36,7 +37,11 @@ def _form_int(field, default=None):
 
 
 def _grados_from_form():
-    return clamp_grados(request.form.getlist('grados_untersuchung'))
+    """3 independent single-select slots (grado_1/2/3), not one multi-select
+    - an agent can genuinely hold the same grado twice (a senior/veteran
+    double mark), which a <select multiple> can't represent."""
+    values = [request.form.get(f'grado_{i}', '').strip() for i in range(1, MAX_GRADOS + 1)]
+    return clamp_grados(values)
 
 
 def _marca_images():
@@ -92,7 +97,8 @@ def detail(char_id):
     char = Character.query.get_or_404(char_id)
     if char.user_id != current_user.id and not current_user.is_admin:
         abort(403)
-    return render_template('characters/detail.html', char=char, marca_images=_marca_images())
+    return render_template('characters/detail.html', char=char, marca_images=_marca_images(),
+                           grados_display=grados_display)
 
 
 def _rebuild_professions(char_id):

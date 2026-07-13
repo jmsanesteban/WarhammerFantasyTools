@@ -41,9 +41,30 @@ def has_marca(grados):
 
 def clamp_grados(grados):
     """Keep only recognized values, in the order given, capped at
-    MAX_GRADOS. Returns None (not []) when nothing's left, matching the
+    MAX_GRADOS. Deliberately does NOT deduplicate - an agent can hold the
+    same grado twice (represents a senior/veteran double mark), confirmed
+    with the user. Returns None (not []) when nothing's left, matching the
     nullable-JSON-column convention used elsewhere in this app."""
     if not grados:
         return None
     kept = [g for g in grados if g in UNTERSUCHUNG_GRADOS][:MAX_GRADOS]
     return kept or None
+
+
+def grados_display(grados):
+    """Human-readable summary that collapses repeated grados instead of
+    printing the same name twice in a row, e.g. ['Gato', 'Gato'] -> 'Gato x2'
+    instead of 'Gato, Gato'."""
+    if not grados:
+        return ''
+    counts = {}
+    for g in grados:
+        counts[g] = counts.get(g, 0) + 1
+    seen = []
+    parts = []
+    for g in grados:
+        if g in seen:
+            continue
+        seen.append(g)
+        parts.append(f'{g} x{counts[g]}' if counts[g] > 1 else g)
+    return ', '.join(parts)

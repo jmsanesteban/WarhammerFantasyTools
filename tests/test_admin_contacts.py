@@ -32,7 +32,7 @@ def test_edit_contact_updates_global_fields(db, client, admin_user, make_contact
 
     resp = client.post(f'/contactos/{contact.id}/editar', data={
         'nombre': 'Nombre corregido', 'es_untersuchung': 'on', 'estado': 'vivo', 'paradero': 'exiliado',
-        'grados_untersuchung': ['Paloma', 'Gato'], 'profession_ids': [str(prof.id)],
+        'grado_1': 'Paloma', 'grado_2': 'Gato', 'profession_ids': [str(prof.id)],
     }, follow_redirects=True)
     assert resp.status_code == 200
 

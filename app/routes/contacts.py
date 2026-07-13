@@ -9,7 +9,10 @@ from app.models.contact import (
     Contact, ContactProfession, UNTERSUCHUNG_GRADOS,
     ESTADO_CHOICES, ESTADO_LABELS, PARADERO_CHOICES, PARADERO_LABELS,
 )
-from app.models.untersuchung import clamp_grados, has_marca, marca_image_path, UNTERSUCHUNG_GRADOS_CON_MARCA
+from app.models.untersuchung import (
+    clamp_grados, has_marca, marca_image_path, grados_display,
+    UNTERSUCHUNG_GRADOS_CON_MARCA, MAX_GRADOS,
+)
 from app.models.contact_character_link import (
     ContactCharacterLink, ContactApodo, ContactCharacterSalary, ContactCharacterVisibility,
 )
@@ -29,7 +32,12 @@ def _can_edit(contact):
 
 
 def _grados_from_form():
-    return clamp_grados(request.form.getlist('grados_untersuchung'))
+    """Reads 3 independent single-select slots (grado_1/2/3) rather than one
+    multi-select - a <select multiple> can't have the same option chosen
+    twice, but an agent can genuinely hold the same grado twice over (a
+    senior/veteran double mark)."""
+    values = [request.form.get(f'grado_{i}', '').strip() for i in range(1, MAX_GRADOS + 1)]
+    return clamp_grados(values)
 
 
 def _marca_images():
@@ -331,6 +339,7 @@ def detail(contact_id):
         estado_labels=ESTADO_LABELS,
         paradero_labels=PARADERO_LABELS,
         marca_images=_marca_images(),
+        grados_display=grados_display,
     )
 
 

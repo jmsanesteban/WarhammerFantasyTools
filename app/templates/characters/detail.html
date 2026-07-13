@@ -36,7 +36,7 @@
           <p><strong class="wh-label">Puntos de Historial:</strong> {{ char.history_points_available }} disponibles ({{ char.history_points_spent }} gastados de {{ char.history_points_total }})</p>
           {% if char.es_untersuchung or char.grados_untersuchung %}
           <p class="mb-1"><strong class="wh-label">Untersuchung:</strong> {{ 'Sí' if char.es_untersuchung else 'No' }}
-            {% if char.grados_untersuchung %} — {{ char.grados_untersuchung|join(', ') }}{% endif %}</p>
+            {% if char.grados_untersuchung %} — {{ grados_display(char.grados_untersuchung) }}{% endif %}</p>
           {% if char.grados_untersuchung %}
           <div class="d-flex flex-wrap gap-2 mb-2">
             {% for g in char.grados_untersuchung %}

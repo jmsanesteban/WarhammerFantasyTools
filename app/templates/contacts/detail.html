@@ -63,7 +63,7 @@
             {% if contact.grados_untersuchung %}
             <dt class="col-sm-4 wh-label">Grado(s)</dt>
             <dd class="col-sm-8">
-              {{ contact.grados_untersuchung|join(', ') }}
+              {{ grados_display(contact.grados_untersuchung) }}
               <div class="d-flex flex-wrap gap-2 mt-2">
                 {% for g in contact.grados_untersuchung %}
                 {% if marca_images.get(g) %}
