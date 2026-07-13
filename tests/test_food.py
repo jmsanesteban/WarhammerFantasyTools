@@ -26,7 +26,7 @@ def test_seed_food_catalog_is_idempotent(app, db):
         assert second == 0
         assert CookingMethod.query.count() == 10
         assert Ingredient.query.count() == 20
-        assert Recipe.query.count() == 28
+        assert Recipe.query.count() == 42
         assert Drink.query.count() == 61
 
 
