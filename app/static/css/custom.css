@@ -199,6 +199,14 @@ a:hover { color: var(--wh-gold-light); }
   background: var(--wh-bg-card-alt);
 }
 
+/* Zebra striping - opt-in modifier for tables with many similar-looking rows
+   (e.g. inventory), so the eye doesn't lose track of a row while scanning
+   across several columns. Not the .wh-table default since most tables here
+   are short/simple and don't need it. */
+.wh-zebra tbody tr:nth-child(even) td {
+  background: var(--wh-bg-card-alt);
+}
+
 /* Characteristic tables */
 .wh-stat-table {
   font-size: 0.85rem;

@@ -204,6 +204,110 @@ def test_mover_rejects_quantity_above_stack(db, client, make_user, make_characte
     assert inv.location == 'equipamiento'
 
 
+def test_mover_multiple_moves_full_stacks_of_each_selected_item(db, client, make_user, make_character,
+                                                                 make_equipment_item, login_as):
+    char = _owner_and_char(make_user, make_character, login_as, client)
+    daga = make_equipment_item(name='Daga', category='arma', peso=1.0)
+    espada = make_equipment_item(name='Espada', category='arma', peso=2.0)
+    inv1 = _inv_item(db, char, daga, quantity=2, location='equipamiento')
+    inv2 = _inv_item(db, char, espada, quantity=1, location='equipamiento')
+
+    resp = client.post(f'/personajes/{char.id}/inventario/mover-multiples',
+                       data={'destino': 'mochila_saco', 'inv_item_ids': [str(inv1.id), str(inv2.id)]},
+                       follow_redirects=True)
+    assert resp.status_code == 200
+    db.session.refresh(inv1)
+    db.session.refresh(inv2)
+    assert inv1.location == 'mochila_saco'
+    assert inv2.location == 'mochila_saco'
+    assert inv1.quantity == 2
+    assert inv2.quantity == 1
+
+
+def test_mover_multiple_merges_into_existing_destination_stacks(db, client, make_user, make_character,
+                                                                 make_equipment_item, login_as):
+    char = _owner_and_char(make_user, make_character, login_as, client)
+    daga = make_equipment_item(name='Daga', category='arma', peso=1.0)
+    origin = _inv_item(db, char, daga, quantity=2, location='equipamiento')
+    existing_dest = _inv_item(db, char, daga, quantity=3, location='mochila_saco')
+
+    resp = client.post(f'/personajes/{char.id}/inventario/mover-multiples',
+                       data={'destino': 'mochila_saco', 'inv_item_ids': [str(origin.id)]},
+                       follow_redirects=True)
+    assert resp.status_code == 200
+    assert CharacterInventoryItem.query.get(origin.id) is None
+    db.session.refresh(existing_dest)
+    assert existing_dest.quantity == 5
+
+
+def test_mover_multiple_requires_at_least_one_selection(db, client, make_user, make_character, login_as):
+    char = _owner_and_char(make_user, make_character, login_as, client)
+    resp = client.post(f'/personajes/{char.id}/inventario/mover-multiples',
+                       data={'destino': 'mochila_saco'}, follow_redirects=True)
+    assert resp.status_code == 200
+
+
+def test_mover_multiple_rejects_invalid_destino(db, client, make_user, make_character, make_equipment_item,
+                                                login_as):
+    char = _owner_and_char(make_user, make_character, login_as, client)
+    daga = make_equipment_item(name='Daga', category='arma', peso=1.0)
+    inv = _inv_item(db, char, daga, quantity=2, location='equipamiento')
+
+    resp = client.post(f'/personajes/{char.id}/inventario/mover-multiples',
+                       data={'destino': 'no-existe', 'inv_item_ids': [str(inv.id)]}, follow_redirects=True)
+    assert resp.status_code == 200
+    db.session.refresh(inv)
+    assert inv.location == 'equipamiento'
+
+
+def test_mover_multiple_ignores_ids_from_another_character(db, client, make_user, make_character,
+                                                            make_equipment_item, login_as):
+    """A hand-crafted request naming another character's inventory row must
+    not move it - only rows that actually belong to this character."""
+    owner = make_user(username='owner1', password='ownerpass123')
+    other_owner = make_user(username='owner2', password='otherpass123')
+    char = make_character(owner, name='Personaje')
+    other_char = make_character(other_owner, name='Otro personaje')
+    login_as(client, owner, 'ownerpass123')
+
+    daga = make_equipment_item(name='Daga', category='arma', peso=1.0)
+    other_inv = _inv_item(db, other_char, daga, quantity=1, location='equipamiento')
+
+    resp = client.post(f'/personajes/{char.id}/inventario/mover-multiples',
+                       data={'destino': 'mochila_saco', 'inv_item_ids': [str(other_inv.id)]},
+                       follow_redirects=True)
+    assert resp.status_code == 200
+    db.session.refresh(other_inv)
+    assert other_inv.location == 'equipamiento'
+
+
+def test_mover_multiple_blocks_other_users(client, make_user, make_character, make_equipment_item, login_as, db):
+    owner = make_user(username='owner1', password='ownerpass123')
+    other = make_user(username='other1', password='otherpass123')
+    char = make_character(owner, name='Personaje')
+    daga = make_equipment_item(name='Daga', category='arma', peso=1.0)
+    inv = _inv_item(db, char, daga, quantity=2, location='equipamiento')
+
+    login_as(client, other, 'otherpass123')
+    resp = client.post(f'/personajes/{char.id}/inventario/mover-multiples',
+                       data={'destino': 'mochila_saco', 'inv_item_ids': [str(inv.id)]})
+    assert resp.status_code == 403
+
+
+def test_inventario_page_has_bulk_select_checkboxes_and_zebra_class(db, client, make_user, make_character,
+                                                                     make_equipment_item, login_as):
+    char = _owner_and_char(make_user, make_character, login_as, client)
+    daga = make_equipment_item(name='Daga', category='arma', peso=1.0)
+    _inv_item(db, char, daga, quantity=2, location='equipamiento')
+
+    resp = client.get(f'/personajes/{char.id}/inventario')
+    assert resp.status_code == 200
+    html = resp.data.decode()
+    assert 'wh-zebra' in html
+    assert 'name="inv_item_ids"' in html
+    assert 'form="bulk-equipamiento"' in html
+
+
 def test_mover_blocks_other_users(client, make_user, make_character, make_equipment_item, login_as, db):
     owner = make_user(username='owner1', password='ownerpass123')
     other = make_user(username='other1', password='otherpass123')

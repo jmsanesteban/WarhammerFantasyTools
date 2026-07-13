@@ -425,6 +425,21 @@ def inventario(char_id):
     )
 
 
+def _move_full_stack(char, inv_item, destino):
+    """Relocate an inventory row's entire quantity to `destino`, merging into
+    a matching stack already there (same item/custom_name/quality) instead of
+    creating a duplicate row. Does not commit."""
+    destino_stack = CharacterInventoryItem.query.filter_by(
+        character_id=char.id, location=destino, equipment_item_id=inv_item.equipment_item_id,
+        custom_name=inv_item.custom_name, quality=inv_item.quality,
+    ).filter(CharacterInventoryItem.id != inv_item.id).first()
+    if destino_stack:
+        destino_stack.quantity += inv_item.quantity
+        db.session.delete(inv_item)
+    else:
+        inv_item.location = destino
+
+
 @characters_bp.route('/<int:char_id>/inventario/<int:inv_item_id>/mover', methods=['POST'])
 @login_required
 def mover_inventario(char_id, inv_item_id):
@@ -442,21 +457,15 @@ def mover_inventario(char_id, inv_item_id):
         flash(f'La cantidad debe estar entre 1 y {inv_item.quantity}.', 'danger')
         return redirect(url_for('characters.inventario', char_id=char.id))
 
-    # Merge into a matching stack already at the destination if one exists,
-    # instead of always creating a new row (mirrors how a real inventory
-    # would just add units to the same pile of identical objects).
-    destino_stack = CharacterInventoryItem.query.filter_by(
-        character_id=char.id, location=destino, equipment_item_id=inv_item.equipment_item_id,
-        custom_name=inv_item.custom_name, quality=inv_item.quality,
-    ).first()
-
     if cantidad == inv_item.quantity:
-        if destino_stack:
-            destino_stack.quantity += cantidad
-            db.session.delete(inv_item)
-        else:
-            inv_item.location = destino
+        _move_full_stack(char, inv_item, destino)
     else:
+        # Merge the moved portion into a matching stack already at the
+        # destination if one exists, instead of always creating a new row.
+        destino_stack = CharacterInventoryItem.query.filter_by(
+            character_id=char.id, location=destino, equipment_item_id=inv_item.equipment_item_id,
+            custom_name=inv_item.custom_name, quality=inv_item.quality,
+        ).first()
         inv_item.quantity -= cantidad
         if destino_stack:
             destino_stack.quantity += cantidad
@@ -469,6 +478,40 @@ def mover_inventario(char_id, inv_item_id):
 
     db.session.commit()
     flash(f'Movido a {CharacterInventoryItem.LOCATION_LABELS[destino]}.', 'success')
+    return redirect(url_for('characters.inventario', char_id=char.id))
+
+
+@characters_bp.route('/<int:char_id>/inventario/mover-multiples', methods=['POST'])
+@login_required
+def mover_inventario_multiple(char_id):
+    """Bulk version of mover_inventario: moves the FULL stack of each
+    selected item to one destination (no per-item partial quantity - use the
+    single-item form for that)."""
+    char = _get_owned_character(char_id)
+
+    destino = request.form.get('destino', '').strip()
+    if destino not in CharacterInventoryItem.LOCATIONS:
+        flash('Elige un destino válido.', 'danger')
+        return redirect(url_for('characters.inventario', char_id=char.id))
+
+    ids = request.form.getlist('inv_item_ids', type=int)
+    if not ids:
+        flash('Selecciona al menos un objeto para mover.', 'warning')
+        return redirect(url_for('characters.inventario', char_id=char.id))
+
+    moved = 0
+    for inv_item_id in ids:
+        inv_item = CharacterInventoryItem.query.filter_by(id=inv_item_id, character_id=char.id).first()
+        if not inv_item or inv_item.location == destino:
+            continue
+        _move_full_stack(char, inv_item, destino)
+        moved += 1
+
+    db.session.commit()
+    if moved:
+        flash(f'{moved} objeto(s) movido(s) a {CharacterInventoryItem.LOCATION_LABELS[destino]}.', 'success')
+    else:
+        flash('No se movió ningún objeto (¿ya estaban en el destino?).', 'warning')
     return redirect(url_for('characters.inventario', char_id=char.id))
 
 

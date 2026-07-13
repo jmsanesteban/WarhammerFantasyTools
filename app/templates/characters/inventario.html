@@ -47,23 +47,42 @@
     </div>
     <div class="card-body">
       {% if items_by_location[loc] %}
+      {# Bulk-move bar: has no checkboxes of its own - the per-row checkboxes
+         below live outside this <form> (nested forms aren't valid HTML) and
+         associate to it via form="bulk-{{ loc }}", same trick used to keep
+         each row's own single-item move form independent. #}
+      <form id="bulk-{{ loc }}" method="POST"
+            action="{{ url_for('characters.mover_inventario_multiple', char_id=char.id) }}"
+            class="d-flex flex-wrap gap-2 align-items-center mb-2">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <small class="text-muted">Seleccionados →</small>
+        <select name="destino" class="form-select form-select-sm wh-input" style="max-width:10rem" required>
+          <option value="">Elige destino…</option>
+          {% for dest in locations if dest != loc %}
+          <option value="{{ dest }}">{{ location_labels.get(dest, dest) }}</option>
+          {% endfor %}
+        </select>
+        <button type="submit" class="btn btn-outline-secondary btn-sm"
+                onclick="return confirmBulkMove('bulk-{{ loc }}')">
+          <i class="bi bi-arrow-right-circle me-1"></i>Mover seleccionados
+        </button>
+      </form>
       <div class="table-responsive">
-        <table class="table table-sm wh-stat-table mb-0 align-middle">
-          <thead><tr><th>Nombre</th><th>Calidad</th><th>Cantidad</th><th>Peso</th><th>Notas</th><th style="width:16rem">Mover</th></tr></thead>
+        <table class="table table-sm wh-stat-table wh-zebra mb-0 align-middle">
+          <thead>
+            <tr>
+              <th style="width:2rem"><input type="checkbox" class="form-check-input" onclick="toggleAllInLocation(this, '{{ loc }}')"></th>
+              <th style="width:16rem">Mover</th>
+              <th>Nombre</th><th>Calidad</th><th>Cantidad</th><th>Peso</th><th>Notas</th>
+            </tr>
+          </thead>
           <tbody>
             {% for inv in items_by_location[loc] %}
             <tr>
               <td>
-                {% if inv.equipment_item %}
-                <a href="{{ url_for('equipment.detail', item_id=inv.equipment_item.id) }}" class="wh-link">{{ inv.equipment_item.name }}</a>
-                {% else %}
-                {{ inv.custom_name }}
-                {% endif %}
+                <input type="checkbox" class="form-check-input inv-row-check" data-loc="{{ loc }}"
+                       name="inv_item_ids" value="{{ inv.id }}" form="bulk-{{ loc }}">
               </td>
-              <td>{{ inv.quality_label or '—' }}</td>
-              <td>{{ inv.quantity }}</td>
-              <td>{{ '%.1f'|format(inv.equipment_item.peso_for_quality(inv.quality)) if inv.equipment_item and inv.equipment_item.peso_for_quality(inv.quality) is not none else '—' }}</td>
-              <td class="text-muted small">{{ inv.notes or '' }}</td>
               <td>
                 <form method="POST" action="{{ url_for('characters.mover_inventario', char_id=char.id, inv_item_id=inv.id) }}"
                       class="d-flex gap-1">
@@ -84,6 +103,17 @@
                   </button>
                 </form>
               </td>
+              <td>
+                {% if inv.equipment_item %}
+                <a href="{{ url_for('equipment.detail', item_id=inv.equipment_item.id) }}" class="wh-link">{{ inv.equipment_item.name }}</a>
+                {% else %}
+                {{ inv.custom_name }}
+                {% endif %}
+              </td>
+              <td>{{ inv.quality_label or '—' }}</td>
+              <td>{{ inv.quantity }}</td>
+              <td>{{ '%.1f'|format(inv.equipment_item.peso_for_quality(inv.quality)) if inv.equipment_item and inv.equipment_item.peso_for_quality(inv.quality) is not none else '—' }}</td>
+              <td class="text-muted small">{{ inv.notes or '' }}</td>
             </tr>
             {% endfor %}
           </tbody>
@@ -96,4 +126,26 @@
   </div>
   {% endfor %}
 </div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+function toggleAllInLocation(checkbox, loc) {
+  document.querySelectorAll('.inv-row-check[data-loc="' + loc + '"]').forEach(function (c) {
+    c.checked = checkbox.checked;
+  });
+}
+
+function confirmBulkMove(formId) {
+  const anyChecked = Array.prototype.some.call(
+    document.querySelectorAll('input.inv-row-check[form="' + formId + '"]'),
+    function (c) { return c.checked; }
+  );
+  if (!anyChecked) {
+    alert('Selecciona al menos un objeto de esta ubicación.');
+    return false;
+  }
+  return true;
+}
+</script>
 {% endblock %}
