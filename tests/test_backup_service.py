@@ -357,6 +357,9 @@ def test_contacts_full_round_trip(app, db, make_user, make_character, make_profe
         char = make_character(user, name='Grimm')
         prof = make_profession(name='Mercader')
         contact = make_contact(nombre='Hans', es_untersuchung=True, professions=[prof])
+        contact.estado = 'corrompido'
+        contact.paradero = None
+        db.session.commit()
 
         from app.models.contact_character_link import ContactCharacterLink, ContactApodo, ContactCharacterSalary, ContactCharacterVisibility
         link = ContactCharacterLink(character_id=char.id, contact_id=contact.id, nivel=3, gm='GM1', mision='Rescate')
@@ -370,6 +373,7 @@ def test_contacts_full_round_trip(app, db, make_user, make_character, make_profe
         data = bkp.export_contacts_full()
         row = next(r for r in data if r['nombre'] == 'Hans')
         assert row['es_untersuchung'] is True
+        assert row['estado'] == 'corrompido'
         assert row['profesiones'] == ['Mercader']
         assert row['links'][0]['character_username'] == 'zz_contact_owner'
         assert row['links'][0]['character_name'] == 'Grimm'
@@ -390,6 +394,7 @@ def test_contacts_full_round_trip(app, db, make_user, make_character, make_profe
         assert summary['created'] == 1
         restored = Contact.query.filter_by(nombre='Hans').first()
         assert restored.es_untersuchung is True
+        assert restored.estado == 'corrompido'
         assert [cp.profession.name for cp in restored.professions] == ['Mercader']
         assert len(restored.character_links) == 1
         restored_link = restored.character_links[0]
@@ -397,6 +402,23 @@ def test_contacts_full_round_trip(app, db, make_user, make_character, make_profe
         assert restored_link.apodos[0].texto == 'El Gordo'
         assert restored_link.salarios[0].tipo_sueldo == 'Artesanos'
         assert len(restored.character_visibilities) == 1
+
+
+def test_contacts_full_import_backfills_estado_from_legacy_vivo_flag(app, db):
+    """Old backups made before "vivo" (bool) was replaced by "estado"/
+    "paradero" must still import sensibly instead of erroring or silently
+    dropping the fact."""
+    with app.app_context():
+        from app.models.contact import Contact
+        data = [
+            {'nombre': 'Legacy vivo', 'es_untersuchung': False, 'is_visible': True, 'profesiones': [],
+             'vivo': True, 'links': [], 'visibilidades': []},
+            {'nombre': 'Legacy muerto', 'es_untersuchung': False, 'is_visible': True, 'profesiones': [],
+             'vivo': False, 'links': [], 'visibilidades': []},
+        ]
+        bkp.import_contacts_full(data)
+        assert Contact.query.filter_by(nombre='Legacy vivo').first().estado == 'vivo'
+        assert Contact.query.filter_by(nombre='Legacy muerto').first().estado == 'muerto'
 
 
 def test_contacts_full_import_warns_on_missing_character(app, db):

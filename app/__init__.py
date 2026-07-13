@@ -370,10 +370,15 @@ def _register_cli_commands(app):
                     click.echo('  Dropped legacy-shape contact_notes (recreating with character_id)')
                 db.create_all()
 
-            # Incremental columns: contacts.vivo/grados_untersuchung/image_path
+            # Incremental columns: contacts.estado/paradero/grados_untersuchung/image_path
+            # ("vivo" boolean replaced by "estado" (vivo/muerto/corrompido) +
+            # "paradero" (encarcelado/exiliado/secuestrado/desaparecido/
+            # paradero_desconocido) - a plain alive/dead flag couldn't express
+            # e.g. "vivo pero desaparecido", which is a real, distinct case.
             contact_cols_2 = {c['name'] for c in inspector.get_columns('contacts')}
             contact_new_columns = [
-                ('vivo', 'BOOLEAN NOT NULL DEFAULT TRUE'),
+                ('estado', "VARCHAR(20) NOT NULL DEFAULT 'vivo'"),
+                ('paradero', 'VARCHAR(30) NULL'),
                 ('grados_untersuchung', 'JSON NULL'),
                 ('image_path', 'VARCHAR(300) NULL'),
             ]
@@ -382,6 +387,12 @@ def _register_cli_commands(app):
                     if col_name not in contact_cols_2:
                         conn.execute(text(f'ALTER TABLE contacts ADD COLUMN {col_name} {col_def}'))
                         click.echo(f'  Added contacts.{col_name}')
+
+            if 'vivo' in contact_cols_2:
+                with db.engine.begin() as conn:
+                    conn.execute(text("UPDATE contacts SET estado = CASE WHEN vivo = 1 THEN 'vivo' ELSE 'muerto' END"))
+                    conn.execute(text('ALTER TABLE contacts DROP COLUMN vivo'))
+                click.echo('  Backfilled contacts.estado from legacy vivo, then dropped contacts.vivo')
 
             # drinks.sabor changed meaning (base category instead of descriptor+parens)
             # and gained sabor_variante. It's a closed catalog seeded only from JSON

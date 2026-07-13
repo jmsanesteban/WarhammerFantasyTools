@@ -11,6 +11,21 @@ UNTERSUCHUNG_GRADOS = [
     'Bazas', 'Contactos',
 ]
 
+# Dos preguntas distintas sobre la situación de un contacto (2026-07-14, tras
+# discutirlo con el usuario): "estado" es si sigue con vida o no; "paradero"
+# es dónde está, que solo tiene sentido preguntarlo si sigue vivo (un
+# personaje puede estar Vivo pero Desaparecido - no son lo mismo que "muerto"
+# ni que "paradero desconocido" sin más). "Asesinado" quedó fuera a propósito:
+# es la causa de "Muerto", no un estado distinto - se anota en las notas del
+# contacto si importa para una trama de venganza.
+ESTADO_CHOICES = ['vivo', 'muerto', 'corrompido']
+ESTADO_LABELS = {'vivo': 'Vivo', 'muerto': 'Muerto', 'corrompido': 'Corrompido'}
+PARADERO_CHOICES = ['encarcelado', 'exiliado', 'secuestrado', 'desaparecido', 'paradero_desconocido']
+PARADERO_LABELS = {
+    'encarcelado': 'Encarcelado', 'exiliado': 'Exiliado', 'secuestrado': 'Secuestrado',
+    'desaparecido': 'Desaparecido', 'paradero_desconocido': 'Paradero desconocido',
+}
+
 
 class Contact(db.Model):
     """An NPC/contact — global facts shared by every character who knows them.
@@ -22,7 +37,8 @@ class Contact(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     nombre = db.Column(db.String(150), nullable=False)
     es_untersuchung = db.Column(db.Boolean, default=False, nullable=False)
-    vivo = db.Column(db.Boolean, default=True, nullable=False)
+    estado = db.Column(db.String(20), nullable=False, default='vivo')
+    paradero = db.Column(db.String(30), nullable=True)  # solo relevante si estado == 'vivo'
     grados_untersuchung = db.Column(db.JSON, nullable=True)  # lista de UNTERSUCHUNG_GRADOS; solo aplica si es_untersuchung
     image_path = db.Column(db.String(300), nullable=True)
     is_visible = db.Column(db.Boolean, default=True, nullable=False)

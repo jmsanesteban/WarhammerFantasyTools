@@ -516,7 +516,8 @@ def export_contacts_full():
     for contact in Contact.query.order_by(Contact.nombre).all():
         result.append({
             'nombre': contact.nombre, 'es_untersuchung': contact.es_untersuchung,
-            'vivo': contact.vivo, 'grados_untersuchung': contact.grados_untersuchung,
+            'estado': contact.estado, 'paradero': contact.paradero,
+            'grados_untersuchung': contact.grados_untersuchung,
             'image_path': contact.image_path,
             'is_visible': contact.is_visible,
             'profesiones': [cp.profession.name for cp in contact.professions if cp.profession],
@@ -571,7 +572,8 @@ def import_contacts_full(data, mode='skip'):
             summary['created'] += 1
 
         contact.es_untersuchung = row.get('es_untersuchung', False)
-        contact.vivo = row.get('vivo', True)
+        contact.estado = row.get('estado') or ('vivo' if row.get('vivo', True) else 'muerto')
+        contact.paradero = row.get('paradero')
         contact.grados_untersuchung = row.get('grados_untersuchung')
         contact.image_path = row.get('image_path')
         contact.is_visible = row.get('is_visible', True)

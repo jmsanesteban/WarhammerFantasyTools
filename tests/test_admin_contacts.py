@@ -31,7 +31,7 @@ def test_edit_contact_updates_global_fields(db, client, admin_user, make_contact
     login_as(client, admin_user, 'adminpass123')
 
     resp = client.post(f'/contactos/{contact.id}/editar', data={
-        'nombre': 'Nombre corregido', 'es_untersuchung': 'on', 'vivo': 'on',
+        'nombre': 'Nombre corregido', 'es_untersuchung': 'on', 'estado': 'vivo', 'paradero': 'exiliado',
         'grados_untersuchung': ['Paloma', 'Gato'], 'profession_ids': [str(prof.id)],
     }, follow_redirects=True)
     assert resp.status_code == 200
@@ -39,8 +39,27 @@ def test_edit_contact_updates_global_fields(db, client, admin_user, make_contact
     db.session.refresh(contact)
     assert contact.nombre == 'Nombre corregido'
     assert contact.es_untersuchung is True
+    assert contact.estado == 'vivo'
+    assert contact.paradero == 'exiliado'
     assert contact.grados_untersuchung == ['Paloma', 'Gato']
     assert ContactProfession.query.filter_by(contact_id=contact.id, profession_id=prof.id).first() is not None
+
+
+def test_edit_contact_clears_paradero_when_not_alive(db, client, admin_user, make_contact, login_as):
+    """Paradero (Encarcelado/Exiliado/...) only makes sense while estado is
+    'vivo' - if a hand-crafted request posts one alongside estado='muerto',
+    the server must ignore it rather than keep a stale location badge."""
+    contact = make_contact(nombre='Contacto')
+    login_as(client, admin_user, 'adminpass123')
+
+    resp = client.post(f'/contactos/{contact.id}/editar', data={
+        'nombre': 'Contacto', 'estado': 'muerto', 'paradero': 'exiliado',
+    }, follow_redirects=True)
+    assert resp.status_code == 200
+
+    db.session.refresh(contact)
+    assert contact.estado == 'muerto'
+    assert contact.paradero is None
 
 
 def test_edit_contact_allows_creator_to_update_profession(db, client, regular_user, make_contact, make_profession,

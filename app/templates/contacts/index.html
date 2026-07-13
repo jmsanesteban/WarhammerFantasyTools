@@ -65,8 +65,12 @@
         <tr>
           <td>
             <strong>{{ contact.nombre }}</strong>
-            {% if not contact.vivo %}
-            <span class="badge bg-dark" style="font-size:.65rem">Fallecido</span>
+            {% if contact.estado == 'muerto' %}
+            <span class="badge bg-dark" style="font-size:.65rem">Muerto</span>
+            {% elif contact.estado == 'corrompido' %}
+            <span class="badge bg-danger" style="font-size:.65rem">Corrompido</span>
+            {% elif contact.paradero %}
+            <span class="badge bg-warning text-dark" style="font-size:.65rem">{{ paradero_labels[contact.paradero] }}</span>
             {% endif %}
             {% if current_user.is_admin and not contact.is_visible %}
             <span class="badge bg-secondary" style="font-size:.65rem">Oculto</span>

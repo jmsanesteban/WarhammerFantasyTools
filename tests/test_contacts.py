@@ -12,6 +12,49 @@ def test_index_requires_login(client):
     assert '/auth/login' in resp.headers['Location']
 
 
+# ── Estado / Paradero badges ─────────────────────────────────────────────────
+
+def test_index_shows_muerto_badge(client, regular_user, login_as, make_character, make_contact,
+                                  make_contact_visibility):
+    char = make_character(regular_user)
+    contact = make_contact(nombre='Difunto', estado='muerto')
+    make_contact_visibility(char, contact, 'total')
+    login_as(client, regular_user, 'userpass123')
+    resp = client.get('/contactos/')
+    assert b'Muerto' in resp.data
+
+
+def test_index_shows_corrompido_badge(client, regular_user, login_as, make_character, make_contact,
+                                      make_contact_visibility):
+    char = make_character(regular_user)
+    contact = make_contact(nombre='Mutado', estado='corrompido')
+    make_contact_visibility(char, contact, 'total')
+    login_as(client, regular_user, 'userpass123')
+    resp = client.get('/contactos/')
+    assert b'Corrompido' in resp.data
+
+
+def test_index_shows_paradero_badge_only_when_alive(client, regular_user, login_as, make_character,
+                                                     make_contact, make_contact_visibility):
+    char = make_character(regular_user)
+    contact = make_contact(nombre='Fugitivo', estado='vivo', paradero='exiliado')
+    make_contact_visibility(char, contact, 'total')
+    login_as(client, regular_user, 'userpass123')
+    resp = client.get('/contactos/')
+    assert 'Exiliado'.encode() in resp.data
+
+
+def test_detail_shows_estado_and_paradero(client, regular_user, login_as, make_character, make_contact,
+                                          make_contact_visibility):
+    char = make_character(regular_user)
+    contact = make_contact(nombre='Secuestrada', estado='vivo', paradero='secuestrado')
+    make_contact_visibility(char, contact, 'total')
+    login_as(client, regular_user, 'userpass123')
+    resp = client.get(f'/contactos/{contact.id}')
+    assert resp.status_code == 200
+    assert 'Secuestrado'.encode() in resp.data
+
+
 def test_regular_user_only_sees_visible_contacts(client, regular_user, login_as, make_character,
                                                  make_contact, make_contact_visibility):
     char = make_character(regular_user)

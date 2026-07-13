@@ -21,11 +21,24 @@
             <label class="form-label wh-label">Nombre *</label>
             <input type="text" name="nombre" class="form-control wh-input" required value="{{ contact.nombre }}">
           </div>
-          <div class="col-md-4 d-flex align-items-end gap-3">
-            <label class="d-flex align-items-center gap-2" style="cursor:pointer">
-              <input type="checkbox" name="vivo" class="form-check-input" {% if contact.vivo %}checked{% endif %}>
-              Vivo
-            </label>
+          <div class="col-md-2">
+            <label class="form-label wh-label">Estado</label>
+            <select name="estado" id="sel-estado" class="form-select wh-input">
+              {% for key in ['vivo', 'muerto', 'corrompido'] %}
+              <option value="{{ key }}" {% if contact.estado == key %}selected{% endif %}>{{ estado_labels[key] }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="col-md-2" id="paradero-wrap">
+            <label class="form-label wh-label">Paradero</label>
+            <select name="paradero" class="form-select wh-input">
+              <option value="">— Ninguno —</option>
+              {% for key in paradero_choices %}
+              <option value="{{ key }}" {% if contact.paradero == key %}selected{% endif %}>{{ paradero_labels[key] }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="col-md-4 d-flex align-items-end">
             <label class="d-flex align-items-center gap-2" style="cursor:pointer">
               <input type="checkbox" name="es_untersuchung" class="form-check-input" id="chk-untersuchung"
                      {% if contact.es_untersuchung %}checked{% endif %}>
@@ -86,6 +99,14 @@
   const wrap = document.getElementById('grados-wrap');
   function sync() { wrap.style.display = chk.checked ? '' : 'none'; }
   chk.addEventListener('change', sync);
+  sync();
+})();
+
+(function () {
+  const estado = document.getElementById('sel-estado');
+  const wrap = document.getElementById('paradero-wrap');
+  function sync() { wrap.style.display = estado.value === 'vivo' ? '' : 'none'; }
+  estado.addEventListener('change', sync);
   sync();
 })();
 </script>
