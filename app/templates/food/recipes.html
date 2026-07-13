@@ -132,7 +132,17 @@
 </div>
 
 <style>
-.wh-recipe-info .card-title { font-size: 1.15rem; }
+/* Reserve 2 lines for the name regardless of whether it wraps, so the
+   badges/stats below always start at the same height across cards - a
+   one-line name otherwise left everything below it sitting higher than on
+   cards with a long, wrapping name. */
+.wh-recipe-info .card-title {
+  font-size: 1.15rem;
+  line-height: 1.3;
+  min-height: 3rem;
+  display: flex;
+  align-items: flex-start;
+}
 .wh-recipe-badges .badge { font-size: 0.95rem; padding: 0.45em 0.7em; }
 .wh-recipe-info p.card-text { font-size: 1.1rem; }
 </style>
