@@ -340,6 +340,115 @@ def test_characters_round_trip_with_children(app, db, make_user, make_character,
         assert restored.possessions[0].name == 'Hacha'
 
 
+def test_characters_round_trip_includes_untersuchung_and_mochila_fields(app, db, make_user, make_character):
+    with app.app_context():
+        from app.models.character import Character
+        user = make_user(username='zz_char_owner2')
+        char = make_character(
+            user, name='Marcada', es_untersuchung=True, grados_untersuchung=['Gato', 'Gato'],
+            mochila_o_saco='saco', dinero_peniques_extra=57,
+        )
+        db.session.commit()
+
+        data = bkp.export_characters()
+        row = next(r for r in data if r['name'] == 'Marcada')
+        assert row['grados_untersuchung'] == ['Gato', 'Gato']
+        assert row['mochila_o_saco'] == 'saco'
+        assert row['dinero_peniques_extra'] == 57
+
+        Character.query.delete()
+        db.session.commit()
+
+        bkp.import_characters(data)
+        restored = Character.query.filter_by(name='Marcada').first()
+        assert restored.grados_untersuchung == ['Gato', 'Gato']
+        assert restored.mochila_o_saco == 'saco'
+        assert restored.dinero_peniques_extra == 57
+
+
+def test_characters_round_trip_includes_inventory_purchases_and_money_grants(
+    app, db, make_user, make_character, make_equipment_item,
+):
+    with app.app_context():
+        from app.models.character import Character, CharacterMoneyGrant
+        from app.models.equipment import CharacterInventoryItem, CharacterPurchase
+
+        owner = make_user(username='zz_char_owner3')
+        admin = make_user(username='zz_admin_granter', role='admin')
+        char = make_character(owner, name='Rica', dinero_coronas=100)
+        item = make_equipment_item(name='Daga backup', category='arma', subcategory='cuerpo_a_cuerpo',
+                                   precio_peniques=240)
+
+        db.session.add(CharacterInventoryItem(
+            character_id=char.id, equipment_item_id=item.id, quality='buena',
+            quantity=2, location='mochila_saco', notes='de repuesto',
+        ))
+        db.session.add(CharacterPurchase(
+            character_id=char.id, equipment_item_id=item.id, item_name_snapshot='Daga backup',
+            category_snapshot='arma', quality_snapshot='buena', precio_peniques_pagado=720,
+            granted_by_gm=False, notes='comprada en la tienda',
+        ))
+        db.session.add(CharacterMoneyGrant(
+            character_id=char.id, peniques=500, motivo='Recompensa de misión', granted_by_user_id=admin.id,
+        ))
+        db.session.commit()
+
+        data = bkp.export_characters()
+        row = next(r for r in data if r['name'] == 'Rica')
+        assert row['inventory_items'][0]['equipment_item_name'] == 'Daga backup'
+        assert row['inventory_items'][0]['quality'] == 'buena'
+        assert row['inventory_items'][0]['quantity'] == 2
+        assert row['inventory_items'][0]['location'] == 'mochila_saco'
+        assert row['purchases'][0]['precio_peniques_pagado'] == 720
+        assert row['money_grants'][0]['peniques'] == 500
+        assert row['money_grants'][0]['granted_by_username'] == 'zz_admin_granter'
+
+        for ii in CharacterInventoryItem.query.all():
+            db.session.delete(ii)
+        for p in CharacterPurchase.query.all():
+            db.session.delete(p)
+        for mg in CharacterMoneyGrant.query.all():
+            db.session.delete(mg)
+        Character.query.delete()
+        db.session.commit()
+
+        bkp.import_characters(data)
+        restored = Character.query.filter_by(name='Rica').first()
+        assert len(restored.inventory_items) == 1
+        assert restored.inventory_items[0].equipment_item.name == 'Daga backup'
+        assert restored.inventory_items[0].quantity == 2
+        assert len(restored.purchases) == 1
+        assert restored.purchases[0].precio_peniques_pagado == 720
+        assert len(restored.money_grants) == 1
+        assert restored.money_grants[0].peniques == 500
+        assert restored.money_grants[0].granted_by.username == 'zz_admin_granter'
+
+
+def test_characters_import_handles_missing_equipment_item_in_inventory(app, db, make_user):
+    """An inventory/purchase row whose catalog item no longer exists must
+    still import (as a custom/unlinked entry with a warning), not abort."""
+    with app.app_context():
+        from app.models.character import Character
+        make_user(username='zz_char_owner4')
+        db.session.commit()
+
+        data = [{
+            'owner_username': 'zz_char_owner4', 'name': 'Con objeto perdido',
+            'inventory_items': [{
+                'equipment_item_name': 'Objeto que ya no existe', 'equipment_item_category': 'arma',
+                'equipment_item_subcategory': None, 'equipment_item_catalog_quality': None,
+                'custom_name': None, 'quality': 'normal', 'quantity': 1, 'location': 'equipamiento',
+                'notes': None, 'condition': None,
+            }],
+        }]
+        summary = bkp.import_characters(data)
+        assert summary['warnings']
+        restored = Character.query.filter_by(name='Con objeto perdido').first()
+        assert len(restored.inventory_items) == 1
+        assert restored.inventory_items[0].equipment_item_id is None
+        assert restored.inventory_items[0].custom_name == 'Objeto que ya no existe'
+
+
 def test_characters_import_skips_and_warns_when_owner_missing(app, db):
     with app.app_context():
         data = [{'owner_username': 'no_existe', 'name': 'Fantasma'}]
@@ -356,24 +465,27 @@ def test_contacts_full_round_trip(app, db, make_user, make_character, make_profe
         user = make_user(username='zz_contact_owner')
         char = make_character(user, name='Grimm')
         prof = make_profession(name='Mercader')
-        contact = make_contact(nombre='Hans', es_untersuchung=True, professions=[prof])
+        contact = make_contact(nombre='Hans', es_untersuchung=True, professions=[prof], created_by=user)
         contact.estado = 'corrompido'
         contact.paradero = None
         db.session.commit()
 
         from app.models.contact_character_link import ContactCharacterLink, ContactApodo, ContactCharacterSalary, ContactCharacterVisibility
+        from app.models.contact_note import ContactNote
         link = ContactCharacterLink(character_id=char.id, contact_id=contact.id, nivel=3, gm='GM1', mision='Rescate')
         db.session.add(link)
         db.session.flush()
         db.session.add(ContactApodo(link_id=link.id, texto='El Gordo'))
         db.session.add(ContactCharacterSalary(link_id=link.id, profession_id=prof.id, tipo_sueldo='Artesanos', estado_habilidad='Buena'))
         db.session.add(ContactCharacterVisibility(contact_id=contact.id, character_id=char.id, nivel='total'))
+        db.session.add(ContactNote(contact_id=contact.id, character_id=char.id, content='Le debe un favor a Grimm'))
         db.session.commit()
 
         data = bkp.export_contacts_full()
         row = next(r for r in data if r['nombre'] == 'Hans')
         assert row['es_untersuchung'] is True
         assert row['estado'] == 'corrompido'
+        assert row['created_by_username'] == 'zz_contact_owner'
         assert row['profesiones'] == ['Mercader']
         assert row['links'][0]['character_username'] == 'zz_contact_owner'
         assert row['links'][0]['character_name'] == 'Grimm'
@@ -381,7 +493,11 @@ def test_contacts_full_round_trip(app, db, make_user, make_character, make_profe
         assert row['links'][0]['apodos'] == ['El Gordo']
         assert row['links'][0]['salarios'][0]['profession_name'] == 'Mercader'
         assert row['visibilidades'][0]['nivel'] == 'total'
+        assert row['notes'][0]['content'] == 'Le debe un favor a Grimm'
+        assert row['notes'][0]['character_username'] == 'zz_contact_owner'
 
+        for n in ContactNote.query.all():
+            db.session.delete(n)
         for l in link.__class__.query.all():
             db.session.delete(l)
         for v in ContactCharacterVisibility.query.all():
@@ -395,6 +511,7 @@ def test_contacts_full_round_trip(app, db, make_user, make_character, make_profe
         restored = Contact.query.filter_by(nombre='Hans').first()
         assert restored.es_untersuchung is True
         assert restored.estado == 'corrompido'
+        assert restored.created_by.username == 'zz_contact_owner'
         assert [cp.profession.name for cp in restored.professions] == ['Mercader']
         assert len(restored.character_links) == 1
         restored_link = restored.character_links[0]
@@ -402,6 +519,8 @@ def test_contacts_full_round_trip(app, db, make_user, make_character, make_profe
         assert restored_link.apodos[0].texto == 'El Gordo'
         assert restored_link.salarios[0].tipo_sueldo == 'Artesanos'
         assert len(restored.character_visibilities) == 1
+        assert len(restored.notes) == 1
+        assert restored.notes[0].content == 'Le debe un favor a Grimm'
 
 
 def test_contacts_full_import_backfills_estado_from_legacy_vivo_flag(app, db):
@@ -440,6 +559,63 @@ def test_contacts_full_import_warns_on_missing_character(app, db):
 
 # ── Backup completo ──────────────────────────────────────────────────────────
 
+# ── Recetas ──────────────────────────────────────────────────────────────────
+
+def test_recipes_round_trip(app, db, make_user):
+    with app.app_context():
+        from app.models.food import CookingMethod, Ingredient, Recipe
+
+        author = make_user(username='zz_recipe_author')
+        approver = make_user(username='zz_recipe_approver', role='admin')
+        method = CookingMethod(nombre='Guisado zz', duracion_dias=1, complejidad_base=1,
+                               ingredientes_permitidos=2, condimentos_permitidos=1)
+        ing1 = Ingredient(nombre='Zanahoria zz')
+        ing2 = Ingredient(nombre='Sal zz')
+        db.session.add_all([method, ing1, ing2])
+        db.session.commit()
+
+        recipe = Recipe(
+            nombre='Guiso de la abuela zz', vigor=5, moral=2, cooking_method_id=method.id,
+            calidad='Buena', complejidad=4, status='pendiente', notas='receta de prueba',
+            created_by_id=author.id, ingrediente_1_id=ing1.id, condimento_1_id=ing2.id,
+        )
+        db.session.add(recipe)
+        db.session.commit()
+
+        data = bkp.export_recipes()
+        row = next(r for r in data if r['nombre'] == 'Guiso de la abuela zz')
+        assert row['cooking_method_name'] == 'Guisado zz'
+        assert row['ingredientes'] == ['Zanahoria zz']
+        assert row['condimentos'] == ['Sal zz']
+        assert row['created_by_username'] == 'zz_recipe_author'
+        assert row['status'] == 'pendiente'
+
+        Recipe.query.delete()
+        db.session.commit()
+
+        summary = bkp.import_recipes(data)
+        assert summary['created'] >= 1
+        restored = Recipe.query.filter_by(nombre='Guiso de la abuela zz').first()
+        assert restored.cooking_method.nombre == 'Guisado zz'
+        assert restored.ingrediente_1.nombre == 'Zanahoria zz'
+        assert restored.condimento_1.nombre == 'Sal zz'
+        assert restored.created_by.username == 'zz_recipe_author'
+        assert restored.status == 'pendiente'
+
+
+def test_recipes_import_warns_on_missing_ingredient(app, db):
+    with app.app_context():
+        from app.models.food import Recipe
+        data = [{'nombre': 'Receta huerfana', 'ingredientes': ['No existe'], 'condimentos': []}]
+        summary = bkp.import_recipes(data)
+        assert summary['created'] == 1
+        assert summary['warnings']
+        restored = Recipe.query.filter_by(nombre='Receta huerfana').first()
+        assert restored.ingrediente_1_id is None
+
+
+# ── Backup completo ──────────────────────────────────────────────────────────
+
 def test_full_backup_round_trip(app, db, make_user, make_character, make_profession):
     with app.app_context():
         from app.models.permission import seed_permissions_and_templates
@@ -454,6 +630,7 @@ def test_full_backup_round_trip(app, db, make_user, make_character, make_profess
         data = bkp.export_full_backup()
         assert data['version'] == bkp.BACKUP_VERSION
         assert 'exported_at' in data
+        assert 'recipes' in data
         assert any(u['username'] == 'zz_full_backup_user' for u in data['users'])
         assert any(p['name'] == 'Soldado' for p in data['professions'])
         assert any(c['name'] == 'Grimm' for c in data['characters'])
@@ -464,6 +641,7 @@ def test_full_backup_round_trip(app, db, make_user, make_character, make_profess
         db.session.commit()
 
         summary = bkp.import_full_backup(data)
+        assert 'recipes' in summary
         assert summary['users']['created'] >= 1
         assert summary['professions']['created'] >= 1
         assert summary['characters']['created'] >= 1

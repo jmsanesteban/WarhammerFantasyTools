@@ -1,5 +1,15 @@
 """Faithful JSON export/import for disaster recovery: Profesiones, Usuarios,
-Personajes, Contactos+Vínculos, Plantillas de permisos y Sinónimos.
+Personajes (incluido su inventario, historial de compras y dinero concedido),
+Contactos+Vínculos (incluidas sus notas privadas por personaje), Recetas
+propuestas, Equipamiento, Plantillas de permisos y Sinónimos.
+
+The stated goal (2026-07-14) is that this "Backup completo" is the single
+source of truth for standing up a brand new instance from scratch (e.g. a
+fresh container on a NAS after a disk failure) with zero data loss other than
+passwords, which get regenerated and force-reset - so every table with real
+user-entered data must be represented here, not just the catalog-shaped ones.
+Ephemeral state (an in-progress shopping cart, `CharacterCartItem`) is the
+one deliberate exception - it has no recovery value.
 
 Every `import_*` function is idempotent-by-natural-key (never by id, so a
 JSON export is portable across databases) and returns a summary dict
@@ -10,16 +20,24 @@ review flow. `mode='skip'` (default) never touches an existing row;
 data.
 
 Cross-references are resolved by natural key (username, profession/skill/
-talent name...) rather than database id, exactly so the JSON stays portable
-between databases. A missing reference never aborts the import - the row is
-still created/updated and a human-readable warning is appended instead,
-mirroring how the PDF import tolerates unrecognized talents/trappings.
+talent/equipment-item name...) rather than database id, exactly so the JSON
+stays portable between databases. A missing reference never aborts the
+import - the row is still created/updated and a human-readable warning is
+appended instead, mirroring how the PDF import tolerates unrecognized
+talents/trappings. One exception: `CharacterPurchase`/`CharacterInventoryItem`
+don't try to re-link `CharacterPurchase.inventory_item_id` back to its
+originating inventory row on import (both get fresh ids and the relationship
+is purely informational) - the financial/ownership facts themselves are
+preserved regardless.
 
 Dependency order for a full restore: permission_templates -> users ->
-professions -> characters -> contacts. Habilidades/Talentos are NOT part of
-this module (they already have their own import at app/services/
-import_service.py) and must be restored first if starting from an empty
-database, since professions/characters reference them by name.
+professions -> equipment -> recipes -> characters -> contacts. Habilidades/
+Talentos are NOT part of this module (they already have their own import at
+app/services/import_service.py) and must be restored first if starting from
+an empty database, since professions/characters reference them by name.
+Comida y bebida's catalog (métodos de cocina, ingredientes, bebidas) is
+seeded idempotently at container startup (`food_seed_service`), not part of
+this module - only user-facing Recetas are backed up here.
 """
 from datetime import datetime
 
@@ -33,13 +51,15 @@ from app.models.talent import Talent
 from app.models.profession import Profession, ProfessionSkill, ProfessionTalent, ProfessionTrapping
 from app.models.character import (
     Character, CharacterProfession, CharacterSkill, CharacterTalent,
-    CharacterTrait, CharacterAcquaintance, CharacterPossession, CharacterMagicItem,
+    CharacterTrait, CharacterAcquaintance, CharacterPossession, CharacterMagicItem, CharacterMoneyGrant,
 )
-from app.models.equipment import EquipmentItem
+from app.models.equipment import EquipmentItem, CharacterInventoryItem, CharacterPurchase
 from app.models.contact import Contact, ContactProfession
 from app.models.contact_character_link import (
     ContactCharacterLink, ContactApodo, ContactCharacterSalary, ContactCharacterVisibility,
 )
+from app.models.contact_note import ContactNote
+from app.models.food import Recipe, CookingMethod, Ingredient
 
 BACKUP_VERSION = 1
 
@@ -54,6 +74,23 @@ def _find_character(username, name):
         .filter(User.username == username, Character.name == name)
         .first()
     )
+
+
+def _find_equipment_item(name, category, subcategory, quality):
+    """Same natural key as import_equipment: (name, category, subcategory,
+    quality) - `quality` here is the CATALOG row's own quality attribute
+    (only ever set for Ropa, where each tier is its own row), not the
+    quality a character actually bought/carries, which is a separate field
+    on CharacterInventoryItem/CharacterPurchase."""
+    if not name:
+        return None
+    return EquipmentItem.query.filter_by(
+        name=name, category=category, subcategory=subcategory, quality=quality,
+    ).first()
+
+
+def _parse_iso(value):
+    return datetime.fromisoformat(value) if value else None
 
 
 # ---------------------------------------------------------------------------
@@ -398,8 +435,8 @@ _CHARACTER_SCALAR_FIELDS = (
     'insanity_points', 'fate_points',
     'signo_astral', 'rasgo_personalidad_signo', 'altura_cm', 'peso_kg', 'edad', 'edad_grado',
     'color_pelo', 'color_ojos', 'mano_dominante', 'procedencia', 'situacion_familiar',
-    'nivel_social', 'dinero_coronas', 'history_points_total', 'history_points_spent',
-    'es_untersuchung',
+    'nivel_social', 'dinero_coronas', 'dinero_peniques_extra', 'history_points_total', 'history_points_spent',
+    'es_untersuchung', 'grados_untersuchung', 'mochila_o_saco',
 )
 
 
@@ -426,6 +463,39 @@ def export_characters():
         row['acquaintances'] = [{'kind': a.kind, 'description': a.description} for a in c.acquaintances]
         row['possessions'] = [p.name for p in c.possessions]
         row['magic_items'] = [{'category': m.category, 'description': m.description} for m in c.magic_items]
+        row['inventory_items'] = [
+            {
+                'equipment_item_name': ii.equipment_item.name if ii.equipment_item else None,
+                'equipment_item_category': ii.equipment_item.category if ii.equipment_item else None,
+                'equipment_item_subcategory': ii.equipment_item.subcategory if ii.equipment_item else None,
+                'equipment_item_catalog_quality': ii.equipment_item.quality if ii.equipment_item else None,
+                'custom_name': ii.custom_name, 'quality': ii.quality, 'quantity': ii.quantity,
+                'location': ii.location, 'notes': ii.notes, 'condition': ii.condition,
+            }
+            for ii in c.inventory_items
+        ]
+        row['purchases'] = [
+            {
+                'equipment_item_name': p.equipment_item.name if p.equipment_item else None,
+                'equipment_item_category': p.equipment_item.category if p.equipment_item else None,
+                'equipment_item_subcategory': p.equipment_item.subcategory if p.equipment_item else None,
+                'equipment_item_catalog_quality': p.equipment_item.quality if p.equipment_item else None,
+                'item_name_snapshot': p.item_name_snapshot, 'category_snapshot': p.category_snapshot,
+                'quality_snapshot': p.quality_snapshot, 'precio_peniques_pagado': p.precio_peniques_pagado,
+                'granted_by_gm': p.granted_by_gm,
+                'granted_by_username': p.granted_by.username if p.granted_by else None,
+                'notes': p.notes, 'created_at': p.created_at.isoformat() if p.created_at else None,
+            }
+            for p in c.purchases
+        ]
+        row['money_grants'] = [
+            {
+                'peniques': mg.peniques, 'motivo': mg.motivo,
+                'granted_by_username': mg.granted_by.username if mg.granted_by else None,
+                'created_at': mg.created_at.isoformat() if mg.created_at else None,
+            }
+            for mg in c.money_grants
+        ]
         result.append(row)
     return result
 
@@ -455,6 +525,9 @@ def import_characters(data, mode='skip'):
             char.acquaintances = []
             char.possessions = []
             char.magic_items = []
+            char.inventory_items = []
+            char.purchases = []
+            char.money_grants = []
             summary['updated'] += 1
         else:
             char = Character(user_id=owner.id, name=row['name'])
@@ -501,6 +574,47 @@ def import_characters(data, mode='skip'):
         for m in row.get('magic_items', []):
             char.magic_items.append(CharacterMagicItem(category=m['category'], description=m['description']))
 
+        for ii in row.get('inventory_items', []):
+            equipment_item = _find_equipment_item(
+                ii.get('equipment_item_name'), ii.get('equipment_item_category'),
+                ii.get('equipment_item_subcategory'), ii.get('equipment_item_catalog_quality'),
+            )
+            if ii.get('equipment_item_name') and equipment_item is None:
+                summary['warnings'].append(
+                    f"Personaje '{row['name']}': objeto de inventario '{ii['equipment_item_name']}' "
+                    "no existe en el catálogo, se deja como objeto personalizado."
+                )
+            char.inventory_items.append(CharacterInventoryItem(
+                equipment_item_id=equipment_item.id if equipment_item else None,
+                custom_name=ii.get('custom_name') or (ii.get('equipment_item_name') if not equipment_item else None),
+                quality=ii.get('quality'), quantity=ii.get('quantity', 1),
+                location=ii.get('location', 'equipamiento'), notes=ii.get('notes'), condition=ii.get('condition'),
+            ))
+        for p in row.get('purchases', []):
+            equipment_item = _find_equipment_item(
+                p.get('equipment_item_name'), p.get('equipment_item_category'),
+                p.get('equipment_item_subcategory'), p.get('equipment_item_catalog_quality'),
+            )
+            granted_by = User.query.filter_by(username=p.get('granted_by_username')).first() \
+                if p.get('granted_by_username') else None
+            char.purchases.append(CharacterPurchase(
+                equipment_item_id=equipment_item.id if equipment_item else None,
+                item_name_snapshot=p.get('item_name_snapshot', p.get('equipment_item_name', '?')),
+                category_snapshot=p.get('category_snapshot'), quality_snapshot=p.get('quality_snapshot'),
+                precio_peniques_pagado=p.get('precio_peniques_pagado', 0),
+                granted_by_gm=p.get('granted_by_gm', False),
+                granted_by_user_id=granted_by.id if granted_by else None,
+                notes=p.get('notes'), created_at=_parse_iso(p.get('created_at')),
+            ))
+        for mg in row.get('money_grants', []):
+            granted_by = User.query.filter_by(username=mg.get('granted_by_username')).first() \
+                if mg.get('granted_by_username') else None
+            char.money_grants.append(CharacterMoneyGrant(
+                peniques=mg.get('peniques', 0), motivo=mg.get('motivo'),
+                granted_by_user_id=granted_by.id if granted_by else None,
+                created_at=_parse_iso(mg.get('created_at')),
+            ))
+
     db.session.commit()
     return summary
 
@@ -520,7 +634,17 @@ def export_contacts_full():
             'grados_untersuchung': contact.grados_untersuchung,
             'image_path': contact.image_path,
             'is_visible': contact.is_visible,
+            'created_by_username': contact.created_by.username if contact.created_by else None,
             'profesiones': [cp.profession.name for cp in contact.professions if cp.profession],
+            'notes': [
+                {
+                    'character_username': n.character.owner.username, 'character_name': n.character.name,
+                    'content': n.content,
+                    'created_at': n.created_at.isoformat() if n.created_at else None,
+                    'updated_at': n.updated_at.isoformat() if n.updated_at else None,
+                }
+                for n in contact.notes
+            ],
             'links': [
                 {
                     'character_username': link.character.owner.username,
@@ -565,6 +689,8 @@ def import_contacts_full(data, mode='skip'):
                 db.session.delete(link)
             for vis in list(contact.character_visibilities):
                 db.session.delete(vis)
+            for note in list(contact.notes):
+                db.session.delete(note)
             summary['updated'] += 1
         else:
             contact = Contact(nombre=row['nombre'])
@@ -577,6 +703,13 @@ def import_contacts_full(data, mode='skip'):
         contact.grados_untersuchung = row.get('grados_untersuchung')
         contact.image_path = row.get('image_path')
         contact.is_visible = row.get('is_visible', True)
+        if row.get('created_by_username'):
+            creator = User.query.filter_by(username=row['created_by_username']).first()
+            if creator is None:
+                summary['warnings'].append(
+                    f"Contacto '{row['nombre']}': usuario creador '{row['created_by_username']}' no existe, se deja sin creador."
+                )
+            contact.created_by_id = creator.id if creator else None
 
         for prof_name in row.get('profesiones', []):
             profession = Profession.query.filter_by(name=prof_name).first()
@@ -626,6 +759,121 @@ def import_contacts_full(data, mode='skip'):
                 contact_id=contact.id, character_id=character.id, nivel=vis_data.get('nivel', 'total'),
             ))
 
+        for note_data in row.get('notes', []):
+            character = _find_character(note_data['character_username'], note_data['character_name'])
+            if character is None:
+                summary['warnings'].append(
+                    f"Contacto '{row['nombre']}': personaje de la nota "
+                    f"'{note_data['character_username']}/{note_data['character_name']}' no existe, nota omitida."
+                )
+                continue
+            db.session.add(ContactNote(
+                contact_id=contact.id, character_id=character.id, content=note_data['content'],
+                created_at=_parse_iso(note_data.get('created_at')) or datetime.utcnow(),
+                updated_at=_parse_iso(note_data.get('updated_at')),
+            ))
+
+    db.session.commit()
+    return summary
+
+
+# ---------------------------------------------------------------------------
+# Comida y bebida: solo Recetas (Fase 2, propuestas de usuarios). El resto
+# del catálogo (métodos de cocina, ingredientes, bebidas) se siembra solo,
+# de forma idempotente, en el arranque de la app (food_seed_service) - no
+# hace falta respaldarlo. Las recetas del libro también se resiembran, pero
+# se incluyen aquí de todos modos para no perder ediciones manuales sobre
+# ellas ni depender implícitamente de que la siembra ya haya corrido.
+# ---------------------------------------------------------------------------
+
+_RECIPE_SCALAR_FIELDS = (
+    'vigor', 'moral', 'calidad', 'duracion_dias', 'recalentar',
+    'coste_creacion_peniques', 'precio_compra_peniques', 'complejidad', 'solo_compra',
+    'notas', 'status', 'image_path', 'requested_at', 'approved_at', 'rejection_reason',
+)
+
+
+def export_recipes():
+    result = []
+    for r in Recipe.query.order_by(Recipe.nombre).all():
+        row = {field: getattr(r, field) for field in _RECIPE_SCALAR_FIELDS}
+        row['nombre'] = r.nombre
+        row['cooking_method_name'] = r.cooking_method.nombre if r.cooking_method else None
+        row['ingredientes'] = [i.nombre for i in r.ingredientes]
+        row['condimentos'] = [i.nombre for i in r.condimentos]
+        row['created_by_username'] = r.created_by.username if r.created_by else None
+        row['approved_by_username'] = r.approved_by.username if r.approved_by else None
+        for key in ('requested_at', 'approved_at'):
+            if row.get(key):
+                row[key] = row[key].isoformat()
+        result.append(row)
+    return result
+
+
+def import_recipes(data, mode='skip'):
+    summary = _new_summary()
+    for row in data:
+        existing = Recipe.query.filter_by(nombre=row['nombre']).first()
+        if existing and mode != 'update':
+            summary['skipped'] += 1
+            continue
+
+        if existing:
+            recipe = existing
+            summary['updated'] += 1
+        else:
+            recipe = Recipe(nombre=row['nombre'])
+            db.session.add(recipe)
+            summary['created'] += 1
+
+        for field in _RECIPE_SCALAR_FIELDS:
+            if field in row:
+                value = row[field]
+                if field in ('requested_at', 'approved_at'):
+                    value = _parse_iso(value)
+                setattr(recipe, field, value)
+
+        if row.get('cooking_method_name'):
+            method = CookingMethod.query.filter_by(nombre=row['cooking_method_name']).first()
+            if method is None:
+                summary['warnings'].append(
+                    f"Receta '{row['nombre']}': método de cocina '{row['cooking_method_name']}' no existe, omitido."
+                )
+            recipe.cooking_method_id = method.id if method else None
+
+        ingredientes = row.get('ingredientes', [])
+        for i in range(4):
+            field = f'ingrediente_{i + 1}_id'
+            if i < len(ingredientes):
+                ing = Ingredient.query.filter_by(nombre=ingredientes[i]).first()
+                if ing is None:
+                    summary['warnings'].append(
+                        f"Receta '{row['nombre']}': ingrediente '{ingredientes[i]}' no existe, omitido."
+                    )
+                setattr(recipe, field, ing.id if ing else None)
+            else:
+                setattr(recipe, field, None)
+
+        condimentos = row.get('condimentos', [])
+        for i in range(2):
+            field = f'condimento_{i + 1}_id'
+            if i < len(condimentos):
+                cond = Ingredient.query.filter_by(nombre=condimentos[i]).first()
+                if cond is None:
+                    summary['warnings'].append(
+                        f"Receta '{row['nombre']}': condimento '{condimentos[i]}' no existe, omitido."
+                    )
+                setattr(recipe, field, cond.id if cond else None)
+            else:
+                setattr(recipe, field, None)
+
+        if row.get('created_by_username'):
+            creator = User.query.filter_by(username=row['created_by_username']).first()
+            recipe.created_by_id = creator.id if creator else None
+        if row.get('approved_by_username'):
+            approver = User.query.filter_by(username=row['approved_by_username']).first()
+            recipe.approved_by_id = approver.id if approver else None
+
     db.session.commit()
     return summary
 
@@ -643,6 +891,7 @@ def export_full_backup():
         'users': export_users(),
         'professions': export_professions(),
         'equipment': export_equipment(),
+        'recipes': export_recipes(),
         'characters': export_characters(),
         'contacts': export_contacts_full(),
     }
@@ -655,6 +904,7 @@ def import_full_backup(data, mode='skip'):
         'users': import_users(data.get('users', []), mode),
         'professions': import_professions(data.get('professions', []), mode),
         'equipment': import_equipment(data.get('equipment', []), mode),
+        'recipes': import_recipes(data.get('recipes', []), mode),
         'characters': import_characters(data.get('characters', []), mode),
         'contacts': import_contacts_full(data.get('contacts', []), mode),
     }

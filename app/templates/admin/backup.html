@@ -12,10 +12,14 @@
 
   <div class="alert alert-info wh-alert">
     Exporta o restaura de golpe <strong>Plantillas de permisos, Sinónimos, Usuarios, Profesiones, Equipamiento,
-    Personajes y Contactos (con sus vínculos)</strong> en el orden correcto de dependencias. Si estás restaurando
-    sobre una base de datos completamente vacía:
+    Recetas propuestas, Personajes (con su inventario, historial de compras y dinero concedido) y Contactos
+    (con sus vínculos y notas privadas)</strong> en el orden correcto de dependencias — pensado para poder
+    levantar una instancia nueva desde cero (p. ej. tras un fallo de disco) sin perder ningún dato real, salvo
+    las contraseñas (se regeneran y se fuerza su cambio en el primer login). Si estás restaurando sobre una
+    base de datos completamente vacía:
     <ol class="mb-0 mt-2">
-      <li><code>flask init-db</code> (crea el esquema y siembra permisos/plantillas por defecto)</li>
+      <li><code>flask init-db</code> (crea el esquema, siembra permisos/plantillas por defecto y el catálogo de
+        Comida y bebida)</li>
       <li>Importa <strong>Habilidades</strong> y <strong>Talentos</strong> primero (tienen su propio import, en
         sus respectivas páginas) — Profesiones y Personajes los referencian por nombre</li>
       <li>Importa este backup completo</li>

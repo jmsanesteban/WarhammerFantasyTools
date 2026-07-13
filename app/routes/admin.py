@@ -1843,8 +1843,8 @@ def backup_import():
 
     labels = {
         'permission_templates': 'Plantillas de permisos', 'synonyms': 'Sinónimos', 'users': 'Usuarios',
-        'professions': 'Profesiones', 'equipment': 'Equipamiento', 'characters': 'Personajes',
-        'contacts': 'Contactos y vínculos',
+        'professions': 'Profesiones', 'equipment': 'Equipamiento', 'recipes': 'Recetas',
+        'characters': 'Personajes', 'contacts': 'Contactos y vínculos',
     }
     for key, label in labels.items():
         s = summaries[key]
