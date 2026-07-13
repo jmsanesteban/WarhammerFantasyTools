@@ -32,7 +32,7 @@
           <div class="col-md-4" id="paradero-wrap">
             <label class="form-label wh-label">Paradero</label>
             <select name="paradero" class="form-select wh-input">
-              <option value="">— Ninguno —</option>
+              <option value="">Conocido</option>
               {% for key in paradero_choices %}
               <option value="{{ key }}" {% if contact.paradero == key %}selected{% endif %}>{{ paradero_labels[key] }}</option>
               {% endfor %}
