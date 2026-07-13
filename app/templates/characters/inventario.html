@@ -19,22 +19,19 @@
   </div>
 
   {# ── Carga: solo Equipamiento + Mochila/Saco cuentan como "llevado encima" ── #}
+  {% set carried_label = 'Equipamiento + ' + (container_labels[char.mochila_o_saco] if char.mochila_o_saco else 'Mochila/Saco') %}
   <div class="card wh-card mb-4 {{ carry_level_css }}">
-    <div class="card-header wh-card-header d-flex justify-content-between align-items-center">
+    <div class="card-header wh-card-header d-flex justify-content-between align-items-center flex-wrap gap-2">
       <span>Carga</span>
+      <small class="text-muted">ligera ≥ {{ thresholds.ligera }} U / media ≥ {{ thresholds.media }} U / pesada ≥ {{ thresholds.pesada }} U</small>
       <span class="badge wh-carga-badge {{ carry_level_css }}">{{ carry_level_label }}</span>
     </div>
     <div class="card-body {{ carry_level_css }}">
-      <p class="mb-2">
-        Peso llevado (Equipamiento + Mochila/Saco): <strong>{{ '%.1f'|format(carried_weight) }} U</strong>
-        — ligera ≥ {{ thresholds.ligera }} U / media ≥ {{ thresholds.media }} U / pesada ≥ {{ thresholds.pesada }} U
+      <p class="mb-0">
+        Peso llevado ({{ carried_label }}): <strong>{{ '%.1f'|format(carried_weight) }} U</strong>
+        &nbsp;|&nbsp; Viaje: {{ carry_level_penalties.viaje }}
+        &nbsp;|&nbsp; Turno: {{ carry_level_penalties.turno }}
       </p>
-      {% if carry_level_penalties.turno or carry_level_penalties.viaje %}
-      <ul class="mb-0 ps-3">
-        <li><strong>Turno:</strong> {{ carry_level_penalties.turno }}</li>
-        <li><strong>Viaje:</strong> {{ carry_level_penalties.viaje }}</li>
-      </ul>
-      {% endif %}
     </div>
   </div>
 

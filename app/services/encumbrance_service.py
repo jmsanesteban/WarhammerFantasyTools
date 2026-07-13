@@ -23,10 +23,11 @@ LEVEL_CSS_CLASS = {
     'pesada': 'wh-carga-pesada',
 }
 
-# Penalty text split by turno/viaje (None = sin penalización ese aspecto) so
-# the UI can label each one explicitly instead of a single blended sentence.
+# Penalty text split by turno/viaje so the UI can label each one explicitly
+# instead of a single blended sentence - always a string (even for
+# sin_carga) since the summary line always shows both.
 LEVEL_PENALTIES = {
-    'sin_carga': {'turno': None, 'viaje': None},
+    'sin_carga': {'turno': 'Sin penalización.', 'viaje': 'Sin penalización.'},
     'ligera': {
         'turno': '-1 Movimiento.',
         'viaje': 'Sin penalización.',

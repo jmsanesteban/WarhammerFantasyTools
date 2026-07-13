@@ -216,6 +216,28 @@ def test_carga_card_shows_turno_and_viaje_penalties_separately(db, client, make_
     assert 'Viaje:' in html
 
 
+def test_carga_card_shows_penalties_even_at_sin_carga(db, client, make_user, make_character, login_as):
+    """Turno/Viaje must read 'Sin penalización.', not be blank/missing, once
+    a container is known - the summary line is always shown now."""
+    char = _owner_and_char(make_user, make_character, login_as, client, s_char=50, t_char=50)
+    resp = client.get(f'/personajes/{char.id}/inventario')
+    html = resp.data.decode()
+    assert resp.status_code == 200
+    assert 'Sin carga' in html
+    assert html.count('Sin penalización.') == 2
+
+
+def test_carga_card_names_the_actual_container_carried(db, client, make_user, make_character, login_as):
+    """Once the player has picked Mochila or Saco, the weight line should say
+    so by name instead of the generic 'Mochila/Saco' placeholder."""
+    char = _owner_and_char(make_user, make_character, login_as, client, mochila_o_saco='saco')
+    resp = client.get(f'/personajes/{char.id}/inventario')
+    html = resp.data.decode()
+    assert resp.status_code == 200
+    assert 'Equipamiento + Saco' in html
+    assert 'Equipamiento + Mochila/Saco' not in html
+
+
 # ── mover_inventario route ───────────────────────────────────────────────────
 
 def test_mover_full_stack_changes_location(db, client, make_user, make_character, make_equipment_item, login_as):
