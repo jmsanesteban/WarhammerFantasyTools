@@ -17,11 +17,11 @@
       <div class="card-header wh-card-header">Datos del contacto</div>
       <div class="card-body">
         <div class="row g-3">
-          <div class="col-md-8">
+          <div class="col-12">
             <label class="form-label wh-label">Nombre *</label>
             <input type="text" name="nombre" class="form-control wh-input" required value="{{ contact.nombre }}">
           </div>
-          <div class="col-md-2">
+          <div class="col-md-3">
             <label class="form-label wh-label">Estado</label>
             <select name="estado" id="sel-estado" class="form-select wh-input">
               {% for key in ['vivo', 'muerto', 'corrompido'] %}
@@ -29,7 +29,7 @@
               {% endfor %}
             </select>
           </div>
-          <div class="col-md-2" id="paradero-wrap">
+          <div class="col-md-4" id="paradero-wrap">
             <label class="form-label wh-label">Paradero</label>
             <select name="paradero" class="form-select wh-input">
               <option value="">— Ninguno —</option>
@@ -38,7 +38,7 @@
               {% endfor %}
             </select>
           </div>
-          <div class="col-md-4 d-flex align-items-end">
+          <div class="col-md-3 d-flex align-items-end">
             <label class="d-flex align-items-center gap-2" style="cursor:pointer">
               <input type="checkbox" name="es_untersuchung" class="form-check-input" id="chk-untersuchung"
                      {% if contact.es_untersuchung %}checked{% endif %}>
