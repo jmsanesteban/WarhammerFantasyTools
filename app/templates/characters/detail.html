@@ -34,6 +34,20 @@
             {% endif %}
           </p>
           <p><strong class="wh-label">Puntos de Historial:</strong> {{ char.history_points_available }} disponibles ({{ char.history_points_spent }} gastados de {{ char.history_points_total }})</p>
+          {% if char.es_untersuchung or char.grados_untersuchung %}
+          <p class="mb-1"><strong class="wh-label">Untersuchung:</strong> {{ 'Sí' if char.es_untersuchung else 'No' }}
+            {% if char.grados_untersuchung %} — {{ char.grados_untersuchung|join(', ') }}{% endif %}</p>
+          {% if char.grados_untersuchung %}
+          <div class="d-flex flex-wrap gap-2 mb-2">
+            {% for g in char.grados_untersuchung %}
+            {% if marca_images.get(g) %}
+            <img src="{{ marca_images[g] }}" alt="{{ g }}" title="{{ g }}"
+                 style="width:64px;height:64px;object-fit:cover;border-radius:4px;border:1px solid var(--wh-border-gold)">
+            {% endif %}
+            {% endfor %}
+          </div>
+          {% endif %}
+          {% endif %}
           {% if char.notes %}<p class="text-muted small">{{ char.notes }}</p>{% endif %}
         </div>
         <div class="card-footer d-flex gap-2">

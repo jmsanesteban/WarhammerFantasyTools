@@ -1,15 +1,6 @@
 from datetime import datetime
 from app.extensions import db
-
-# Grados fijos de la Untersuchung (documento "untersuchung.pdf"): los primeros
-# 8 son agentes "con marca" (miembros reales de la organización); Bazas y
-# Contactos son "sin marca" - no pertenecen a la Untersuchung pero trabajan
-# para ella. Un contacto puede tener varios grados a la vez ("grados mixtos",
-# p.ej. Paloma/Gato), de ahí que se guarde como lista, no como valor único.
-UNTERSUCHUNG_GRADOS = [
-    'Escudo', 'Estilete', 'Gato', 'Brújula', 'Pluma', 'Corona', 'Carro', 'Paloma',
-    'Bazas', 'Contactos',
-]
+from app.models.untersuchung import UNTERSUCHUNG_GRADOS  # noqa: F401 (re-exported for existing importers)
 
 # Dos preguntas distintas sobre la situación de un contacto (2026-07-14, tras
 # discutirlo con el usuario): "estado" es si sigue con vida o no; "paradero"
@@ -39,7 +30,7 @@ class Contact(db.Model):
     es_untersuchung = db.Column(db.Boolean, default=False, nullable=False)
     estado = db.Column(db.String(20), nullable=False, default='vivo')
     paradero = db.Column(db.String(30), nullable=True)  # solo relevante si estado == 'vivo'
-    grados_untersuchung = db.Column(db.JSON, nullable=True)  # lista de UNTERSUCHUNG_GRADOS; solo aplica si es_untersuchung
+    grados_untersuchung = db.Column(db.JSON, nullable=True)  # lista de UNTERSUCHUNG_GRADOS (ver app/models/untersuchung.py)
     image_path = db.Column(db.String(300), nullable=True)
     is_visible = db.Column(db.Boolean, default=True, nullable=False)
     created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)

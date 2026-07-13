@@ -301,6 +301,9 @@ def _register_cli_commands(app):
                 if 'mochila_o_saco' not in char_cols:
                     conn.execute(text('ALTER TABLE characters ADD COLUMN mochila_o_saco VARCHAR(10) NULL'))
                     click.echo('  Added characters.mochila_o_saco')
+                if 'grados_untersuchung' not in char_cols:
+                    conn.execute(text('ALTER TABLE characters ADD COLUMN grados_untersuchung JSON NULL'))
+                    click.echo('  Added characters.grados_untersuchung')
 
             # Incremental columns: character_professions salary (tabla de sueldos,
             # aplica también a la carrera del propio personaje, no solo a Contactos)

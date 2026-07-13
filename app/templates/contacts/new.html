@@ -44,14 +44,19 @@
               Untersuchung
             </label>
           </div>
-          <div class="col-12" id="grados-wrap" style="display:none">
-            <label class="form-label wh-label">Grado(s) en la Untersuchung</label>
-            <select name="grados_untersuchung" class="form-select wh-input" multiple size="6">
+          <div class="col-12">
+            <label class="form-label wh-label">Grado(s) en la Untersuchung (máx. 3)</label>
+            <select name="grados_untersuchung" id="sel-grados" class="form-select wh-input" multiple size="6">
               {% for g in grados %}
-              <option value="{{ g }}">{{ g }}</option>
+              <option value="{{ g }}" data-marca="{{ marca_images.get(g, '') }}">{{ g }}</option>
               {% endfor %}
             </select>
-            <small class="text-muted">Ctrl/Cmd + clic para elegir varios (hay grados mixtos, p.ej. Paloma/Gato).</small>
+            <small class="text-muted">
+              Ctrl/Cmd + clic para elegir varios (máximo 3 — hay grados mixtos, p.ej. Paloma/Gato). Bazas y
+              Contactos no pertenecen a la Untersuchung pero pueden tener grado igualmente; cualquiera de los
+              otros 8 marca automáticamente "Untersuchung".
+            </small>
+            <div id="marcas-preview" class="d-flex flex-wrap gap-2 mt-2"></div>
           </div>
           <div class="col-md-8">
             <label class="form-label wh-label">Foto/imagen</label>
@@ -140,10 +145,33 @@
 {% block extra_scripts %}
 <script>
 (function () {
-  const chk = document.getElementById('chk-untersuchung');
-  const wrap = document.getElementById('grados-wrap');
-  function sync() { wrap.style.display = chk.checked ? '' : 'none'; }
-  chk.addEventListener('change', sync);
+  const sel = document.getElementById('sel-grados');
+  const preview = document.getElementById('marcas-preview');
+  const untersuchungChk = document.getElementById('chk-untersuchung');
+  const CON_MARCA = {{ grados_con_marca|tojson }};
+  function sync() {
+    const options = Array.from(sel.options);
+    let selected = options.filter(o => o.selected);
+    if (selected.length > 3) {
+      selected[selected.length - 1].selected = false;
+      selected = options.filter(o => o.selected);
+      alert('Como máximo se pueden tener 3 grados a la vez.');
+    }
+    preview.innerHTML = '';
+    selected.forEach(o => {
+      if (!o.dataset.marca) return;
+      const img = document.createElement('img');
+      img.src = o.dataset.marca;
+      img.alt = o.value;
+      img.title = o.value;
+      img.style.cssText = 'width:64px;height:64px;object-fit:cover;border-radius:4px;border:1px solid var(--wh-border-gold)';
+      preview.appendChild(img);
+    });
+    if (selected.some(o => CON_MARCA.includes(o.value))) {
+      untersuchungChk.checked = true;
+    }
+  }
+  sel.addEventListener('change', sync);
   sync();
 })();
 

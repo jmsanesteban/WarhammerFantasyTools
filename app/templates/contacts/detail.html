@@ -60,9 +60,19 @@
             {% if current_user.is_admin or (active_character and active_character.es_untersuchung) %}
             <dt class="col-sm-4 wh-label">Untersuchung</dt>
             <dd class="col-sm-8">{{ 'Sí' if contact.es_untersuchung else 'No' }}</dd>
-            {% if contact.es_untersuchung and contact.grados_untersuchung %}
+            {% if contact.grados_untersuchung %}
             <dt class="col-sm-4 wh-label">Grado(s)</dt>
-            <dd class="col-sm-8">{{ contact.grados_untersuchung|join(', ') }}</dd>
+            <dd class="col-sm-8">
+              {{ contact.grados_untersuchung|join(', ') }}
+              <div class="d-flex flex-wrap gap-2 mt-2">
+                {% for g in contact.grados_untersuchung %}
+                {% if marca_images.get(g) %}
+                <img src="{{ marca_images[g] }}" alt="{{ g }}" title="{{ g }}"
+                     style="width:64px;height:64px;object-fit:cover;border-radius:4px;border:1px solid var(--wh-border-gold)">
+                {% endif %}
+                {% endfor %}
+              </div>
+            </dd>
             {% endif %}
             {% endif %}
           </dl>

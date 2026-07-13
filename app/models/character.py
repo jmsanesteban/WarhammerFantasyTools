@@ -160,6 +160,7 @@ class Character(db.Model):
     # --- Contactos: pertenencia a la Untersuchung (restringe la visibilidad
     # del mismo dato en los contactos que este personaje conoce) ---
     es_untersuchung = db.Column(db.Boolean, nullable=False, default=False)
+    grados_untersuchung = db.Column(db.JSON, nullable=True)  # lista de UNTERSUCHUNG_GRADOS (ver app/models/untersuchung.py)
 
     # --- Inventario: qué lleva puesto para el almacenaje "Mochila/saco" -
     # 'mochila' (50U) o 'saco' (80U), ver encumbrance_service.CONTAINER_CAPACITIES.

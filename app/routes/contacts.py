@@ -9,6 +9,7 @@ from app.models.contact import (
     Contact, ContactProfession, UNTERSUCHUNG_GRADOS,
     ESTADO_CHOICES, ESTADO_LABELS, PARADERO_CHOICES, PARADERO_LABELS,
 )
+from app.models.untersuchung import clamp_grados, has_marca, marca_image_path, UNTERSUCHUNG_GRADOS_CON_MARCA
 from app.models.contact_character_link import (
     ContactCharacterLink, ContactApodo, ContactCharacterSalary, ContactCharacterVisibility,
 )
@@ -28,7 +29,30 @@ def _can_edit(contact):
 
 
 def _grados_from_form():
-    return [g for g in request.form.getlist('grados_untersuchung') if g in UNTERSUCHUNG_GRADOS] or None
+    return clamp_grados(request.form.getlist('grados_untersuchung'))
+
+
+def _marca_images():
+    """{grado: uploaded-file-url} for the 8 "con marca" grados - passed to
+    every contact form/detail template so it can show the mark image live as
+    grados are picked (JS) or read-only (ficha)."""
+    images = {}
+    for g in UNTERSUCHUNG_GRADOS:
+        path = marca_image_path(g)
+        if path:
+            images[g] = url_for('main.uploaded_file', filename=path)
+    return images
+
+
+def _grado_form_context():
+    """Shared template kwargs for every contact form render (new/edit, both
+    the happy path and each validation-error re-render)."""
+    return dict(
+        grados=UNTERSUCHUNG_GRADOS, grados_con_marca=UNTERSUCHUNG_GRADOS_CON_MARCA,
+        estado_choices=ESTADO_CHOICES, estado_labels=ESTADO_LABELS,
+        paradero_choices=PARADERO_CHOICES, paradero_labels=PARADERO_LABELS,
+        marca_images=_marca_images(),
+    )
 
 
 def _estado_from_form():
@@ -190,23 +214,20 @@ def new():
         if not nombre:
             flash('El contacto necesita un nombre.', 'danger')
             return render_template('contacts/new.html', characters=characters, professions=professions,
-                                   grados=UNTERSUCHUNG_GRADOS, estado_choices=ESTADO_CHOICES,
-                                   estado_labels=ESTADO_LABELS, paradero_choices=PARADERO_CHOICES,
-                                   paradero_labels=PARADERO_LABELS)
+                                   **_grado_form_context())
         if not personaje and not current_user.is_admin:
             flash('Selecciona el personaje que registra este contacto.', 'danger')
             return render_template('contacts/new.html', characters=characters, professions=professions,
-                                   grados=UNTERSUCHUNG_GRADOS, estado_choices=ESTADO_CHOICES,
-                                   estado_labels=ESTADO_LABELS, paradero_choices=PARADERO_CHOICES,
-                                   paradero_labels=PARADERO_LABELS)
+                                   **_grado_form_context())
 
         estado = _estado_from_form()
+        grados = _grados_from_form()
         contact = Contact(
             nombre=nombre,
-            es_untersuchung=request.form.get('es_untersuchung') == 'on',
+            es_untersuchung=request.form.get('es_untersuchung') == 'on' or has_marca(grados),
             estado=estado,
             paradero=_paradero_from_form(estado),
-            grados_untersuchung=_grados_from_form(),
+            grados_untersuchung=grados,
             created_by_id=current_user.id,
         )
         _save_image_from_form(contact)
@@ -235,8 +256,7 @@ def new():
         return redirect(url_for('contacts.detail', contact_id=contact.id))
 
     return render_template('contacts/new.html', characters=characters, professions=professions,
-                           grados=UNTERSUCHUNG_GRADOS, estado_choices=ESTADO_CHOICES, estado_labels=ESTADO_LABELS,
-                           paradero_choices=PARADERO_CHOICES, paradero_labels=PARADERO_LABELS)
+                           **_grado_form_context())
 
 
 def _link_fields_from_form():
@@ -310,6 +330,7 @@ def detail(contact_id):
         can_edit=_can_edit(contact),
         estado_labels=ESTADO_LABELS,
         paradero_labels=PARADERO_LABELS,
+        marca_images=_marca_images(),
     )
 
 
@@ -462,16 +483,13 @@ def edit(contact_id):
         if not nombre:
             flash('El contacto necesita un nombre.', 'danger')
             return render_template('contacts/edit.html', contact=contact, professions=professions,
-                                   selected_profession_ids=selected_profession_ids,
-                                   grados=UNTERSUCHUNG_GRADOS, estado_choices=ESTADO_CHOICES,
-                                   estado_labels=ESTADO_LABELS, paradero_choices=PARADERO_CHOICES,
-                                   paradero_labels=PARADERO_LABELS)
+                                   selected_profession_ids=selected_profession_ids, **_grado_form_context())
 
         contact.nombre = nombre
-        contact.es_untersuchung = request.form.get('es_untersuchung') == 'on'
+        contact.grados_untersuchung = _grados_from_form()
+        contact.es_untersuchung = request.form.get('es_untersuchung') == 'on' or has_marca(contact.grados_untersuchung)
         contact.estado = _estado_from_form()
         contact.paradero = _paradero_from_form(contact.estado)
-        contact.grados_untersuchung = _grados_from_form()
         _save_image_from_form(contact)
         if current_user.is_admin:
             contact.is_visible = request.form.get('is_visible') == 'on'
@@ -486,9 +504,7 @@ def edit(contact_id):
         return redirect(url_for('contacts.detail', contact_id=contact.id))
 
     return render_template('contacts/edit.html', contact=contact, professions=professions,
-                           selected_profession_ids=selected_profession_ids, grados=UNTERSUCHUNG_GRADOS,
-                           estado_choices=ESTADO_CHOICES, estado_labels=ESTADO_LABELS,
-                           paradero_choices=PARADERO_CHOICES, paradero_labels=PARADERO_LABELS)
+                           selected_profession_ids=selected_profession_ids, **_grado_form_context())
 
 
 # ── Visibilidad por personaje (admin) ───────────────────────────────────────

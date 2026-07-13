@@ -14,6 +14,9 @@ from app.models.skill import Skill
 from app.models.talent import Talent
 from app.models.user import User
 from app.models.equipment import EquipmentItem, CharacterInventoryItem, CharacterPurchase, CharacterCartItem
+from app.models.untersuchung import (
+    UNTERSUCHUNG_GRADOS, UNTERSUCHUNG_GRADOS_CON_MARCA, clamp_grados, has_marca, marca_image_path,
+)
 from app.services import character_creation_service as ccs
 from app.services import salary_service
 from app.services import encumbrance_service
@@ -30,6 +33,26 @@ _RAZAS = ['Humano', 'Halfling', 'Enano', 'Elfo Silvano', 'Alto Elfo']
 def _form_int(field, default=None):
     val = request.form.get(field, '').strip()
     return int(val) if val.lstrip('-').isdigit() else default
+
+
+def _grados_from_form():
+    return clamp_grados(request.form.getlist('grados_untersuchung'))
+
+
+def _marca_images():
+    images = {}
+    for g in UNTERSUCHUNG_GRADOS:
+        path = marca_image_path(g)
+        if path:
+            images[g] = url_for('main.uploaded_file', filename=path)
+    return images
+
+
+def _grado_form_context():
+    return dict(
+        grados=UNTERSUCHUNG_GRADOS, grados_con_marca=UNTERSUCHUNG_GRADOS_CON_MARCA,
+        marca_images=_marca_images(),
+    )
 
 
 def _professions_picker_context(professions):
@@ -69,7 +92,7 @@ def detail(char_id):
     char = Character.query.get_or_404(char_id)
     if char.user_id != current_user.id and not current_user.is_admin:
         abort(403)
-    return render_template('characters/detail.html', char=char)
+    return render_template('characters/detail.html', char=char, marca_images=_marca_images())
 
 
 def _rebuild_professions(char_id):
@@ -103,15 +126,18 @@ def create():
         if not name:
             flash('El personaje necesita un nombre.', 'danger')
             return render_template('characters/form.html', char=None, professions=professions,
-                                   salary_table=salary_service.get_salary_table(), **picker_ctx)
+                                   salary_table=salary_service.get_salary_table(), **picker_ctx,
+                                   **_grado_form_context())
 
+        grados = _grados_from_form()
         char = Character(
             user_id=current_user.id,
             name=name,
             race=request.form.get('race', '').strip() or None,
             gender=request.form.get('gender', '').strip() or None,
             notes=request.form.get('notes', '').strip() or None,
-            es_untersuchung=request.form.get('es_untersuchung') == 'on',
+            es_untersuchung=request.form.get('es_untersuchung') == 'on' or has_marca(grados),
+            grados_untersuchung=grados,
             nivel_social=_form_int('nivel_social', 1),
             dinero_coronas=_form_int('dinero_coronas', 0),
         )
@@ -125,7 +151,8 @@ def create():
         return redirect(url_for('characters.detail', char_id=char.id))
 
     return render_template('characters/form.html', char=None, professions=professions,
-                           salary_table=salary_service.get_salary_table(), **picker_ctx)
+                           salary_table=salary_service.get_salary_table(), **picker_ctx,
+                           **_grado_form_context())
 
 
 @characters_bp.route('/<int:char_id>/editar', methods=['GET', 'POST'])
@@ -143,7 +170,8 @@ def edit(char_id):
         char.race = request.form.get('race', '').strip() or None
         char.gender = request.form.get('gender', '').strip() or None
         char.notes = request.form.get('notes', '').strip() or None
-        char.es_untersuchung = request.form.get('es_untersuchung') == 'on'
+        char.grados_untersuchung = _grados_from_form()
+        char.es_untersuchung = request.form.get('es_untersuchung') == 'on' or has_marca(char.grados_untersuchung)
         char.nivel_social = _form_int('nivel_social', char.nivel_social or 1)
         char.dinero_coronas = _form_int('dinero_coronas', char.dinero_coronas or 0)
 
@@ -156,7 +184,8 @@ def edit(char_id):
         return redirect(url_for('characters.detail', char_id=char.id))
 
     return render_template('characters/form.html', char=char, professions=professions,
-                           salary_table=salary_service.get_salary_table(), **picker_ctx)
+                           salary_table=salary_service.get_salary_table(), **picker_ctx,
+                           **_grado_form_context())
 
 
 @characters_bp.route('/<int:char_id>/eliminar', methods=['POST'])
