@@ -24,6 +24,7 @@ from app.models.contact_note import ContactNote
 from app.models.character import Character
 from app.models.food import Recipe
 from app.models.equipment import EquipmentItem
+from app.models.shop import current_markup_pct, set_markup_pct
 from app.utils import (
     admin_required, allowed_file, generate_secure_password,
     json_download_response, flash_import_summary,
@@ -1844,7 +1845,7 @@ def backup_import():
     labels = {
         'permission_templates': 'Plantillas de permisos', 'synonyms': 'Sinónimos', 'users': 'Usuarios',
         'professions': 'Profesiones', 'equipment': 'Equipamiento', 'recipes': 'Recetas',
-        'characters': 'Personajes', 'contacts': 'Contactos y vínculos',
+        'shop_markup': 'Recargo de precios', 'characters': 'Personajes', 'contacts': 'Contactos y vínculos',
     }
     for key, label in labels.items():
         s = summaries[key]
@@ -1860,6 +1861,26 @@ def backup_import():
             flash(Markup('<strong>Contraseñas temporales asignadas:</strong> {}').format(detail), 'warning')
 
     return redirect(url_for('admin.backup_home'))
+
+
+# ---------------------------------------------------------------------------
+# Recargo global de precios (comida/bebida por ahora): un director de juego
+# puede subir el precio un % "por disponibilidad u otras razones".
+# ---------------------------------------------------------------------------
+
+@admin_bp.route('/recargo-precios', methods=['GET', 'POST'])
+@login_required
+@admin_required
+def shop_markup_edit():
+    if request.method == 'POST':
+        pct = request.form.get('pct', '0').strip()
+        pct = int(pct) if pct.lstrip('-').isdigit() else 0
+        set_markup_pct(pct, updated_by_id=current_user.id)
+        db.session.commit()
+        flash(f'Recargo global actualizado al {pct}%.', 'success')
+        return redirect(url_for('admin.shop_markup_edit'))
+
+    return render_template('admin/shop_markup.html', pct=current_markup_pct())
 
 
 # ---------------------------------------------------------------------------

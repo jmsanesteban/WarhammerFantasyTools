@@ -91,7 +91,11 @@
           <th>{{ sort_link('precio', 'Precio (taberna)') }}</th>
           <th>Cantidad</th>
           <th>Total</th>
-          <th style="width:5rem"></th>
+          {% if personajes %}
+          <th>Personaje</th>
+          <th>Ubicación</th>
+          {% endif %}
+          <th style="width:9rem"></th>
         </tr>
       </thead>
       <tbody>
@@ -110,11 +114,34 @@
             {{ drink.precio_taberna_peniques | food_money }}
           </td>
           <td style="width:6rem">
-            <input type="number" min="1" value="1" class="form-control form-control-sm wh-qty-input">
+            <input type="number" min="1" value="1" class="form-control form-control-sm wh-qty-input"
+                   form="wh-buy-{{ drink.id }}" name="cantidad">
           </td>
-          <td class="wh-qty-total">{{ drink.precio_taberna_peniques | food_money }}</td>
+          <td class="wh-qty-total"></td>
+          {% if personajes %}
           <td>
+            <select class="form-select form-select-sm" form="wh-buy-{{ drink.id }}" name="personaje_id" style="min-width:8rem">
+              {% for char, owner in personajes %}
+              <option value="{{ char.id }}">{{ char.name }}{% if owner %} ({{ owner }}){% endif %}</option>
+              {% endfor %}
+            </select>
+          </td>
+          <td>
+            <select class="form-select form-select-sm" form="wh-buy-{{ drink.id }}" name="ubicacion" style="min-width:8rem">
+              {% for loc in locations %}
+              <option value="{{ loc }}">{{ location_labels[loc] }}</option>
+              {% endfor %}
+            </select>
+          </td>
+          {% endif %}
+          <td class="text-nowrap">
             <a href="{{ url_for('food.drink_detail', drink_id=drink.id) }}" class="btn btn-outline-secondary btn-sm">Ver</a>
+            {% if personajes %}
+            <form id="wh-buy-{{ drink.id }}" method="POST" action="{{ url_for('food.comprar_bebida', drink_id=drink.id) }}" class="d-inline">
+              <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            </form>
+            <button type="submit" form="wh-buy-{{ drink.id }}" class="btn btn-wh btn-sm">Comprar</button>
+            {% endif %}
           </td>
         </tr>
         {% endfor %}
@@ -125,16 +152,19 @@
 </div>
 
 <script>
+var whMarkupPct = {{ (markup_pct or 0) | int }};
 document.querySelectorAll('tr').forEach(function (row) {
   var input = row.querySelector('.wh-qty-input');
   var priceCell = row.querySelector('.wh-price');
   var totalCell = row.querySelector('.wh-qty-total');
   if (!input || !priceCell || !totalCell) return;
   var unitPeniques = parseInt(priceCell.dataset.peniques, 10) || 0;
-  input.addEventListener('input', function () {
+  function render() {
     var qty = parseInt(input.value, 10) || 0;
-    totalCell.textContent = formatPeniques(unitPeniques * qty);
-  });
+    totalCell.textContent = formatPeniques(Math.round(unitPeniques * qty * (100 + whMarkupPct) / 100));
+  }
+  input.addEventListener('input', render);
+  render();
 });
 
 function formatPeniques(total) {

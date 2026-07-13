@@ -32,8 +32,8 @@ Aplicación web para gestionar profesiones, habilidades, talentos y personajes d
 | **Personajes** | Creación rápida (manual) o mediante el **Generador de Personaje**: asistente con tiradas guiadas (raza, profesión, características, trasfondo completo) siguiendo las reglas caseras de creación de personajes jugadores. Carrera profesional con múltiples profesiones en orden |
 | **Contactos** | Agenda de NPCs con datos globales (nombre, profesiones del catálogo, Untersuchung + grado, estado — vivo/muerto/corrompido — y paradero, foto) y datos por personaje (apodos, nivel de relación, salario, notas privadas), visibilidad por contacto/personaje, e importación/exportación Excel. Módulo integrado a partir del proyecto independiente [ContactosWH](https://github.com/jmsanesteban/ContactosWH) (ahora archivado, ver nota histórica en su README) |
 | **Sistema de permisos** | Control granular por función: plantillas de permisos reutilizables + asignaciones directas por usuario; los administradores tienen acceso total |
-| **Backup y recuperación** | Exportar/importar en JSON Profesiones, Usuarios, Equipamiento, Recetas propuestas, Personajes (incluido su inventario, historial de compras y dinero concedido) y Contactos+Vínculos (incluidas sus notas privadas), Plantillas de permisos y Sinónimos (además del "Backup completo" que hace las ocho a la vez); pensado para poder levantar una instancia nueva desde cero sin perder ningún dato real (salvo las contraseñas, que se regeneran forzando el cambio en el primer login) |
-| **Comida y bebida** | Catálogo de bebidas por nación con calculadora de precio por cantidad; catálogo de recetas (vigor/moral/coste/duración/complejidad); tablas de referencia de ingredientes y métodos de cocina; página de normas de intoxicación y de vigor/moral diario; cualquier usuario puede proponer una receta nueva (cálculo automático de sus valores), que queda pendiente hasta que un administrador la revisa y aprueba |
+| **Backup y recuperación** | Exportar/importar en JSON Profesiones, Usuarios, Equipamiento, Recetas propuestas, Recargo de precios, Personajes (incluido su inventario —equipo y comida/bebida—, historial de compras y dinero concedido) y Contactos+Vínculos (incluidas sus notas privadas), Plantillas de permisos y Sinónimos (además del "Backup completo" que hace las nueve a la vez); pensado para poder levantar una instancia nueva desde cero sin perder ningún dato real (salvo las contraseñas, que se regeneran forzando el cambio en el primer login) |
+| **Comida y bebida** | Catálogo de bebidas por nación y de recetas (vigor/moral/coste/duración/complejidad), con **compra directa** vinculada a un personaje desde el propio menú (descuenta el dinero del banco y lo manda a su inventario, igual que el equipo); tablas de referencia de ingredientes y métodos de cocina; página de normas de intoxicación y de vigor/moral diario; cualquier usuario puede proponer una receta nueva (cálculo automático de sus valores), que queda pendiente hasta que un administrador la revisa y aprueba; un administrador puede activar un **recargo global (%)** sobre estas compras |
 | **Equipamiento** | Catálogo de armas, armaduras, ropa, libros, otros objetos y objetos especiales, con menú propio por categoría además del catálogo completo; ficha de cada objeto con estadísticas (`stats`, las del libro) y campos adicionales (`custom_fields`, añadidos a mano) editables uno a uno o **en bloque** sobre un conjunto filtrado (añadir/renombrar/eliminar un campo a la vez en varios objetos); cada personaje tiene su propia **tienda** (carrito + checkout que descuenta dinero), **inventario** repartido en 5 ubicaciones de almacenaje, e **historial de compras** inmutable; un administrador puede además conceder objetos especiales directamente (sin pasar por caja) o añadir dinero a mano a la cuenta de un personaje (mientras no haya sueldos/recompensas automáticos) |
 
 ---
@@ -545,7 +545,7 @@ pytest --cov=app --cov-report=term-missing
 | `tests/test_auth.py` | Login, registro, logout, redirección a `next`, usuarios inactivos, cambio de contraseña propio, y el bloqueo de `must_change_password` (redirige a cualquier página salvo logout hasta completarlo) |
 | `tests/test_admin_users.py` | Gestión admin de contraseñas: restablecer a una aleatoria, forzar cambio sin tocar la contraseña, y establecer una contraseña concreta (con validación de longitud/confirmación) |
 | `tests/test_professions.py` | CRUD de profesiones, permisos, características primarias/secundarias, habilidades/talentos/enseres/salidas asociados, y el export/import JSON (permiso `professions.edit`, formato con habilidades/talentos anidados) |
-| `tests/test_backup_service.py` | `app/services/backup_service.py`: round-trip export→borrar→reimportar de cada sección (Plantillas de permisos, Sinónimos, Usuarios, Profesiones con habilidades/talentos/enseres/salidas, Equipamiento incluido el emparejamiento por nombre+categoría+subcategoría+calidad y el objeto base de un especial, Recetas con método/ingredientes/condimentos por nombre, Personajes con las 7 tablas hijas más grado(s)/mochila-saco de la Untersuchung, inventario, historial de compras y dinero concedido, Contactos+Vínculos con apodos/salarios/visibilidad/estado-paradero/quién lo creó/notas privadas) y del Backup completo; modo `update` no duplica; una referencia inexistente (usuario/profesión/habilidad/talento/objeto base/objeto de inventario/ingrediente) se omite con aviso en vez de fallar; el export de Usuarios nunca incluye la contraseña y el import nunca la toca al actualizar; un backup antiguo que aún tenga el booleano `vivo` (antes de que se separara en estado/paradero) se sigue importando correctamente |
+| `tests/test_backup_service.py` | `app/services/backup_service.py`: round-trip export→borrar→reimportar de cada sección (Plantillas de permisos, Sinónimos, Usuarios, Profesiones con habilidades/talentos/enseres/salidas, Equipamiento incluido el emparejamiento por nombre+categoría+subcategoría+calidad y el objeto base de un especial, Recetas con método/ingredientes/condimentos por nombre, Recargo de precios (fila única), Personajes con las 7 tablas hijas más grado(s)/mochila-saco de la Untersuchung, inventario y historial de compras (incluida comida/bebida, emparejada por nombre de bebida+origen o nombre de receta) y dinero concedido, Contactos+Vínculos con apodos/salarios/visibilidad/estado-paradero/quién lo creó/notas privadas) y del Backup completo; modo `update` no duplica; una referencia inexistente (usuario/profesión/habilidad/talento/objeto base/objeto de inventario/ingrediente/bebida/receta) se omite con aviso en vez de fallar; el export de Usuarios nunca incluye la contraseña y el import nunca la toca al actualizar; un backup antiguo que aún tenga el booleano `vivo` (antes de que se separara en estado/paradero) se sigue importando correctamente |
 | `tests/test_admin_backup.py` | Rutas de backup en `/admin/*`: todas exigen admin (salvo Profesiones, que exige `professions.edit` y se cubre en `test_professions.py`), descarga JSON válido, importación end-to-end repuebla los datos tras borrarlos |
 | `tests/test_skills_talents.py` | CRUD de habilidades y talentos, búsqueda/filtros, buscador con autocompletado (páginas `/habilidades/buscar` y `/talentos/buscar`), importación/exportación en texto plano, y el guardián anti-duplicados (bloquea duplicados exactos, avisa de casi-duplicados) al crear/editar/importar |
 | `tests/test_characters.py` | CRUD de personajes WFRP, aislamiento por propietario (admin ve todos, jugador solo los suyos), historial de profesiones ordenado, `es_untersuchung`, salario por profesión |
@@ -564,6 +564,7 @@ pytest --cov=app --cov-report=term-missing
 | `tests/test_character_inventory.py` | Mover equipo entre ubicaciones del inventario (stack completo, cantidad parcial, mover varios a la vez, fusión con una pila ya existente en el destino) y las reglas de carga de "El Imperio y sus viajes" (`encumbrance_service`: umbrales Fuerza/Fuerza+Resistencia/2×(Fuerza+Resistencia), el bonus +20 del talento Robusto, que solo Equipamiento+Mochila/saco cuentan como peso llevado, el peso unidad/total por línea, el código de color por nivel de carga, y el límite físico independiente de Mochila (50U) / Saco (80U)) |
 | `tests/test_untersuchung_grados.py` | `app/models/untersuchung.py` (compartido entre Contactos y Personajes): tope de 3 grados (`clamp_grados`, preservando duplicados a propósito), qué grados cuentan como "con marca" (`has_marca` — Bazas/Contactos nunca cuentan), la imagen de marca de cada uno, `grados_display` (colapsa duplicados en "Gato x2"); que elegir un grado "con marca" marca automáticamente `es_untersuchung=True` en Contacto y en Personaje, que uno "sin marca" no lo hace, que se puede asignar el mismo grado a dos de las 3 marcas (doble marca), y que el tope de 3 slots se respeta en el servidor |
 | `tests/test_admin_synonyms.py` | Diccionario de sinónimos: crear/editar/eliminar, y la regresión de un bug real donde el botón "Editar" dejaba de funcionar en cuanto un término contenía una comilla (los valores viajan por atributos `data-*`, no incrustados con `\|tojson` dentro de un `onclick="..."`) |
+| `tests/test_food_purchases.py` | Compra directa de bebida/receta vinculada a un personaje: descuenta el dinero y crea el inventario (`drink_id`/`recipe_id`, sin `equipment_item_id`) y el historial de compras (`category_snapshot` bebida/comida); rechaza sin cobrar nada si falta dinero o si la receta no tiene precio de compra; solo el dueño del personaje (o un admin, para cualquiera) puede comprar; el recargo global de `ShopMarkup` se aplica al precio cobrado (nunca al enviado por el cliente); la página admin de Recargo de precios exige admin y persiste el %; inventario/historial enlazan de vuelta a la bebida/receta comprada |
 
 ### Notas de diseño
 
@@ -841,11 +842,12 @@ Además de la copia de seguridad completa por `mysqldump` (ver [Copias de seguri
 | **Usuarios** | Admin → Usuarios → Exportar/Importar | Todos los campos **salvo la contraseña** (ver más abajo) |
 | **Equipamiento** | Equipamiento → Exportar/Importar (requiere permiso `equipment.import`), o Admin → Panel | Todos los objetos del catálogo (armas, armaduras, ropa, libros, otros, especiales), con sus estadísticas, campos adicionales y el enlace al objeto base para objetos especiales. Empareja por (nombre, categoría, subcategoría, calidad) — no por id — porque el catálogo tiene bastantes objetos que comparten nombre dentro de una categoría (p.ej. cada tier de calidad de ropa) |
 | **Recetas** | Solo dentro del Backup completo (sin página propia) | Recetas propuestas por jugadores (pendiente/aprobada/rechazada) y las del libro, con método/ingredientes/condimentos por nombre. El resto del catálogo de Comida y bebida (métodos de cocina, ingredientes, bebidas) se siembra solo al arrancar el contenedor, no hace falta respaldarlo |
-| **Personajes** | Personajes → Exportar/Importar (solo visible para admin) | Ficha completa: características, trasfondo, carrera, habilidades, talentos, rasgos, contactos generados en creación, posesiones, objetos mágicos, grado(s) y mochila/saco de la Untersuchung, **inventario** (qué tiene y en qué ubicación), **historial de compras** y **dinero concedido a mano** |
+| **Recargo de precios** | Solo dentro del Backup completo (sin página propia) | El % global de recargo activo sobre las compras de comida/bebida y quién lo estableció por última vez |
+| **Personajes** | Personajes → Exportar/Importar (solo visible para admin) | Ficha completa: características, trasfondo, carrera, habilidades, talentos, rasgos, contactos generados en creación, posesiones, objetos mágicos, grado(s) y mochila/saco de la Untersuchung, **inventario** (qué tiene y en qué ubicación, incluida comida/bebida comprada), **historial de compras** y **dinero concedido a mano** |
 | **Plantillas de permisos** | Admin → Usuarios → Plantillas de permisos → Exportar/Importar | Nombre, descripción y permisos incluidos |
 | **Diccionario de sinónimos** | Admin → Diccionario de sinónimos → Exportar/Importar | Todas las entradas (término original/correcto, prefijo, notas) |
 | **Contactos + Vínculos** | Admin → Vínculos → Exportar/Importar | Cada contacto con **todos** sus vínculos por personaje (nivel, apodos, salario, GM/misión), las concesiones de visibilidad, quién lo registró y sus **notas privadas** por personaje — más completo que la exportación Excel de Contactos (que solo cubre nombre/Untersuchung/profesiones y se mantiene aparte, sin cambios) |
-| **Backup completo** | Admin → Backup completo (o el indicador del panel) | Exporta/importa las ocho secciones anteriores de golpe, en el orden correcto de dependencias. Pensado para poder levantar una instancia nueva desde cero (p. ej. tras un fallo de disco) sin perder ningún dato real — el único hueco intencionado es `CharacterCartItem` (un carrito de compra a medio hacer, sin valor de recuperación) |
+| **Backup completo** | Admin → Backup completo (o el indicador del panel) | Exporta/importa las nueve secciones anteriores de golpe, en el orden correcto de dependencias. Pensado para poder levantar una instancia nueva desde cero (p. ej. tras un fallo de disco) sin perder ningún dato real — el único hueco intencionado es `CharacterCartItem` (un carrito de compra a medio hacer, sin valor de recuperación) |
 
 Cómo funciona el import (mismo criterio en todas las secciones):
 
@@ -858,7 +860,7 @@ Cómo funciona el import (mismo criterio en todas las secciones):
 
 1. `flask init-db` (crea el esquema, siembra permisos/plantillas por defecto y el catálogo de Comida y bebida).
 2. Importa **Habilidades** y **Talentos** con su propio import (Profesiones y Personajes los referencian por nombre y no forman parte de este backup).
-3. Importa el **Backup completo** (o, si prefieres ir sección a sección: Plantillas de permisos → Sinónimos → Usuarios → Profesiones → Equipamiento → Recetas → Personajes → Contactos+Vínculos, en ese orden).
+3. Importa el **Backup completo** (o, si prefieres ir sección a sección: Plantillas de permisos → Sinónimos → Usuarios → Profesiones → Equipamiento → Recetas → Recargo de precios → Personajes → Contactos+Vínculos, en ese orden).
 
 ---
 
@@ -1020,6 +1022,7 @@ Ve a **Comida y bebida** en el menú principal.
 
 - **Bebidas**: catálogo completo por nación de origen (Bretonia, Enana, Elfica, Tilea, Estalia, Imperio, Kislev/Norsca, Arabia), con disponibilidad, calidad, sabor y precio en taberna. Filtra por nombre, origen, sabor, calidad o disponibilidad; pulsa en cualquier cabecera de columna para ordenar por ese campo (vuelve a pulsar para invertir el sentido) y usa **"Orden por defecto"** para volver al orden inicial (origen, nombre). En el listado y en la ficha de cada bebida hay una **calculadora de precio**: indica cuántas unidades quieres comprar y el total se calcula al momento (en Coronas de oro / Chelines de plata / Peniques). El dato de "Por mayor" es informativo (% de descuento comprando el tonel completo a un comerciante o productor). El campo **Sabor** tiene una categoría base (Extraño, Fuerte, Suave, Raro, Mala, Bueno, Muy buena, Dulce, Normal...) y, cuando el libro lo especifica, una **variante** más concreta debajo (p.ej. sabor "Extraño", variante "Picante" o "Amargo"; sabor "Raro", variante "Metálico" o "Café"). No se crean bebidas nuevas — es un catálogo cerrado.
 - **Recetas**: catálogo de recetas, con su método de cocina, calidad, vigor, moral, duración, si se puede recalentar, complejidad, coste de creación (12 raciones) y precio de compra (1 ración). Filtra por nombre, método o calidad, y ordena por cualquier columna (incluidos ambos costes) igual que en Bebidas. Tres recetas especiales (Empanadilla Halfling, Pan de piedra, Lágrimas de Isha) están marcadas como **"Solo compra"**: no se pueden elaborar, solo adquirir ya hechas. Las recetas propuestas por usuarios y ya aprobadas llevan una etiqueta **"Comunidad"**.
+- **Comprar bebidas y recetas**: tanto en el listado como en la ficha de cada bebida o receta (solo si tiene precio de compra) hay un formulario de **compra directa**: cantidad, el **personaje** al que va destinada (los tuyos, o cualquiera si eres administrador) y en qué **ubicación** de su inventario se guarda (las mismas 5 que usa el equipo). Al comprar se descuenta el total del dinero del personaje (todo o nada: si no llega el dinero no se cobra nada) y el objeto queda en su inventario y en su historial de compras, exactamente igual que el equipo — incluido el enlace de vuelta a la bebida/receta desde ahí. Si un administrador ha activado un **recargo global (%)** (Panel de administración → Recargo de precios, "por disponibilidad u otras razones"), el precio mostrado y el cobrado ya lo incluyen.
 - **Proponer una receta nueva**: cualquier usuario puede proponer una receta desde **Comida y bebida → Proponer receta**. Eliges el método de cocina y hasta 4 ingredientes y 2 condimentos (el formulario solo deja elegir combinaciones válidas para ese método, según la tabla de compatibilidad); Vigor, Moral, Coste, Precio de compra, Duración, Recalentar, Complejidad y **Calidad** se **calculan automáticamente** con las mismas fórmulas del libro — no hay que rellenar nada de eso a mano, y el formulario muestra el cálculo en vivo según vas eligiendo. La **Calidad** no se elige: sale directamente de la Complejidad (1-4 Mala, 5-8 Normal, 9-12 Buena, 13+ Excelente — cada ingrediente relleno suma +1 a la complejidad, cada condimento +2, más la complejidad base del método). La receta queda en estado **pendiente** y no aparece en el catálogo público hasta que un administrador la revisa, le añade una imagen y la aprueba (o la rechaza, con un motivo). Desde **Comida y bebida → Mis recetas** puedes ver el estado de todo lo que has propuesto (pendiente/aprobada/rechazada, con el motivo si aplica).
 - **Ingredientes**: tabla de referencia con el vigor/moral/coste por docena de cada familia de ingrediente, y su compatibilidad con cada método de cocina (Sí / Condimento / No).
 - **Métodos de cocina**: tabla de referencia (Crudo, Ahumado, Secado, Salado, Almíbar, Brasa, Cocido, Guisado, Asar, Hornear) con su vigor/moral/coste/duración base y cuántos ingredientes y condimentos admite cada uno.
@@ -1183,23 +1186,30 @@ equipment_items              (catálogo: arma | armadura | ropa | especial | lib
                               de guardarse aparte, para no desincronizarse entre las 4 calidades)
 
 character_inventory_items    (una entrada del inventario de un personaje)
-  ├─ character_id, equipment_item_id (o custom_name si no viene del catálogo)
+  ├─ character_id, equipment_item_id (o drink_id/recipe_id si es comida/bebida comprada,
+  │                           o custom_name si no viene de ningún catálogo - exactamente uno de los tres)
   ├─ quality, quantity
   ├─ location                 (una de las 5 ubicaciones: equipamiento/mochila_saco/alforjas/base/altdorf)
   └─ condition                (reservado para una futura fase de desgaste/reparación - sin usar hoy)
 
 character_cart_items         (línea pendiente de pagar - nunca guarda el precio: se recalcula desde
   ├─ character_id, equipment_item_id  equipment_item.price_for_quality() en cada vista y en el checkout,
-  ├─ quality, quantity                para que un cambio de nivel_social entre añadir y pagar no quede obsoleto)
-  └─ location
+  ├─ quality, quantity                para que un cambio de nivel_social entre añadir y pagar no quede obsoleto.
+  └─ location                         Solo Equipamiento - la compra de comida/bebida es directa, sin carrito)
 
 character_purchases          (historial inmutable - nunca se edita ni se borra tras crearse)
-  ├─ character_id, equipment_item_id
+  ├─ character_id, equipment_item_id (o drink_id/recipe_id si es comida/bebida)
   ├─ item_name_snapshot, category_snapshot, quality_snapshot
   │                          (congela lo comprado aunque el catálogo cambie/borre después)
-  ├─ precio_peniques_pagado  (0 para objetos concedidos por un admin o dados de alta sin coste)
+  ├─ precio_peniques_pagado  (0 para objetos concedidos por un admin o dados de alta sin coste; para
+  │                           comida/bebida ya incluye el recargo global activo en el momento de comprar)
   ├─ granted_by_gm, granted_by_user_id
   └─ notes
+
+shop_markup                  (fila única - recargo global % sobre las compras de comida/bebida,
+  ├─ pct                      activable/desactivable por un admin "por disponibilidad u otras razones")
+  ├─ updated_by_id
+  └─ updated_at
 
 character_money_grants       (historial inmutable de dinero concedido a mano - stand-in temporal
   ├─ character_id             mientras no existan sueldos/recompensas automáticos)
@@ -1284,7 +1294,8 @@ WarhammerFantasyTools/
     │   ├── contact_character_link.py   # ContactCharacterLink, ContactApodo, ContactCharacterSalary
     │   ├── contact_note.py             # ContactNote (por personaje)
     │   ├── food.py                     # CookingMethod, Ingredient, IngredientCookingMethod, Recipe, Drink
-    │   └── equipment.py    # EquipmentItem, CharacterInventoryItem, CharacterCartItem, CharacterPurchase
+    │   ├── equipment.py    # EquipmentItem, CharacterInventoryItem, CharacterCartItem, CharacterPurchase
+    │   └── shop.py         # ShopMarkup: recargo global (%) sobre las compras de comida/bebida
     ├── routes/
     │   ├── auth.py         # Login, registro, logout
     │   ├── main.py         # Página de inicio, errores, servicio de uploads
@@ -1293,8 +1304,10 @@ WarhammerFantasyTools/
     │   ├── pathfinder.py   # Buscador de caminos
     │   ├── characters.py   # Gestión de personajes WFRP + tienda/carrito/inventario/historial de compras
     │   ├── contacts.py     # Vistas de usuario de Contactos (listado, ficha, vínculo/salario/notas por personaje)
-    │   ├── admin.py        # Panel admin: usuarios, permisos, plantillas, PDF, Contactos (listado/import-export)
-    │   ├── food.py         # Comida y bebida: bebidas, recetas, ingredientes, métodos de cocina, normas
+    │   ├── admin.py        # Panel admin: usuarios, permisos, plantillas, PDF, Contactos (listado/import-export),
+    │   │                   # recargo global de precios
+    │   ├── food.py         # Comida y bebida: bebidas, recetas, ingredientes, métodos de cocina, normas,
+    │   │                   # y su compra directa vinculada a un personaje
     │   └── equipment.py    # Catálogo (menús por categoría + completo), edición en bloque, export/import
     ├── services/
     │   ├── pdf_processor.py      # OCR, traducción y parsing de PDFs

@@ -6,7 +6,12 @@ from flask_login import login_required, current_user
 from werkzeug.utils import secure_filename
 
 from app.extensions import db
+from app.models.character import Character
+from app.models.equipment import CharacterInventoryItem, CharacterPurchase
 from app.models.food import CookingMethod, Ingredient, IngredientCookingMethod, Recipe, Drink
+from app.models.shop import apply_markup, current_markup_pct
+from app.models.user import User
+from app.services.currency_service import format_peniques
 from app.services.recipe_calc_service import validate_and_calculate, RecipeCompositionError
 
 food_bp = Blueprint('food', __name__, template_folder='../templates')
@@ -29,6 +34,65 @@ _RECIPE_SORT_COLUMNS = {
 def _distinct_values(model, column):
     return [v for (v,) in model.query.with_entities(column).filter(column.isnot(None))
             .distinct().order_by(column).all()]
+
+
+def _selectable_characters():
+    """Personajes que el usuario actual puede elegir para comprar bebida/
+    comida: los suyos propios, o todos (con el nombre de su dueño) si es
+    admin. Devuelve tuplas (character, owner_username_or_None)."""
+    if current_user.is_admin:
+        return (Character.query.join(User, Character.user_id == User.id)
+                .order_by(User.username, Character.name)
+                .with_entities(Character, User.username).all())
+    return [(c, None) for c in
+            Character.query.filter_by(user_id=current_user.id).order_by(Character.name).all()]
+
+
+def _process_food_purchase(unit_price_peniques, category_snapshot, item_name, drink_id=None, recipe_id=None):
+    """Cobra al personaje elegido en el formulario y crea el inventario +
+    ledger de compra. Devuelve (char_or_None, error_message); error_message
+    es None cuando la compra se completó. El recargo global se recalcula
+    aquí siempre, nunca se confía en un total enviado por el cliente."""
+    from app.routes.characters import _get_owned_character
+
+    char_id = request.form.get('personaje_id', type=int)
+    if not char_id:
+        return None, 'Elige un personaje.'
+    char = _get_owned_character(char_id)
+
+    if unit_price_peniques is None:
+        return char, f'«{item_name}» no tiene un precio de compra definido.'
+
+    quantity = request.form.get('cantidad', '1').strip()
+    quantity = int(quantity) if quantity.isdigit() and int(quantity) > 0 else 1
+
+    location = request.form.get('ubicacion', '').strip()
+    if location not in CharacterInventoryItem.LOCATIONS:
+        return char, 'Ubicación de almacenamiento no válida.'
+
+    total_price = apply_markup(unit_price_peniques * quantity)
+    if total_price > char.dinero_total_peniques:
+        return char, (f'{char.name} no tiene suficiente dinero: hacen falta {format_peniques(total_price)}, '
+                       f'y tiene {format_peniques(char.dinero_total_peniques)}.')
+
+    char.set_dinero_desde_peniques(char.dinero_total_peniques - total_price)
+
+    inv_item = CharacterInventoryItem(
+        character_id=char.id, drink_id=drink_id, recipe_id=recipe_id,
+        quantity=quantity, location=location,
+    )
+    db.session.add(inv_item)
+    db.session.flush()
+
+    db.session.add(CharacterPurchase(
+        character_id=char.id, drink_id=drink_id, recipe_id=recipe_id,
+        item_name_snapshot=item_name, category_snapshot=category_snapshot,
+        precio_peniques_pagado=total_price, granted_by_gm=False, granted_by_user_id=current_user.id,
+        inventory_item_id=inv_item.id,
+    ))
+    db.session.commit()
+    flash(f'«{item_name}» comprado para {char.name} por {format_peniques(total_price)}.', 'success')
+    return char, None
 
 
 def _save_recipe_image(recipe, file_storage):
@@ -82,6 +146,8 @@ def drinks():
         disponibilidades=_distinct_values(Drink, Drink.disponibilidad),
         search=search, origen=origen, sabor=sabor, calidad=calidad, disponibilidad=disponibilidad,
         sort=sort, direction=direction,
+        personajes=_selectable_characters(), locations=CharacterInventoryItem.LOCATIONS,
+        location_labels=CharacterInventoryItem.LOCATION_LABELS, markup_pct=current_markup_pct(),
     )
 
 
@@ -89,7 +155,21 @@ def drinks():
 @login_required
 def drink_detail(drink_id):
     drink = Drink.query.get_or_404(drink_id)
-    return render_template('food/drink_detail.html', drink=drink)
+    return render_template('food/drink_detail.html', drink=drink,
+                           personajes=_selectable_characters(), locations=CharacterInventoryItem.LOCATIONS,
+                           location_labels=CharacterInventoryItem.LOCATION_LABELS, markup_pct=current_markup_pct())
+
+
+@food_bp.route('/bebidas/<int:drink_id>/comprar', methods=['POST'])
+@login_required
+def comprar_bebida(drink_id):
+    drink = Drink.query.get_or_404(drink_id)
+    _, error = _process_food_purchase(
+        drink.precio_taberna_peniques, 'bebida', drink.nombre, drink_id=drink.id,
+    )
+    if error:
+        flash(error, 'danger')
+    return redirect(url_for('food.drink_detail', drink_id=drink.id))
 
 
 @food_bp.route('/recetas')
@@ -124,7 +204,9 @@ def recipes():
 
     items = query.all()
     return render_template('food/recipes.html', recipes=items, metodos=_METHOD_ORDER,
-                           search=search, metodo=metodo, calidad=calidad, sort=sort, direction=direction)
+                           search=search, metodo=metodo, calidad=calidad, sort=sort, direction=direction,
+                           personajes=_selectable_characters(), locations=CharacterInventoryItem.LOCATIONS,
+                           location_labels=CharacterInventoryItem.LOCATION_LABELS, markup_pct=current_markup_pct())
 
 
 @food_bp.route('/recetas/<int:recipe_id>')
@@ -133,7 +215,23 @@ def recipe_detail(recipe_id):
     recipe = Recipe.query.get_or_404(recipe_id)
     if recipe.status != 'aprobada' and not current_user.is_admin and recipe.created_by_id != current_user.id:
         abort(404)
-    return render_template('food/recipe_detail.html', recipe=recipe)
+    return render_template('food/recipe_detail.html', recipe=recipe,
+                           personajes=_selectable_characters(), locations=CharacterInventoryItem.LOCATIONS,
+                           location_labels=CharacterInventoryItem.LOCATION_LABELS, markup_pct=current_markup_pct())
+
+
+@food_bp.route('/recetas/<int:recipe_id>/comprar', methods=['POST'])
+@login_required
+def comprar_receta(recipe_id):
+    recipe = Recipe.query.get_or_404(recipe_id)
+    if recipe.status != 'aprobada' and not current_user.is_admin and recipe.created_by_id != current_user.id:
+        abort(404)
+    _, error = _process_food_purchase(
+        recipe.precio_compra_peniques, 'comida', recipe.nombre, recipe_id=recipe.id,
+    )
+    if error:
+        flash(error, 'danger')
+    return redirect(url_for('food.recipe_detail', recipe_id=recipe.id))
 
 
 @food_bp.route('/recetas/nueva', methods=['GET', 'POST'])

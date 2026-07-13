@@ -26,6 +26,10 @@
           <td>
             {% if p.equipment_item %}
             <a href="{{ url_for('equipment.detail', item_id=p.equipment_item.id) }}" class="wh-link">{{ p.item_name_snapshot }}</a>
+            {% elif p.drink %}
+            <a href="{{ url_for('food.drink_detail', drink_id=p.drink.id) }}" class="wh-link">{{ p.item_name_snapshot }}</a>
+            {% elif p.recipe %}
+            <a href="{{ url_for('food.recipe_detail', recipe_id=p.recipe.id) }}" class="wh-link">{{ p.item_name_snapshot }}</a>
             {% else %}
             {{ p.item_name_snapshot }}
             {% endif %}

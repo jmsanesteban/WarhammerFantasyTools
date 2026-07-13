@@ -58,7 +58,7 @@ def create_app(config_name='default'):
     # Import models so Flask-Migrate detects them
     from app.models import (  # noqa: F401
         user, permission, profession, skill, talent, character, synonym,
-        contact, contact_character_link, contact_note, food, equipment,
+        contact, contact_character_link, contact_note, food, equipment, shop,
     )
 
     from app.services.currency_service import format_peniques
@@ -529,6 +529,39 @@ def _register_cli_commands(app):
                     with db.engine.begin() as conn:
                         conn.execute(text('ALTER TABLE character_inventory_items ADD COLUMN `condition` JSON NULL'))
                     click.echo('  Added character_inventory_items.condition')
+                if 'drink_id' not in inv_cols:
+                    with db.engine.begin() as conn:
+                        conn.execute(text(
+                            'ALTER TABLE character_inventory_items ADD COLUMN drink_id INT NULL '
+                            'REFERENCES drinks(id) ON DELETE SET NULL'
+                        ))
+                    click.echo('  Added character_inventory_items.drink_id')
+                if 'recipe_id' not in inv_cols:
+                    with db.engine.begin() as conn:
+                        conn.execute(text(
+                            'ALTER TABLE character_inventory_items ADD COLUMN recipe_id INT NULL '
+                            'REFERENCES recipes(id) ON DELETE SET NULL'
+                        ))
+                    click.echo('  Added character_inventory_items.recipe_id')
+
+            # Incremental columns: character_purchases.drink_id/recipe_id
+            # (comida/bebida compras reutilizan el mismo ledger de historial)
+            if inspector.has_table('character_purchases'):
+                purchase_cols = {c['name'] for c in inspector.get_columns('character_purchases')}
+                if 'drink_id' not in purchase_cols:
+                    with db.engine.begin() as conn:
+                        conn.execute(text(
+                            'ALTER TABLE character_purchases ADD COLUMN drink_id INT NULL '
+                            'REFERENCES drinks(id) ON DELETE SET NULL'
+                        ))
+                    click.echo('  Added character_purchases.drink_id')
+                if 'recipe_id' not in purchase_cols:
+                    with db.engine.begin() as conn:
+                        conn.execute(text(
+                            'ALTER TABLE character_purchases ADD COLUMN recipe_id INT NULL '
+                            'REFERENCES recipes(id) ON DELETE SET NULL'
+                        ))
+                    click.echo('  Added character_purchases.recipe_id')
 
             click.echo('Database tables created/verified.')
 

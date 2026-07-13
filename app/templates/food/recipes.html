@@ -77,7 +77,12 @@
           <th>{{ sort_link('duracion', 'Duración') }}</th>
           <th>{{ sort_link('coste_creacion', 'Coste creación (12 raciones)') }}</th>
           <th>{{ sort_link('precio_compra', 'Compra (1 ración)') }}</th>
-          <th style="width:5rem"></th>
+          {% if personajes %}
+          <th>Cantidad</th>
+          <th>Personaje</th>
+          <th>Ubicación</th>
+          {% endif %}
+          <th style="width:9rem"></th>
         </tr>
       </thead>
       <tbody>
@@ -100,8 +105,41 @@
           <td>{{ recipe.duracion_dias ~ ' días' if recipe.duracion_dias is not none else '—' }}</td>
           <td>{{ recipe.coste_creacion_peniques | food_money if recipe.coste_creacion_peniques is not none else '—' }}</td>
           <td>{{ recipe.precio_compra_peniques | food_money }}</td>
+          {% if personajes %}
+          {% set puede_comprar = recipe.precio_compra_peniques is not none %}
+          <td style="width:6rem">
+            {% if puede_comprar %}
+            <input type="number" min="1" value="1" class="form-control form-control-sm"
+                   form="wh-buy-recipe-{{ recipe.id }}" name="cantidad">
+            {% endif %}
+          </td>
           <td>
+            {% if puede_comprar %}
+            <select class="form-select form-select-sm" form="wh-buy-recipe-{{ recipe.id }}" name="personaje_id" style="min-width:8rem">
+              {% for char, owner in personajes %}
+              <option value="{{ char.id }}">{{ char.name }}{% if owner %} ({{ owner }}){% endif %}</option>
+              {% endfor %}
+            </select>
+            {% endif %}
+          </td>
+          <td>
+            {% if puede_comprar %}
+            <select class="form-select form-select-sm" form="wh-buy-recipe-{{ recipe.id }}" name="ubicacion" style="min-width:8rem">
+              {% for loc in locations %}
+              <option value="{{ loc }}">{{ location_labels[loc] }}</option>
+              {% endfor %}
+            </select>
+            {% endif %}
+          </td>
+          {% endif %}
+          <td class="text-nowrap">
             <a href="{{ url_for('food.recipe_detail', recipe_id=recipe.id) }}" class="btn btn-outline-secondary btn-sm">Ver</a>
+            {% if personajes and puede_comprar %}
+            <form id="wh-buy-recipe-{{ recipe.id }}" method="POST" action="{{ url_for('food.comprar_receta', recipe_id=recipe.id) }}" class="d-inline">
+              <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            </form>
+            <button type="submit" form="wh-buy-recipe-{{ recipe.id }}" class="btn btn-wh btn-sm">Comprar</button>
+            {% endif %}
           </td>
         </tr>
         {% endfor %}

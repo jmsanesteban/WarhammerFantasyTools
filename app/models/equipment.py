@@ -361,6 +361,12 @@ class CharacterInventoryItem(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     character_id = db.Column(db.Integer, db.ForeignKey('characters.id', ondelete='CASCADE'), nullable=False)
     equipment_item_id = db.Column(db.Integer, db.ForeignKey('equipment_items.id', ondelete='SET NULL'), nullable=True)
+    # Exactamente uno de equipment_item_id/drink_id/recipe_id/custom_name está
+    # relleno por fila (invariante solo de aplicación, no de BD) - drink_id/
+    # recipe_id permiten que la compra de Comida y bebida reutilice este mismo
+    # inventario en lugar de un sistema aparte.
+    drink_id = db.Column(db.Integer, db.ForeignKey('drinks.id', ondelete='SET NULL'), nullable=True)
+    recipe_id = db.Column(db.Integer, db.ForeignKey('recipes.id', ondelete='SET NULL'), nullable=True)
     custom_name = db.Column(db.String(150), nullable=True)  # used when equipment_item_id is null
     quality = db.Column(db.String(20), nullable=True)
     quantity = db.Column(db.Integer, nullable=False, default=1)
@@ -374,6 +380,8 @@ class CharacterInventoryItem(db.Model):
 
     character = db.relationship('Character', backref=db.backref('inventory_items', cascade='all, delete-orphan'))
     equipment_item = db.relationship('EquipmentItem')
+    drink = db.relationship('Drink')
+    recipe = db.relationship('Recipe')
 
     @property
     def quality_label(self):
@@ -435,6 +443,8 @@ class CharacterPurchase(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     character_id = db.Column(db.Integer, db.ForeignKey('characters.id', ondelete='CASCADE'), nullable=False)
     equipment_item_id = db.Column(db.Integer, db.ForeignKey('equipment_items.id', ondelete='SET NULL'), nullable=True)
+    drink_id = db.Column(db.Integer, db.ForeignKey('drinks.id', ondelete='SET NULL'), nullable=True)
+    recipe_id = db.Column(db.Integer, db.ForeignKey('recipes.id', ondelete='SET NULL'), nullable=True)
     item_name_snapshot = db.Column(db.String(150), nullable=False)
     category_snapshot = db.Column(db.String(20), nullable=True)
     quality_snapshot = db.Column(db.String(20), nullable=True)
@@ -448,5 +458,7 @@ class CharacterPurchase(db.Model):
     character = db.relationship('Character', backref=db.backref(
         'purchases', cascade='all, delete-orphan', order_by='CharacterPurchase.created_at.desc()'))
     equipment_item = db.relationship('EquipmentItem')
+    drink = db.relationship('Drink')
+    recipe = db.relationship('Recipe')
     granted_by = db.relationship('User')
     inventory_item = db.relationship('CharacterInventoryItem', backref='purchase_records')

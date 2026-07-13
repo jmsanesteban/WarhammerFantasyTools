@@ -77,10 +77,82 @@
   {% endif %}
 
   {% if recipe.notas %}
-  <div class="card wh-card">
+  <div class="card wh-card mb-3">
     <div class="card-header wh-card-header">Notas</div>
     <div class="card-body">{{ recipe.notas }}</div>
   </div>
+  {% endif %}
+
+  {% if recipe.precio_compra_peniques is not none %}
+  <div class="card wh-card">
+    <div class="card-header wh-card-header">
+      Comprar{% if markup_pct %} <span class="badge bg-warning text-dark">Recargo activo: {{ markup_pct }}%</span>{% endif %}
+    </div>
+    <div class="card-body">
+      {% if not personajes %}
+      <div class="alert alert-warning wh-alert mb-0">No tienes ningún personaje para comprar.</div>
+      {% else %}
+      <form method="POST" action="{{ url_for('food.comprar_receta', recipe_id=recipe.id) }}">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <div class="row g-2 align-items-center">
+          <label class="col-auto wh-label mb-0">Cantidad de raciones</label>
+          <div class="col-auto">
+            <input type="number" min="1" value="1" name="cantidad" id="wh-recipe-qty" class="form-control form-control-sm" style="width:6rem">
+          </div>
+          <div class="col-auto">
+            <strong>Total: <span id="wh-recipe-total"></span></strong>
+          </div>
+        </div>
+        <div class="row g-2 align-items-center mt-1">
+          <div class="col-auto">
+            <label class="wh-label mb-0 me-1">Personaje</label>
+            <select name="personaje_id" class="form-select form-select-sm d-inline-block" style="width:auto">
+              {% for char, owner in personajes %}
+              <option value="{{ char.id }}">{{ char.name }}{% if owner %} ({{ owner }}){% endif %}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="col-auto">
+            <label class="wh-label mb-0 me-1">Ubicación</label>
+            <select name="ubicacion" class="form-select form-select-sm d-inline-block" style="width:auto">
+              {% for loc in locations %}
+              <option value="{{ loc }}">{{ location_labels[loc] }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="col-auto">
+            <button type="submit" class="btn btn-wh btn-sm"><i class="bi bi-cart-plus me-1"></i>Comprar</button>
+          </div>
+        </div>
+      </form>
+      {% endif %}
+    </div>
+  </div>
+
+  <script>
+  (function () {
+    var unitPeniques = {{ recipe.precio_compra_peniques | int }};
+    var markupPct = {{ (markup_pct or 0) | int }};
+    var input = document.getElementById('wh-recipe-qty');
+    var total = document.getElementById('wh-recipe-total');
+    if (!input || !total) return;
+    function render() {
+      var qty = parseInt(input.value, 10) || 0;
+      var value = Math.round(unitPeniques * qty * (100 + markupPct) / 100);
+      var coronas = Math.floor(value / 240);
+      var resto = value % 240;
+      var chelines = Math.floor(resto / 12);
+      var peniques = resto % 12;
+      var parts = [];
+      if (coronas) parts.push(coronas + ' Co');
+      if (chelines) parts.push(chelines + ' C');
+      if (peniques || parts.length === 0) parts.push(peniques + ' Pe');
+      total.textContent = parts.join(' ');
+    }
+    input.addEventListener('input', render);
+    render();
+  })();
+  </script>
   {% endif %}
 </div>
 {% endblock %}

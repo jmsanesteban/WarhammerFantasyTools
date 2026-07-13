@@ -59,7 +59,7 @@ from app.models.contact_character_link import (
     ContactCharacterLink, ContactApodo, ContactCharacterSalary, ContactCharacterVisibility,
 )
 from app.models.contact_note import ContactNote
-from app.models.food import Recipe, CookingMethod, Ingredient
+from app.models.food import Recipe, CookingMethod, Ingredient, Drink
 
 BACKUP_VERSION = 1
 
@@ -469,6 +469,9 @@ def export_characters():
                 'equipment_item_category': ii.equipment_item.category if ii.equipment_item else None,
                 'equipment_item_subcategory': ii.equipment_item.subcategory if ii.equipment_item else None,
                 'equipment_item_catalog_quality': ii.equipment_item.quality if ii.equipment_item else None,
+                'drink_name': ii.drink.nombre if ii.drink else None,
+                'drink_origen': ii.drink.origen if ii.drink else None,
+                'recipe_name': ii.recipe.nombre if ii.recipe else None,
                 'custom_name': ii.custom_name, 'quality': ii.quality, 'quantity': ii.quantity,
                 'location': ii.location, 'notes': ii.notes, 'condition': ii.condition,
             }
@@ -480,6 +483,9 @@ def export_characters():
                 'equipment_item_category': p.equipment_item.category if p.equipment_item else None,
                 'equipment_item_subcategory': p.equipment_item.subcategory if p.equipment_item else None,
                 'equipment_item_catalog_quality': p.equipment_item.quality if p.equipment_item else None,
+                'drink_name': p.drink.nombre if p.drink else None,
+                'drink_origen': p.drink.origen if p.drink else None,
+                'recipe_name': p.recipe.nombre if p.recipe else None,
                 'item_name_snapshot': p.item_name_snapshot, 'category_snapshot': p.category_snapshot,
                 'quality_snapshot': p.quality_snapshot, 'precio_peniques_pagado': p.precio_peniques_pagado,
                 'granted_by_gm': p.granted_by_gm,
@@ -584,8 +590,20 @@ def import_characters(data, mode='skip'):
                     f"Personaje '{row['name']}': objeto de inventario '{ii['equipment_item_name']}' "
                     "no existe en el catálogo, se deja como objeto personalizado."
                 )
+            drink = Drink.query.filter_by(nombre=ii['drink_name'], origen=ii.get('drink_origen')).first() \
+                if ii.get('drink_name') else None
+            if ii.get('drink_name') and drink is None:
+                summary['warnings'].append(
+                    f"Personaje '{row['name']}': bebida de inventario '{ii['drink_name']}' no existe en el catálogo."
+                )
+            recipe = Recipe.query.filter_by(nombre=ii['recipe_name']).first() if ii.get('recipe_name') else None
+            if ii.get('recipe_name') and recipe is None:
+                summary['warnings'].append(
+                    f"Personaje '{row['name']}': receta de inventario '{ii['recipe_name']}' no existe en el catálogo."
+                )
             char.inventory_items.append(CharacterInventoryItem(
                 equipment_item_id=equipment_item.id if equipment_item else None,
+                drink_id=drink.id if drink else None, recipe_id=recipe.id if recipe else None,
                 custom_name=ii.get('custom_name') or (ii.get('equipment_item_name') if not equipment_item else None),
                 quality=ii.get('quality'), quantity=ii.get('quantity', 1),
                 location=ii.get('location', 'equipamiento'), notes=ii.get('notes'), condition=ii.get('condition'),
@@ -595,10 +613,14 @@ def import_characters(data, mode='skip'):
                 p.get('equipment_item_name'), p.get('equipment_item_category'),
                 p.get('equipment_item_subcategory'), p.get('equipment_item_catalog_quality'),
             )
+            drink = Drink.query.filter_by(nombre=p['drink_name'], origen=p.get('drink_origen')).first() \
+                if p.get('drink_name') else None
+            recipe = Recipe.query.filter_by(nombre=p['recipe_name']).first() if p.get('recipe_name') else None
             granted_by = User.query.filter_by(username=p.get('granted_by_username')).first() \
                 if p.get('granted_by_username') else None
             char.purchases.append(CharacterPurchase(
                 equipment_item_id=equipment_item.id if equipment_item else None,
+                drink_id=drink.id if drink else None, recipe_id=recipe.id if recipe else None,
                 item_name_snapshot=p.get('item_name_snapshot', p.get('equipment_item_name', '?')),
                 category_snapshot=p.get('category_snapshot'), quality_snapshot=p.get('quality_snapshot'),
                 precio_peniques_pagado=p.get('precio_peniques_pagado', 0),
@@ -879,6 +901,52 @@ def import_recipes(data, mode='skip'):
 
 
 # ---------------------------------------------------------------------------
+# Recargo global de precios: fila única (o ninguna), no un catálogo - se
+# exporta como un dict, no una lista, para que quede claro que es un ajuste
+# singleton en lugar de una colección de registros.
+# ---------------------------------------------------------------------------
+
+def export_shop_markup():
+    from app.models.shop import ShopMarkup
+    row = ShopMarkup.query.first()
+    if row is None:
+        return None
+    return {
+        'pct': row.pct,
+        'updated_by_username': row.updated_by.username if row.updated_by else None,
+        'updated_at': row.updated_at.isoformat() if row.updated_at else None,
+    }
+
+
+def import_shop_markup(data, mode='skip'):
+    from app.models.shop import ShopMarkup
+    summary = _new_summary()
+    if not data:
+        return summary
+
+    existing = ShopMarkup.query.first()
+    if existing and mode != 'update':
+        summary['skipped'] += 1
+        return summary
+
+    updated_by = User.query.filter_by(username=data['updated_by_username']).first() \
+        if data.get('updated_by_username') else None
+    if existing:
+        row = existing
+        summary['updated'] += 1
+    else:
+        row = ShopMarkup()
+        db.session.add(row)
+        summary['created'] += 1
+    row.pct = data.get('pct', 0)
+    row.updated_by_id = updated_by.id if updated_by else None
+    row.updated_at = _parse_iso(data.get('updated_at'))
+
+    db.session.commit()
+    return summary
+
+
+# ---------------------------------------------------------------------------
 # Backup completo: orquesta todas las secciones en el orden de dependencias
 # ---------------------------------------------------------------------------
 
@@ -892,6 +960,7 @@ def export_full_backup():
         'professions': export_professions(),
         'equipment': export_equipment(),
         'recipes': export_recipes(),
+        'shop_markup': export_shop_markup(),
         'characters': export_characters(),
         'contacts': export_contacts_full(),
     }
@@ -905,6 +974,7 @@ def import_full_backup(data, mode='skip'):
         'professions': import_professions(data.get('professions', []), mode),
         'equipment': import_equipment(data.get('equipment', []), mode),
         'recipes': import_recipes(data.get('recipes', []), mode),
+        'shop_markup': import_shop_markup(data.get('shop_markup'), mode),
         'characters': import_characters(data.get('characters', []), mode),
         'contacts': import_contacts_full(data.get('contacts', []), mode),
     }
