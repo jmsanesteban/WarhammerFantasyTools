@@ -109,7 +109,7 @@
                   {{ recipe.duracion_dias ~ ' días' if recipe.duracion_dias is not none else '—' }}
                 </p>
                 <p class="card-text text-muted mb-0">
-                  Creación: {{ recipe.coste_creacion_peniques | food_money if recipe.coste_creacion_peniques is not none else '—' }} ·
+                  Creación (12): {{ recipe.coste_creacion_peniques | food_money if recipe.coste_creacion_peniques is not none else '—' }} ·
                   Compra: {{ recipe.precio_compra_peniques | food_money }}
                 </p>
               </div>
