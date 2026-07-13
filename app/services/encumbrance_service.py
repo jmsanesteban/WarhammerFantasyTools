@@ -14,18 +14,38 @@ LEVEL_LABELS = {
     'pesada': 'Carga pesada',
 }
 
-# One line per level, already worded for display; 'sin_carga' has none.
-LEVEL_MESSAGES = {
-    'ligera': 'Carga ligera: -1 Movimiento por turno.',
-    'media': (
-        'Carga media: -2 Movimiento por turno (al recibir Cansancio, se gana 1 adicional; '
-        '-20% a Agilidad y Atletismo). En viaje: -1 Movimiento.'
-    ),
-    'pesada': (
-        'Carga pesada: -3 Movimiento por turno (al recibir Cansancio, se ganan 3 adicionales; '
-        '-40% a Agilidad y Atletismo). En viaje: -2 Movimiento.'
-    ),
+# Green -> yellow -> orange -> red progression, background+text chosen for
+# readable contrast at every step (used as a CSS class suffix: wh-carga-<level>).
+LEVEL_CSS_CLASS = {
+    'sin_carga': 'wh-carga-sin_carga',
+    'ligera': 'wh-carga-ligera',
+    'media': 'wh-carga-media',
+    'pesada': 'wh-carga-pesada',
 }
+
+# Penalty text split by turno/viaje (None = sin penalización ese aspecto) so
+# the UI can label each one explicitly instead of a single blended sentence.
+LEVEL_PENALTIES = {
+    'sin_carga': {'turno': None, 'viaje': None},
+    'ligera': {
+        'turno': '-1 Movimiento.',
+        'viaje': 'Sin penalización.',
+    },
+    'media': {
+        'turno': '-2 Movimiento; al recibir Cansancio, se gana 1 punto adicional; -20% a Agilidad y Atletismo.',
+        'viaje': '-1 Movimiento.',
+    },
+    'pesada': {
+        'turno': '-3 Movimiento; al recibir Cansancio, se ganan 3 puntos adicionales; -40% a Agilidad y Atletismo.',
+        'viaje': '-2 Movimiento.',
+    },
+}
+
+# "El Imperio y sus viajes" carga units (U) a mochila/saco can hold before
+# it's physically full - independent of whether the character is strong
+# enough to carry that weight at all (encumbrance tiers above).
+CONTAINER_CAPACITIES = {'mochila': 50.0, 'saco': 80.0}
+CONTAINER_LABELS = {'mochila': 'Mochila', 'saco': 'Saco'}
 
 
 def has_robusto(character):

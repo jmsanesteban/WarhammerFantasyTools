@@ -298,6 +298,9 @@ def _register_cli_commands(app):
                         'BOOLEAN NOT NULL DEFAULT FALSE'
                     ))
                     click.echo('  Added characters.es_untersuchung')
+                if 'mochila_o_saco' not in char_cols:
+                    conn.execute(text('ALTER TABLE characters ADD COLUMN mochila_o_saco VARCHAR(10) NULL'))
+                    click.echo('  Added characters.mochila_o_saco')
 
             # Incremental columns: character_professions salary (tabla de sueldos,
             # aplica también a la carrera del propio personaje, no solo a Contactos)

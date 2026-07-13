@@ -207,6 +207,29 @@ a:hover { color: var(--wh-gold-light); }
   background: var(--wh-bg-card-alt);
 }
 
+/* Carga (encumbrance) severity - a green -> yellow -> orange -> red
+   progression applied to the whole card, so the color itself communicates
+   the level at a glance, not just the text. Text color picked per step for
+   contrast against its own background. */
+.wh-carga-sin_carga { background: #1e4620 !important; color: #d9f2d9 !important; border-color: #2e6b30 !important; }
+.wh-carga-ligera     { background: #6b5b0e !important; color: #fff3cd !important; border-color: #a5891a !important; }
+.wh-carga-media      { background: #7a4a12 !important; color: #ffe4bf !important; border-color: #b06a1a !important; }
+.wh-carga-pesada     { background: #7a1f1f !important; color: #ffffff !important; border-color: #a52a2a !important; }
+
+.wh-carga-badge.wh-carga-sin_carga { background: #2e8b32 !important; }
+.wh-carga-badge.wh-carga-ligera    { background: #b8960b !important; color: #2b2200 !important; }
+.wh-carga-badge.wh-carga-media     { background: #c56a1a !important; }
+.wh-carga-badge.wh-carga-pesada    { background: #c62828 !important; }
+
+/* Mochila/Saco physical capacity exceeded - a hard container limit,
+   independent of the Fuerza+Resistencia carga tiers above. Explicit
+   red/white per the user's request, distinct from the carga progression. */
+.wh-carga-overflow {
+  background: #a30000 !important;
+  color: #ffffff !important;
+  border-color: #a30000 !important;
+}
+
 /* Characteristic tables */
 .wh-stat-table {
   font-size: 0.85rem;

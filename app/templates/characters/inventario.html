@@ -19,22 +19,21 @@
   </div>
 
   {# ── Carga: solo Equipamiento + Mochila/Saco cuentan como "llevado encima" ── #}
-  <div class="card wh-card mb-4">
+  <div class="card wh-card mb-4 {{ carry_level_css }}">
     <div class="card-header wh-card-header d-flex justify-content-between align-items-center">
       <span>Carga</span>
-      <span class="badge {% if carry_level == 'sin_carga' %}bg-success{% elif carry_level == 'ligera' %}bg-warning text-dark{% else %}bg-danger{% endif %}">
-        {{ carry_level_label }}
-      </span>
+      <span class="badge wh-carga-badge {{ carry_level_css }}">{{ carry_level_label }}</span>
     </div>
-    <div class="card-body">
-      <p class="mb-1">
-        Peso llevado (Equipamiento + Mochila/Saco): <strong>{{ '%.1f'|format(carried_weight) }}</strong>
-        de {{ thresholds.ligera }} (ligera) / {{ thresholds.media }} (media) / {{ thresholds.pesada }} (pesada)
+    <div class="card-body {{ carry_level_css }}">
+      <p class="mb-2">
+        Peso llevado (Equipamiento + Mochila/Saco): <strong>{{ '%.1f'|format(carried_weight) }} U</strong>
+        — ligera ≥ {{ thresholds.ligera }} U / media ≥ {{ thresholds.media }} U / pesada ≥ {{ thresholds.pesada }} U
       </p>
-      {% if carry_level_message %}
-      <div class="alert {% if carry_level == 'pesada' %}alert-danger{% else %}alert-warning{% endif %} wh-alert mb-0">
-        <i class="bi bi-exclamation-triangle me-2"></i>{{ carry_level_message }}
-      </div>
+      {% if carry_level_penalties.turno or carry_level_penalties.viaje %}
+      <ul class="mb-0 ps-3">
+        <li><strong>Turno:</strong> {{ carry_level_penalties.turno }}</li>
+        <li><strong>Viaje:</strong> {{ carry_level_penalties.viaje }}</li>
+      </ul>
       {% endif %}
     </div>
   </div>
@@ -43,9 +42,35 @@
   <div class="card wh-card mb-3">
     <div class="card-header wh-card-header d-flex justify-content-between align-items-center">
       <span>{{ location_labels.get(loc, loc) }}</span>
-      <small class="text-muted">Peso: {{ '%.1f'|format(weight_by_location[loc]) }}</small>
+      <small class="text-muted">
+        Peso: {{ '%.1f'|format(weight_by_location[loc]) }} U
+        {%- if loc == 'mochila_saco' and container_capacity %} / {{ container_capacity|int }} U ({{ container_labels[char.mochila_o_saco] }}){% endif %}
+      </small>
     </div>
     <div class="card-body">
+      {% if loc == 'mochila_saco' %}
+      <form method="POST" action="{{ url_for('characters.set_contenedor_inventario', char_id=char.id) }}"
+            class="d-flex flex-wrap gap-2 align-items-center mb-2">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <small class="text-muted">¿Qué llevas?</small>
+        {% for key in ['mochila', 'saco'] %}
+        <label class="d-flex align-items-center gap-1" style="cursor:pointer">
+          <input type="radio" name="mochila_o_saco" value="{{ key }}" class="form-check-input"
+                 {% if char.mochila_o_saco == key %}checked{% endif %} onchange="this.form.submit()">
+          {{ container_labels[key] }} ({{ container_capacities[key]|int }} U)
+        </label>
+        {% endfor %}
+      </form>
+      {% if container_overflow %}
+      <div class="alert wh-alert wh-carga-overflow mb-2">
+        <i class="bi bi-exclamation-octagon-fill me-2"></i>
+        ¡Capacidad de {{ container_labels[char.mochila_o_saco] }} superada!
+        {{ '%.1f'|format(weight_by_location[loc]) }} / {{ container_capacity|int }} U.
+      </div>
+      {% elif not char.mochila_o_saco %}
+      <p class="text-muted small mb-2">Elige si llevas mochila o saco para calcular su límite de capacidad.</p>
+      {% endif %}
+      {% endif %}
       {% if items_by_location[loc] %}
       {# Bulk-move bar: has no checkboxes of its own - the per-row checkboxes
          below live outside this <form> (nested forms aren't valid HTML) and
@@ -83,7 +108,7 @@
               <th style="width:2rem"><input type="checkbox" class="form-check-input" onclick="toggleAllInLocation(this, '{{ loc }}')"></th>
               <th style="width:5rem">Cant. mover</th>
               <th style="width:9rem">Destino</th>
-              <th>Nombre</th><th>Calidad</th><th>Cantidad</th><th>Peso</th><th>Notas</th>
+              <th>Nombre</th><th>Calidad</th><th>Cantidad</th><th>Peso (U)<br><small class="fw-normal text-muted">unidad / total</small></th><th>Notas</th>
             </tr>
           </thead>
           <tbody>
@@ -124,7 +149,14 @@
               </td>
               <td>{{ inv.quality_label or '—' }}</td>
               <td>{{ inv.quantity }}</td>
-              <td>{{ '%.1f'|format(inv.equipment_item.peso_for_quality(inv.quality)) if inv.equipment_item and inv.equipment_item.peso_for_quality(inv.quality) is not none else '—' }}</td>
+              {% set unit_peso = inv.equipment_item.peso_for_quality(inv.quality) if inv.equipment_item else none %}
+              <td>
+                {% if unit_peso is not none %}
+                {{ '%.2f'|format(unit_peso) }} / {{ '%.2f'|format(unit_peso * inv.quantity) }}
+                {% else %}
+                —
+                {% endif %}
+              </td>
               <td class="text-muted small">{{ inv.notes or '' }}</td>
             </tr>
             {% endfor %}

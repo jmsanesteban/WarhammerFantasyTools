@@ -161,6 +161,11 @@ class Character(db.Model):
     # del mismo dato en los contactos que este personaje conoce) ---
     es_untersuchung = db.Column(db.Boolean, nullable=False, default=False)
 
+    # --- Inventario: qué lleva puesto para el almacenaje "Mochila/saco" -
+    # 'mochila' (50U) o 'saco' (80U), ver encumbrance_service.CONTAINER_CAPACITIES.
+    # None hasta que el jugador elija uno la primera vez que abre el inventario. ---
+    mochila_o_saco = db.Column(db.String(10), nullable=True)
+
     professions = db.relationship(
         'CharacterProfession',
         backref='character',

@@ -81,7 +81,21 @@ def test_inventario_shows_weight_per_location(db, client, make_user, make_charac
 
     resp = client.get(f'/personajes/{char.id}/inventario')
     assert resp.status_code == 200
-    assert b'Peso: 3.0' in resp.data
+    assert 'Peso: 3.0 U'.encode() in resp.data
+
+
+def test_inventario_shows_unit_and_total_weight_per_row(db, client, make_user, make_character,
+                                                         make_equipment_item, login_as):
+    """The per-row weight must show both the unit peso and the peso*quantity
+    total - showing only the unit value (the old behavior) looked like the
+    location totals below it didn't add up."""
+    char = _owner_and_char(make_user, make_character, login_as, client)
+    daga = make_equipment_item(name='Daga', category='arma', peso=2.0)
+    _inv_item(db, char, daga, quantity=3, location='equipamiento')
+
+    resp = client.get(f'/personajes/{char.id}/inventario')
+    assert resp.status_code == 200
+    assert b'2.00 / 6.00' in resp.data
 
 
 def test_inventario_warns_on_carga_pesada(db, client, make_user, make_character, make_equipment_item, login_as):
@@ -124,6 +138,82 @@ def test_inventario_ignores_stashed_locations_for_carga(db, client, make_user, m
     assert resp.status_code == 200
     assert 'Carga pesada'.encode() not in resp.data
     assert b'Sin carga' in resp.data
+
+
+# ── Mochila/Saco container capacity ─────────────────────────────────────────
+
+def test_set_contenedor_inventario_saves_choice(db, client, make_user, make_character, login_as):
+    char = _owner_and_char(make_user, make_character, login_as, client)
+    resp = client.post(f'/personajes/{char.id}/inventario/contenedor',
+                       data={'mochila_o_saco': 'saco'}, follow_redirects=True)
+    assert resp.status_code == 200
+    db.session.refresh(char)
+    assert char.mochila_o_saco == 'saco'
+
+
+def test_set_contenedor_inventario_rejects_invalid_value(db, client, make_user, make_character, login_as):
+    char = _owner_and_char(make_user, make_character, login_as, client, mochila_o_saco='mochila')
+    resp = client.post(f'/personajes/{char.id}/inventario/contenedor',
+                       data={'mochila_o_saco': 'alforja-magica'}, follow_redirects=True)
+    assert resp.status_code == 200
+    db.session.refresh(char)
+    assert char.mochila_o_saco == 'mochila'
+
+
+def test_inventario_warns_when_mochila_capacity_exceeded(db, client, make_user, make_character,
+                                                          make_equipment_item, login_as):
+    char = _owner_and_char(make_user, make_character, login_as, client, mochila_o_saco='mochila')
+    pesado = make_equipment_item(name='Yunque portátil', category='otros', peso=60.0)
+    _inv_item(db, char, pesado, quantity=1, location='mochila_saco')
+
+    resp = client.get(f'/personajes/{char.id}/inventario')
+    assert resp.status_code == 200
+    assert 'wh-carga-overflow'.encode() in resp.data
+    assert 'superada'.encode() in resp.data
+
+
+def test_inventario_does_not_warn_under_saco_capacity(db, client, make_user, make_character,
+                                                       make_equipment_item, login_as):
+    char = _owner_and_char(make_user, make_character, login_as, client, mochila_o_saco='saco')
+    ligero = make_equipment_item(name='Cuerda', category='otros', peso=10.0)
+    _inv_item(db, char, ligero, quantity=1, location='mochila_saco')
+
+    resp = client.get(f'/personajes/{char.id}/inventario')
+    assert resp.status_code == 200
+    assert 'wh-carga-overflow'.encode() not in resp.data
+
+
+def test_inventario_prompts_for_container_choice_when_unset(db, client, make_user, make_character, login_as):
+    char = _owner_and_char(make_user, make_character, login_as, client)
+    resp = client.get(f'/personajes/{char.id}/inventario')
+    assert resp.status_code == 200
+    assert 'Elige si llevas mochila o saco'.encode() in resp.data
+
+
+# ── Carga: color progression is present in the markup ───────────────────────
+
+def test_carga_card_uses_the_right_color_class_per_level(db, client, make_user, make_character,
+                                                          make_equipment_item, login_as):
+    char = _owner_and_char(make_user, make_character, login_as, client, s_char=10, t_char=10)
+    pesado = make_equipment_item(name='Yunque portátil', category='otros', peso=100.0)
+    _inv_item(db, char, pesado, quantity=1, location='equipamiento')
+
+    resp = client.get(f'/personajes/{char.id}/inventario')
+    assert resp.status_code == 200
+    assert 'wh-carga-pesada'.encode() in resp.data
+
+
+def test_carga_card_shows_turno_and_viaje_penalties_separately(db, client, make_user, make_character,
+                                                                make_equipment_item, login_as):
+    char = _owner_and_char(make_user, make_character, login_as, client, s_char=10, t_char=10)
+    medio = make_equipment_item(name='Fardo', category='otros', peso=15.0)
+    _inv_item(db, char, medio, quantity=1, location='equipamiento')
+
+    resp = client.get(f'/personajes/{char.id}/inventario')
+    html = resp.data.decode()
+    assert resp.status_code == 200
+    assert 'Turno:' in html
+    assert 'Viaje:' in html
 
 
 # ── mover_inventario route ───────────────────────────────────────────────────

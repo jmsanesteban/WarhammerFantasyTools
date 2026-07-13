@@ -415,14 +415,39 @@ def inventario(char_id):
     thresholds = encumbrance_service.carry_thresholds(char)
     carry_level = encumbrance_service.carry_level(carried_weight, thresholds)
 
+    container_capacity = encumbrance_service.CONTAINER_CAPACITIES.get(char.mochila_o_saco)
+    mochila_saco_weight = weight_by_location['mochila_saco']
+    container_overflow = (
+        container_capacity is not None and mochila_saco_weight > container_capacity
+    )
+
     return render_template(
         'characters/inventario.html', char=char, items_by_location=items_by_location,
         locations=CharacterInventoryItem.LOCATIONS, location_labels=CharacterInventoryItem.LOCATION_LABELS,
         weight_by_location=weight_by_location, carried_weight=carried_weight,
         thresholds=thresholds, carry_level=carry_level,
         carry_level_label=encumbrance_service.LEVEL_LABELS[carry_level],
-        carry_level_message=encumbrance_service.LEVEL_MESSAGES.get(carry_level),
+        carry_level_css=encumbrance_service.LEVEL_CSS_CLASS[carry_level],
+        carry_level_penalties=encumbrance_service.LEVEL_PENALTIES[carry_level],
+        container_labels=encumbrance_service.CONTAINER_LABELS,
+        container_capacities=encumbrance_service.CONTAINER_CAPACITIES,
+        container_capacity=container_capacity,
+        container_overflow=container_overflow,
     )
+
+
+@characters_bp.route('/<int:char_id>/inventario/contenedor', methods=['POST'])
+@login_required
+def set_contenedor_inventario(char_id):
+    char = _get_owned_character(char_id)
+    contenedor = request.form.get('mochila_o_saco', '').strip()
+    if contenedor not in encumbrance_service.CONTAINER_CAPACITIES:
+        flash('Elige Mochila o Saco.', 'danger')
+    else:
+        char.mochila_o_saco = contenedor
+        db.session.commit()
+        flash(f'Guardado: llevas {encumbrance_service.CONTAINER_LABELS[contenedor]}.', 'success')
+    return redirect(url_for('characters.inventario', char_id=char.id))
 
 
 def _move_full_stack(char, inv_item, destino):
