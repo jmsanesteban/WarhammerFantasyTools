@@ -67,12 +67,22 @@
           <i class="bi bi-arrow-right-circle me-1"></i>Mover seleccionados
         </button>
       </form>
+      {# Each row's individual move control is one <form> (id="row-{{ inv.id }}"),
+         but its 3 pieces (button/cantidad/destino) live in their own fixed-
+         width <td> columns instead of crammed into a single flex cell - that
+         single-cell layout was what caused the misalignment (a row with no
+         quantity choice rendered a hidden, zero-width input, so its button
+         landed at a different x-position than rows that did show one).
+         cantidad/destino associate to the form via form="row-{{ inv.id }}"
+         since they can't be its DOM descendants once split across columns. #}
       <div class="table-responsive">
         <table class="table table-sm wh-stat-table wh-zebra mb-0 align-middle">
           <thead>
             <tr>
+              <th style="width:2.5rem"></th>
               <th style="width:2rem"><input type="checkbox" class="form-check-input" onclick="toggleAllInLocation(this, '{{ loc }}')"></th>
-              <th style="width:16rem">Mover</th>
+              <th style="width:5rem">Cant. mover</th>
+              <th style="width:9rem">Destino</th>
               <th>Nombre</th><th>Calidad</th><th>Cantidad</th><th>Peso</th><th>Notas</th>
             </tr>
           </thead>
@@ -80,28 +90,30 @@
             {% for inv in items_by_location[loc] %}
             <tr>
               <td>
-                <input type="checkbox" class="form-check-input inv-row-check" data-loc="{{ loc }}"
-                       name="inv_item_ids" value="{{ inv.id }}" form="bulk-{{ loc }}">
-              </td>
-              <td>
-                <form method="POST" action="{{ url_for('characters.mover_inventario', char_id=char.id, inv_item_id=inv.id) }}"
-                      class="d-flex gap-1">
+                <form id="row-{{ inv.id }}" method="POST"
+                      action="{{ url_for('characters.mover_inventario', char_id=char.id, inv_item_id=inv.id) }}" class="mb-0">
                   <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                  <select name="destino" class="form-select form-select-sm wh-input" style="max-width:9rem">
-                    {% for dest in locations if dest != loc %}
-                    <option value="{{ dest }}">{{ location_labels.get(dest, dest) }}</option>
-                    {% endfor %}
-                  </select>
-                  {% if inv.quantity > 1 %}
-                  <input type="number" name="cantidad" class="form-control form-control-sm wh-input"
-                         value="{{ inv.quantity }}" min="1" max="{{ inv.quantity }}" style="max-width:4.5rem">
-                  {% else %}
-                  <input type="hidden" name="cantidad" value="1">
-                  {% endif %}
                   <button type="submit" class="btn btn-outline-secondary btn-sm" title="Mover">
                     <i class="bi bi-arrow-right-circle"></i>
                   </button>
                 </form>
+              </td>
+              <td>
+                <input type="checkbox" class="form-check-input inv-row-check" data-loc="{{ loc }}"
+                       name="inv_item_ids" value="{{ inv.id }}" form="bulk-{{ loc }}">
+              </td>
+              <td>
+                <input type="number" name="cantidad" form="row-{{ inv.id }}"
+                       class="form-control form-control-sm wh-input" style="width:4.5rem"
+                       value="{{ inv.quantity }}" min="1" max="{{ inv.quantity }}"
+                       {% if inv.quantity <= 1 %}readonly{% endif %}>
+              </td>
+              <td>
+                <select name="destino" form="row-{{ inv.id }}" class="form-select form-select-sm wh-input" style="width:9rem">
+                  {% for dest in locations if dest != loc %}
+                  <option value="{{ dest }}">{{ location_labels.get(dest, dest) }}</option>
+                  {% endfor %}
+                </select>
               </td>
               <td>
                 {% if inv.equipment_item %}

@@ -308,6 +308,22 @@ def test_inventario_page_has_bulk_select_checkboxes_and_zebra_class(db, client, 
     assert 'form="bulk-equipamiento"' in html
 
 
+def test_single_quantity_move_input_is_readonly_not_disabled(db, client, make_user, make_character,
+                                                              make_equipment_item, login_as):
+    """A disabled <input> never gets submitted with its form - if the
+    quantity=1 case used disabled instead of readonly, moving that item
+    would silently send no "cantidad" at all and the move would be rejected
+    as an invalid quantity."""
+    char = _owner_and_char(make_user, make_character, login_as, client)
+    daga = make_equipment_item(name='Daga', category='arma', peso=1.0)
+    inv = _inv_item(db, char, daga, quantity=1, location='equipamiento')
+
+    resp = client.get(f'/personajes/{char.id}/inventario')
+    html = resp.data.decode()
+    assert 'readonly>' in html
+    assert 'disabled>' not in html
+
+
 def test_mover_blocks_other_users(client, make_user, make_character, make_equipment_item, login_as, db):
     owner = make_user(username='owner1', password='ownerpass123')
     other = make_user(username='other1', password='otherpass123')
