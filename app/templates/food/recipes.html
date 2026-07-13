@@ -88,7 +88,7 @@
           </div>
           {% endif %}
           <div class="{% if recipe.image_path %}col-8{% else %}col-12{% endif %}">
-            <div class="card-body py-2 d-flex justify-content-between align-items-start gap-2">
+            <div class="card-body py-2 d-flex justify-content-between gap-2">
               <div class="wh-recipe-info">
                 <h5 class="card-title wh-name mb-1">
                   <a href="{{ url_for('food.recipe_detail', recipe_id=recipe.id) }}" class="wh-link text-decoration-none">{{ recipe.nombre }}</a>
@@ -113,7 +113,7 @@
                   Compra: {{ recipe.precio_compra_peniques | food_money }}
                 </p>
               </div>
-              <div class="d-flex flex-column gap-2 flex-shrink-0">
+              <div class="d-flex flex-column justify-content-center gap-2 flex-shrink-0">
                 <a href="{{ url_for('food.recipe_detail', recipe_id=recipe.id) }}" class="btn btn-outline-secondary btn-sm">Ver</a>
                 {% if personajes and recipe.precio_compra_peniques is not none %}
                 <button type="button" class="btn btn-wh btn-sm" data-bs-toggle="modal" data-bs-target="#buyModal"
@@ -133,8 +133,8 @@
 
 <style>
 .wh-recipe-info .card-title { font-size: 1.15rem; }
-.wh-recipe-badges .badge { font-size: 0.82rem; padding: 0.4em 0.65em; }
-.wh-recipe-info p.card-text { font-size: 0.95rem; }
+.wh-recipe-badges .badge { font-size: 0.95rem; padding: 0.45em 0.7em; }
+.wh-recipe-info p.card-text { font-size: 1.1rem; }
 </style>
 
 {% if personajes %}
