@@ -1,11 +1,6 @@
 {% extends 'base.html' %}
 {% block title %}Inventario — {{ char.name }}{% endblock %}
 
-{% set location_labels = {
-  'equipamiento': 'Equipamiento', 'mochila_saco': 'Mochila/Saco',
-  'alforjas': 'Alforjas', 'base': 'Base', 'altdorf': 'Altdorf',
-} %}
-
 {% block content %}
 <div class="container mt-4">
   <nav aria-label="breadcrumb">
@@ -23,14 +18,38 @@
     </a>
   </div>
 
+  {# ── Carga: solo Equipamiento + Mochila/Saco cuentan como "llevado encima" ── #}
+  <div class="card wh-card mb-4">
+    <div class="card-header wh-card-header d-flex justify-content-between align-items-center">
+      <span>Carga</span>
+      <span class="badge {% if carry_level == 'sin_carga' %}bg-success{% elif carry_level == 'ligera' %}bg-warning text-dark{% else %}bg-danger{% endif %}">
+        {{ carry_level_label }}
+      </span>
+    </div>
+    <div class="card-body">
+      <p class="mb-1">
+        Peso llevado (Equipamiento + Mochila/Saco): <strong>{{ '%.1f'|format(carried_weight) }}</strong>
+        de {{ thresholds.ligera }} (ligera) / {{ thresholds.media }} (media) / {{ thresholds.pesada }} (pesada)
+      </p>
+      {% if carry_level_message %}
+      <div class="alert {% if carry_level == 'pesada' %}alert-danger{% else %}alert-warning{% endif %} wh-alert mb-0">
+        <i class="bi bi-exclamation-triangle me-2"></i>{{ carry_level_message }}
+      </div>
+      {% endif %}
+    </div>
+  </div>
+
   {% for loc in locations %}
   <div class="card wh-card mb-3">
-    <div class="card-header wh-card-header">{{ location_labels.get(loc, loc) }}</div>
+    <div class="card-header wh-card-header d-flex justify-content-between align-items-center">
+      <span>{{ location_labels.get(loc, loc) }}</span>
+      <small class="text-muted">Peso: {{ '%.1f'|format(weight_by_location[loc]) }}</small>
+    </div>
     <div class="card-body">
       {% if items_by_location[loc] %}
       <div class="table-responsive">
-        <table class="table table-sm wh-stat-table mb-0">
-          <thead><tr><th>Nombre</th><th>Calidad</th><th>Cantidad</th><th>Notas</th></tr></thead>
+        <table class="table table-sm wh-stat-table mb-0 align-middle">
+          <thead><tr><th>Nombre</th><th>Calidad</th><th>Cantidad</th><th>Peso</th><th>Notas</th><th style="width:16rem">Mover</th></tr></thead>
           <tbody>
             {% for inv in items_by_location[loc] %}
             <tr>
@@ -43,7 +62,28 @@
               </td>
               <td>{{ inv.quality_label or '—' }}</td>
               <td>{{ inv.quantity }}</td>
+              <td>{{ '%.1f'|format(inv.equipment_item.peso_for_quality(inv.quality)) if inv.equipment_item and inv.equipment_item.peso_for_quality(inv.quality) is not none else '—' }}</td>
               <td class="text-muted small">{{ inv.notes or '' }}</td>
+              <td>
+                <form method="POST" action="{{ url_for('characters.mover_inventario', char_id=char.id, inv_item_id=inv.id) }}"
+                      class="d-flex gap-1">
+                  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                  <select name="destino" class="form-select form-select-sm wh-input" style="max-width:9rem">
+                    {% for dest in locations if dest != loc %}
+                    <option value="{{ dest }}">{{ location_labels.get(dest, dest) }}</option>
+                    {% endfor %}
+                  </select>
+                  {% if inv.quantity > 1 %}
+                  <input type="number" name="cantidad" class="form-control form-control-sm wh-input"
+                         value="{{ inv.quantity }}" min="1" max="{{ inv.quantity }}" style="max-width:4.5rem">
+                  {% else %}
+                  <input type="hidden" name="cantidad" value="1">
+                  {% endif %}
+                  <button type="submit" class="btn btn-outline-secondary btn-sm" title="Mover">
+                    <i class="bi bi-arrow-right-circle"></i>
+                  </button>
+                </form>
+              </td>
             </tr>
             {% endfor %}
           </tbody>

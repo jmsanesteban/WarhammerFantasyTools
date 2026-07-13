@@ -26,10 +26,10 @@
   </div>
 
   <form method="GET" class="row g-2 mb-4">
-    <div class="col-md-6">
+    <div class="col-md-4">
       <input type="text" name="q" class="form-control wh-input" placeholder="Buscar por nombre…" value="{{ search }}">
     </div>
-    <div class="col-md-3">
+    <div class="col-md-2">
       <select name="category" class="form-select wh-input" onchange="this.form.submit()">
         <option value="">Armas, armaduras y ropa</option>
         {% for cat in tienda_categories %}
@@ -37,10 +37,26 @@
         {% endfor %}
       </select>
     </div>
+    <div class="col-md-2">
+      <select name="subcategory" class="form-select wh-input">
+        <option value="">Todos los tipos</option>
+        {% for sub in subcategories %}
+        <option value="{{ sub }}" {% if subcategory == sub %}selected{% endif %}>{{ subcategory_labels.get(sub, sub) }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div class="col-md-2">
+      <select name="quality" class="form-select wh-input">
+        <option value="">Toda calidad</option>
+        {% for q in ['mala', 'normal', 'buena', 'excelente'] %}
+        <option value="{{ q }}" {% if quality == q %}selected{% endif %}>{{ quality_labels[q] }}</option>
+        {% endfor %}
+      </select>
+    </div>
     <div class="col-md-1">
       <button class="btn btn-wh w-100" type="submit"><i class="bi bi-search"></i></button>
     </div>
-    {% if search or category %}
+    {% if search or category or subcategory or quality %}
     <div class="col-md-1">
       <a href="{{ url_for('characters.tienda', char_id=char.id) }}" class="btn btn-outline-secondary w-100" title="Limpiar">
         <i class="bi bi-x-lg"></i>
@@ -53,7 +69,7 @@
   <div class="row g-3">
     {% for item in items %}
     <div class="col-md-6 col-lg-4">
-      {{ equipment_card(item, buy_url=url_for('characters.anadir_carrito_confirmar', char_id=char.id, item_id=item.id)) }}
+      {{ equipment_card(item, buy_url=url_for('characters.anadir_carrito_confirmar', char_id=char.id, item_id=item.id), quality=quality) }}
     </div>
     {% endfor %}
   </div>

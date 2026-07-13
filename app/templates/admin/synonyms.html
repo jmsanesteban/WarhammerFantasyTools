@@ -67,9 +67,16 @@
           </td>
           <td class="text-muted small">{{ syn.notes or '—' }}</td>
           <td class="text-end">
-            {# Edit button — opens inline form #}
+            {# Edit button — opens inline form. Values travel via data-*
+               attributes (Jinja's default HTML-attribute escaping handles
+               embedded quotes correctly); passing |tojson straight into an
+               onclick="..." string breaks the attribute the moment a value
+               contains a double quote, since tojson's own output is
+               double-quoted JSON. #}
             <button class="btn btn-outline-warning btn-sm" title="Editar"
-                    onclick="openEdit({{ syn.id }}, {{ syn.source|tojson }}, {{ syn.target|tojson }}, {{ syn.is_prefix|tojson }}, {{ (syn.notes or '')|tojson }})">
+                    data-syn-id="{{ syn.id }}" data-syn-source="{{ syn.source }}"
+                    data-syn-target="{{ syn.target }}" data-syn-prefix="{{ syn.is_prefix|int }}"
+                    data-syn-notes="{{ syn.notes or '' }}" onclick="openEdit(this)">
               <i class="bi bi-pencil"></i>
             </button>
             {# Delete #}
@@ -188,12 +195,12 @@
 <script>
 const EDIT_URL_TMPL = '{{ url_for("admin.synonym_edit", syn_id=999999) }}';
 
-function openEdit(id, source, target, isPrefix, notes) {
-  document.getElementById('editSource').value = source;
-  document.getElementById('editTarget').value = target;
-  document.getElementById('editPrefix').checked = isPrefix;
-  document.getElementById('editNotes').value  = notes;
-  document.getElementById('editForm').action  = EDIT_URL_TMPL.replace('999999', id);
+function openEdit(btn) {
+  document.getElementById('editSource').value = btn.dataset.synSource;
+  document.getElementById('editTarget').value = btn.dataset.synTarget;
+  document.getElementById('editPrefix').checked = btn.dataset.synPrefix === '1';
+  document.getElementById('editNotes').value  = btn.dataset.synNotes;
+  document.getElementById('editForm').action  = EDIT_URL_TMPL.replace('999999', btn.dataset.synId);
   new bootstrap.Modal(document.getElementById('editModal')).show();
 }
 </script>

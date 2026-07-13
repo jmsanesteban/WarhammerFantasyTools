@@ -350,6 +350,13 @@ class CharacterInventoryItem(db.Model):
     __tablename__ = 'character_inventory_items'
 
     LOCATIONS = ('equipamiento', 'mochila_saco', 'alforjas', 'base', 'altdorf')
+    LOCATION_LABELS = {
+        'equipamiento': 'Equipamiento', 'mochila_saco': 'Mochila/Saco',
+        'alforjas': 'Alforjas', 'base': 'Base', 'altdorf': 'Altdorf',
+    }
+    # Only what's actually carried on the character counts toward "carga" -
+    # the other 3 locations represent stashed/left-behind gear.
+    CARRIED_LOCATIONS = ('equipamiento', 'mochila_saco')
 
     id = db.Column(db.Integer, primary_key=True)
     character_id = db.Column(db.Integer, db.ForeignKey('characters.id', ondelete='CASCADE'), nullable=False)

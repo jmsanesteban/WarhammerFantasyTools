@@ -94,6 +94,41 @@ def test_tienda_excludes_especial(client, make_user, make_character, make_equipm
     assert 'Amuleto raro'.encode('utf-8') not in resp.data
 
 
+def test_tienda_filters_by_subcategory(client, make_user, make_character, make_equipment_item, login_as):
+    char = _login_owner(client, make_user, make_character, login_as)
+    make_equipment_item(name='Daga', category='arma', subcategory='cuerpo_a_cuerpo')
+    make_equipment_item(name='Arco corto', category='arma', subcategory='distancia')
+
+    resp = client.get(f'/personajes/{char.id}/tienda?subcategory=distancia')
+    assert b'Arco corto' in resp.data
+    assert 'Daga'.encode('utf-8') not in resp.data
+
+
+def test_tienda_subcategory_options_scoped_to_tienda_categories(client, make_user, make_character,
+                                                                  make_equipment_item, login_as):
+    """The subcategory dropdown must never offer a subcategory that only
+    exists under 'especial' (a category the shop excludes entirely)."""
+    char = _login_owner(client, make_user, make_character, login_as)
+    make_equipment_item(name='Daga', category='arma', subcategory='cuerpo_a_cuerpo')
+    make_equipment_item(name='Reliquia', category='especial', subcategory='reliquia_unica')
+
+    resp = client.get(f'/personajes/{char.id}/tienda')
+    assert b'cuerpo_a_cuerpo' in resp.data
+    assert b'reliquia_unica' not in resp.data
+
+
+def test_tienda_quality_filter_does_not_hide_weapons(client, make_user, make_character, make_equipment_item,
+                                                       login_as):
+    """Quality on Arma/Armadura is a purchase-time modifier, not a stored
+    catalog attribute - selecting a quality in the shop must still show the
+    item (with adjusted stats/price), not filter it out entirely."""
+    char = _login_owner(client, make_user, make_character, login_as)
+    make_equipment_item(name='Daga', category='arma', precio_peniques=100)
+
+    resp = client.get(f'/personajes/{char.id}/tienda?quality=excelente')
+    assert b'Daga' in resp.data
+
+
 # ── Carrito: anadir / quitar ─────────────────────────────────────────────────
 
 def test_anadir_al_carrito(db, client, make_user, make_character, make_equipment_item, login_as):

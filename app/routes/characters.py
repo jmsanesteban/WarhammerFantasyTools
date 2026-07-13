@@ -16,6 +16,7 @@ from app.models.user import User
 from app.models.equipment import EquipmentItem, CharacterInventoryItem, CharacterPurchase, CharacterCartItem
 from app.services import character_creation_service as ccs
 from app.services import salary_service
+from app.services import encumbrance_service
 from app.services.currency_service import format_peniques, to_peniques
 from app.utils import admin_required
 
@@ -195,19 +196,27 @@ def _cart_count_and_total(char):
 def tienda(char_id):
     char = _get_owned_character(char_id)
 
+    from app.routes.equipment import _distinct_values, _filtered_query
+
     category = request.args.get('category', '').strip()
+    subcategory = request.args.get('subcategory', '').strip()
+    quality = request.args.get('quality', '').strip()
     search = request.args.get('q', '').strip()
-    query = EquipmentItem.query.filter(EquipmentItem.category.in_(_TIENDA_CATEGORIES))
-    if category in _TIENDA_CATEGORIES:
-        query = query.filter_by(category=category)
-    if search:
-        query = query.filter(EquipmentItem.name.ilike(f'%{search}%'))
-    items = query.order_by(EquipmentItem.category, EquipmentItem.name).all()
+
+    items = _filtered_query(category, subcategory, quality, search,
+                             category_choices=_TIENDA_CATEGORIES).all()
+    scoped_category = category if category in _TIENDA_CATEGORIES else None
+    subcategories = _distinct_values(EquipmentItem, EquipmentItem.subcategory,
+                                      category=scoped_category, category_in=_TIENDA_CATEGORIES)
+    quality_labels = (EquipmentItem.QUALITY_LABELS_ROPA if category == 'ropa'
+                      else EquipmentItem.QUALITY_LABELS)
 
     cart_count, cart_total = _cart_count_and_total(char)
     return render_template('characters/tienda.html', char=char, items=items,
-                            category=category, search=search,
+                            category=category, subcategory=subcategory, quality=quality,
+                            search=search, subcategories=subcategories, quality_labels=quality_labels,
                             category_labels=EquipmentItem.CATEGORY_LABELS,
+                            subcategory_labels=EquipmentItem.SUBCATEGORY_LABELS,
                             tienda_categories=_TIENDA_CATEGORIES,
                             cart_count=cart_count, cart_total=cart_total)
 
@@ -397,8 +406,70 @@ def inventario(char_id):
     items_by_location = {loc: [] for loc in CharacterInventoryItem.LOCATIONS}
     for inv_item in char.inventory_items:
         items_by_location.setdefault(inv_item.location, []).append(inv_item)
-    return render_template('characters/inventario.html', char=char, items_by_location=items_by_location,
-                            locations=CharacterInventoryItem.LOCATIONS)
+
+    weight_by_location = {
+        loc: sum(encumbrance_service.item_weight(inv_item) for inv_item in items)
+        for loc, items in items_by_location.items()
+    }
+    carried_weight = sum(weight_by_location[loc] for loc in CharacterInventoryItem.CARRIED_LOCATIONS)
+    thresholds = encumbrance_service.carry_thresholds(char)
+    carry_level = encumbrance_service.carry_level(carried_weight, thresholds)
+
+    return render_template(
+        'characters/inventario.html', char=char, items_by_location=items_by_location,
+        locations=CharacterInventoryItem.LOCATIONS, location_labels=CharacterInventoryItem.LOCATION_LABELS,
+        weight_by_location=weight_by_location, carried_weight=carried_weight,
+        thresholds=thresholds, carry_level=carry_level,
+        carry_level_label=encumbrance_service.LEVEL_LABELS[carry_level],
+        carry_level_message=encumbrance_service.LEVEL_MESSAGES.get(carry_level),
+    )
+
+
+@characters_bp.route('/<int:char_id>/inventario/<int:inv_item_id>/mover', methods=['POST'])
+@login_required
+def mover_inventario(char_id, inv_item_id):
+    char = _get_owned_character(char_id)
+    inv_item = CharacterInventoryItem.query.filter_by(id=inv_item_id, character_id=char.id).first_or_404()
+
+    destino = request.form.get('destino', '').strip()
+    if destino not in CharacterInventoryItem.LOCATIONS or destino == inv_item.location:
+        flash('Elige un destino distinto al actual.', 'danger')
+        return redirect(url_for('characters.inventario', char_id=char.id))
+
+    cantidad = request.form.get('cantidad', '').strip()
+    cantidad = int(cantidad) if cantidad.isdigit() else 0
+    if cantidad < 1 or cantidad > inv_item.quantity:
+        flash(f'La cantidad debe estar entre 1 y {inv_item.quantity}.', 'danger')
+        return redirect(url_for('characters.inventario', char_id=char.id))
+
+    # Merge into a matching stack already at the destination if one exists,
+    # instead of always creating a new row (mirrors how a real inventory
+    # would just add units to the same pile of identical objects).
+    destino_stack = CharacterInventoryItem.query.filter_by(
+        character_id=char.id, location=destino, equipment_item_id=inv_item.equipment_item_id,
+        custom_name=inv_item.custom_name, quality=inv_item.quality,
+    ).first()
+
+    if cantidad == inv_item.quantity:
+        if destino_stack:
+            destino_stack.quantity += cantidad
+            db.session.delete(inv_item)
+        else:
+            inv_item.location = destino
+    else:
+        inv_item.quantity -= cantidad
+        if destino_stack:
+            destino_stack.quantity += cantidad
+        else:
+            db.session.add(CharacterInventoryItem(
+                character_id=char.id, equipment_item_id=inv_item.equipment_item_id,
+                custom_name=inv_item.custom_name, quality=inv_item.quality,
+                quantity=cantidad, location=destino, notes=inv_item.notes,
+            ))
+
+    db.session.commit()
+    flash(f'Movido a {CharacterInventoryItem.LOCATION_LABELS[destino]}.', 'success')
+    return redirect(url_for('characters.inventario', char_id=char.id))
 
 
 @characters_bp.route('/<int:char_id>/historial-compras')

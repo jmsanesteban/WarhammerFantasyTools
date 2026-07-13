@@ -16,30 +16,38 @@ _ALLOWED_IMAGE_EXTENSIONS = {'png', 'jpg', 'jpeg', 'webp', 'gif'}
 _IMAGE_CATEGORIES = ('arma', 'armadura')
 
 
-def _distinct_values(model, column, category=None):
+def _distinct_values(model, column, category=None, category_in=None):
     q = model.query
     if category:
         q = q.filter_by(category=category)
+    elif category_in:
+        q = q.filter(model.category.in_(category_in))
     return [v for (v,) in q.with_entities(column).filter(column.isnot(None))
             .distinct().order_by(column).all()]
 
 
-def _filtered_query(category, subcategory, quality, search):
-    """Shared scoping logic behind the public catalog list and the bulk
-    custom_fields editor - both define "the matching set of objects" the
-    same way, from the same 4 filters."""
-    query = EquipmentItem.query
-    if category in EquipmentItem.CATEGORIES:
+def _filtered_query(category, subcategory, quality, search, category_choices=None):
+    """Shared scoping logic behind the public catalog list, the character
+    shop, and the bulk custom_fields editor - all three define "the matching
+    set of objects" the same way, from the same 4 filters. `category_choices`
+    restricts which categories are in play at all (the shop only sells
+    arma/armadura/ropa); defaults to every catalog category."""
+    choices = category_choices or EquipmentItem.CATEGORIES
+    query = EquipmentItem.query.filter(EquipmentItem.category.in_(choices))
+    if category in choices:
         query = query.filter_by(category=category)
     if subcategory:
         query = query.filter_by(subcategory=subcategory)
     # Quality is a real catalog attribute only for Ropa (each tier is its own
-    # row); for Arma/Armadura it's a purchase-time modifier, never stored on
-    # the row, so filtering by it there would always return zero results.
-    # Those two categories instead show every matching row with its stats/
-    # price adjusted to the chosen quality (see list.html/_macros.html).
-    if quality in EquipmentItem.QUALITIES and category not in ('arma', 'armadura'):
-        query = query.filter_by(quality=quality)
+    # row); every other category never has it stored on the row, so
+    # filtering by it there would always return zero results - those rows
+    # instead show every matching item with its stats/price adjusted to the
+    # chosen quality (see list.html/_macros.html). The `or` here matters when
+    # category is blank (both Ropa and non-Ropa rows in the same resultset):
+    # only the Ropa rows actually get narrowed by quality, everything else
+    # passes through untouched.
+    if quality in EquipmentItem.QUALITIES:
+        query = query.filter(db.or_(EquipmentItem.category != 'ropa', EquipmentItem.quality == quality))
     if search:
         query = query.filter(EquipmentItem.name.ilike(f'%{search}%'))
     return query.order_by(EquipmentItem.category, EquipmentItem.name)
