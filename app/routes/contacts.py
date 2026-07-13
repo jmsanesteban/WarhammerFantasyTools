@@ -1,9 +1,11 @@
-from flask import Blueprint, render_template, redirect, url_for, request, flash, abort
+import os
+from flask import Blueprint, render_template, redirect, url_for, request, flash, abort, current_app
 from flask_login import login_required, current_user
+from werkzeug.utils import secure_filename
 from app.extensions import db
 from app.models.character import Character
 from app.models.profession import Profession
-from app.models.contact import Contact, ContactProfession
+from app.models.contact import Contact, ContactProfession, UNTERSUCHUNG_GRADOS
 from app.models.contact_character_link import (
     ContactCharacterLink, ContactApodo, ContactCharacterSalary, ContactCharacterVisibility,
 )
@@ -11,6 +13,34 @@ from app.models.contact_note import ContactNote
 from app.services import salary_service
 
 contacts_bp = Blueprint('contacts', __name__, template_folder='../templates')
+
+_ALLOWED_IMAGE_EXTENSIONS = {'png', 'jpg', 'jpeg', 'webp', 'gif'}
+
+
+def _can_edit(contact):
+    """Full-detail editing (nombre, grados, profesiones...) is open to admins
+    and whoever originally registered the contact - not to any user who can
+    merely view it, since the fields here are global, not per-character."""
+    return current_user.is_admin or contact.created_by_id == current_user.id
+
+
+def _grados_from_form():
+    return [g for g in request.form.getlist('grados_untersuchung') if g in UNTERSUCHUNG_GRADOS] or None
+
+
+def _save_image_from_form(contact):
+    file = request.files.get('image')
+    if not file or not file.filename:
+        return
+    ext = file.filename.rsplit('.', 1)[-1].lower() if '.' in file.filename else ''
+    if ext not in _ALLOWED_IMAGE_EXTENSIONS:
+        flash('La imagen debe ser PNG, JPG, WEBP o GIF.', 'danger')
+        return
+    filename = secure_filename(file.filename)
+    save_path = os.path.join(current_app.config['UPLOAD_FOLDER'], 'contactos', filename)
+    os.makedirs(os.path.dirname(save_path), exist_ok=True)
+    file.save(save_path)
+    contact.image_path = os.path.join('contactos', filename)
 
 
 def _safe_redirect(default_endpoint, **default_kwargs):
@@ -139,16 +169,21 @@ def new():
         personaje = next((c for c in characters if c.id == personaje_id), None)
         if not nombre:
             flash('El contacto necesita un nombre.', 'danger')
-            return render_template('contacts/new.html', characters=characters, professions=professions)
+            return render_template('contacts/new.html', characters=characters, professions=professions,
+                                   grados=UNTERSUCHUNG_GRADOS)
         if not personaje and not current_user.is_admin:
             flash('Selecciona el personaje que registra este contacto.', 'danger')
-            return render_template('contacts/new.html', characters=characters, professions=professions)
+            return render_template('contacts/new.html', characters=characters, professions=professions,
+                                   grados=UNTERSUCHUNG_GRADOS)
 
         contact = Contact(
             nombre=nombre,
             es_untersuchung=request.form.get('es_untersuchung') == 'on',
+            vivo=request.form.get('vivo') == 'on',
+            grados_untersuchung=_grados_from_form(),
             created_by_id=current_user.id,
         )
+        _save_image_from_form(contact)
         db.session.add(contact)
         db.session.flush()
 
@@ -173,7 +208,8 @@ def new():
         flash(f'Contacto «{contact.nombre}» creado.', 'success')
         return redirect(url_for('contacts.detail', contact_id=contact.id))
 
-    return render_template('contacts/new.html', characters=characters, professions=professions)
+    return render_template('contacts/new.html', characters=characters, professions=professions,
+                           grados=UNTERSUCHUNG_GRADOS)
 
 
 def _link_fields_from_form():
@@ -244,6 +280,7 @@ def detail(contact_id):
         visibility_level=visibility_level,
         visibility_grants=visibility_grants,
         all_characters=Character.query.order_by(Character.name).all() if current_user.is_admin else None,
+        can_edit=_can_edit(contact),
     )
 
 
@@ -385,9 +422,9 @@ def note_delete(contact_id, note_id):
 @contacts_bp.route('/<int:contact_id>/editar', methods=['GET', 'POST'])
 @login_required
 def edit(contact_id):
-    if not current_user.is_admin:
-        abort(403)
     contact = Contact.query.get_or_404(contact_id)
+    if not _can_edit(contact):
+        abort(403)
     professions = Profession.query.order_by(Profession.name).all()
     selected_profession_ids = {cp.profession_id for cp in contact.professions}
 
@@ -396,11 +433,16 @@ def edit(contact_id):
         if not nombre:
             flash('El contacto necesita un nombre.', 'danger')
             return render_template('contacts/edit.html', contact=contact, professions=professions,
-                                   selected_profession_ids=selected_profession_ids)
+                                   selected_profession_ids=selected_profession_ids,
+                                   grados=UNTERSUCHUNG_GRADOS)
 
         contact.nombre = nombre
         contact.es_untersuchung = request.form.get('es_untersuchung') == 'on'
-        contact.is_visible = request.form.get('is_visible') == 'on'
+        contact.vivo = request.form.get('vivo') == 'on'
+        contact.grados_untersuchung = _grados_from_form()
+        _save_image_from_form(contact)
+        if current_user.is_admin:
+            contact.is_visible = request.form.get('is_visible') == 'on'
 
         ContactProfession.query.filter_by(contact_id=contact.id).delete()
         for prof_id in request.form.getlist('profession_ids'):
@@ -412,7 +454,7 @@ def edit(contact_id):
         return redirect(url_for('contacts.detail', contact_id=contact.id))
 
     return render_template('contacts/edit.html', contact=contact, professions=professions,
-                           selected_profession_ids=selected_profession_ids)
+                           selected_profession_ids=selected_profession_ids, grados=UNTERSUCHUNG_GRADOS)
 
 
 # ── Visibilidad por personaje (admin) ───────────────────────────────────────

@@ -10,7 +10,7 @@
     </a>
   </div>
 
-  <form method="POST">
+  <form method="POST" enctype="multipart/form-data">
     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
 
     <div class="card wh-card mb-4" style="max-width:700px">
@@ -21,12 +21,34 @@
             <label class="form-label wh-label">Nombre *</label>
             <input type="text" name="nombre" class="form-control wh-input" required value="{{ contact.nombre }}">
           </div>
-          <div class="col-md-4 d-flex align-items-end">
+          <div class="col-md-4 d-flex align-items-end gap-3">
             <label class="d-flex align-items-center gap-2" style="cursor:pointer">
-              <input type="checkbox" name="es_untersuchung" class="form-check-input"
+              <input type="checkbox" name="vivo" class="form-check-input" {% if contact.vivo %}checked{% endif %}>
+              Vivo
+            </label>
+            <label class="d-flex align-items-center gap-2" style="cursor:pointer">
+              <input type="checkbox" name="es_untersuchung" class="form-check-input" id="chk-untersuchung"
                      {% if contact.es_untersuchung %}checked{% endif %}>
               Untersuchung
             </label>
+          </div>
+          <div class="col-12" id="grados-wrap" style="display:none">
+            <label class="form-label wh-label">Grado(s) en la Untersuchung</label>
+            <select name="grados_untersuchung" class="form-select wh-input" multiple size="6">
+              {% for g in grados %}
+              <option value="{{ g }}" {% if contact.grados_untersuchung and g in contact.grados_untersuchung %}selected{% endif %}>{{ g }}</option>
+              {% endfor %}
+            </select>
+            <small class="text-muted">Ctrl/Cmd + clic para elegir varios (hay grados mixtos, p.ej. Paloma/Gato).</small>
+          </div>
+          <div class="col-md-8">
+            <label class="form-label wh-label">Foto/imagen</label>
+            {% if contact.image_path %}
+            <div class="mb-2">
+              <img src="{{ url_for('main.uploaded_file', filename=contact.image_path) }}" style="max-height:120px" class="rounded">
+            </div>
+            {% endif %}
+            <input type="file" name="image" class="form-control wh-input" accept="image/*">
           </div>
           <div class="col-12">
             <label class="form-label wh-label">Profesiones</label>
@@ -37,12 +59,14 @@
             </select>
             <small class="text-muted">Ctrl/Cmd + clic para elegir varias.</small>
           </div>
+          {% if current_user.is_admin %}
           <div class="col-12">
             <label class="d-flex align-items-center gap-2" style="cursor:pointer">
               <input type="checkbox" name="is_visible" class="form-check-input" {% if contact.is_visible %}checked{% endif %}>
               Visible (si se desmarca, queda oculto para todos los personajes, sin importar su visibilidad concedida)
             </label>
           </div>
+          {% endif %}
         </div>
       </div>
     </div>
@@ -53,4 +77,16 @@
     </div>
   </form>
 </div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+(function () {
+  const chk = document.getElementById('chk-untersuchung');
+  const wrap = document.getElementById('grados-wrap');
+  function sync() { wrap.style.display = chk.checked ? '' : 'none'; }
+  chk.addEventListener('change', sync);
+  sync();
+})();
+</script>
 {% endblock %}

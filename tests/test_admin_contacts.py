@@ -31,14 +31,58 @@ def test_edit_contact_updates_global_fields(db, client, admin_user, make_contact
     login_as(client, admin_user, 'adminpass123')
 
     resp = client.post(f'/contactos/{contact.id}/editar', data={
-        'nombre': 'Nombre corregido', 'es_untersuchung': 'on', 'profession_ids': [str(prof.id)],
+        'nombre': 'Nombre corregido', 'es_untersuchung': 'on', 'vivo': 'on',
+        'grados_untersuchung': ['Paloma', 'Gato'], 'profession_ids': [str(prof.id)],
     }, follow_redirects=True)
     assert resp.status_code == 200
 
     db.session.refresh(contact)
     assert contact.nombre == 'Nombre corregido'
     assert contact.es_untersuchung is True
+    assert contact.grados_untersuchung == ['Paloma', 'Gato']
     assert ContactProfession.query.filter_by(contact_id=contact.id, profession_id=prof.id).first() is not None
+
+
+def test_edit_contact_allows_creator_to_update_profession(db, client, regular_user, make_contact, make_profession,
+                                                            login_as):
+    """Non-admins can't edit a contact they didn't register, but the original
+    creator can - specifically covers being able to fix a contact's profession
+    after the fact, which used to be admin-only."""
+    contact = make_contact(nombre='Contacto propio', created_by=regular_user)
+    prof = make_profession(name='Cazarrecompensas')
+    login_as(client, regular_user, 'userpass123')
+
+    resp = client.post(f'/contactos/{contact.id}/editar', data={
+        'nombre': 'Contacto propio', 'profession_ids': [str(prof.id)],
+    }, follow_redirects=True)
+    assert resp.status_code == 200
+
+    db.session.refresh(contact)
+    assert ContactProfession.query.filter_by(contact_id=contact.id, profession_id=prof.id).first() is not None
+
+
+def test_edit_contact_creator_cannot_toggle_visibility(db, client, regular_user, make_contact, login_as):
+    """is_visible is a global admin-moderation flag - a non-admin creator
+    editing their own contact must not be able to flip it even if the field
+    were posted (e.g. via a hand-crafted request)."""
+    contact = make_contact(nombre='Contacto propio', created_by=regular_user, is_visible=True)
+    login_as(client, regular_user, 'userpass123')
+
+    resp = client.post(f'/contactos/{contact.id}/editar', data={
+        'nombre': 'Contacto propio', 'is_visible': '',
+    }, follow_redirects=True)
+    assert resp.status_code == 200
+
+    db.session.refresh(contact)
+    assert contact.is_visible is True
+
+
+def test_edit_contact_still_blocks_non_creator_non_admin(client, regular_user, make_user, make_contact, login_as):
+    other = make_user('otro_usuario', 'otropass123')
+    contact = make_contact(nombre='De otro usuario', created_by=other)
+    login_as(client, regular_user, 'userpass123')
+    resp = client.get(f'/contactos/{contact.id}/editar')
+    assert resp.status_code == 403
 
 
 # ── Visibilidad por personaje ────────────────────────────────────────────────

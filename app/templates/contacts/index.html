@@ -65,6 +65,9 @@
         <tr>
           <td>
             <strong>{{ contact.nombre }}</strong>
+            {% if not contact.vivo %}
+            <span class="badge bg-dark" style="font-size:.65rem">Fallecido</span>
+            {% endif %}
             {% if current_user.is_admin and not contact.is_visible %}
             <span class="badge bg-secondary" style="font-size:.65rem">Oculto</span>
             {% endif %}

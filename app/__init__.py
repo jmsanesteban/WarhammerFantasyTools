@@ -367,6 +367,19 @@ def _register_cli_commands(app):
                     click.echo('  Dropped legacy-shape contact_notes (recreating with character_id)')
                 db.create_all()
 
+            # Incremental columns: contacts.vivo/grados_untersuchung/image_path
+            contact_cols_2 = {c['name'] for c in inspector.get_columns('contacts')}
+            contact_new_columns = [
+                ('vivo', 'BOOLEAN NOT NULL DEFAULT TRUE'),
+                ('grados_untersuchung', 'JSON NULL'),
+                ('image_path', 'VARCHAR(300) NULL'),
+            ]
+            with db.engine.begin() as conn:
+                for col_name, col_def in contact_new_columns:
+                    if col_name not in contact_cols_2:
+                        conn.execute(text(f'ALTER TABLE contacts ADD COLUMN {col_name} {col_def}'))
+                        click.echo(f'  Added contacts.{col_name}')
+
             # drinks.sabor changed meaning (base category instead of descriptor+parens)
             # and gained sabor_variante. It's a closed catalog seeded only from JSON
             # (never user-edited), so a shape change just drops and reseeds it rather

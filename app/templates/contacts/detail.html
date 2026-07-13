@@ -27,23 +27,42 @@
         <h2 class="wh-heading mb-0" style="font-size:1.3rem">{{ contact.nombre }}</h2>
         <small class="text-muted">Contacto #{{ contact.id }}</small>
       </div>
-      {% if current_user.is_admin %}
-      <span class="badge {% if contact.is_visible %}bg-success{% else %}bg-secondary{% endif %}">
-        {{ 'Visible' if contact.is_visible else 'Oculto' }}
-      </span>
-      {% endif %}
+      <div class="d-flex gap-2 align-items-center">
+        {% if not contact.vivo %}
+        <span class="badge bg-dark">Fallecido</span>
+        {% endif %}
+        {% if current_user.is_admin %}
+        <span class="badge {% if contact.is_visible %}bg-success{% else %}bg-secondary{% endif %}">
+          {{ 'Visible' if contact.is_visible else 'Oculto' }}
+        </span>
+        {% endif %}
+      </div>
     </div>
     <div class="card-body">
-      <dl class="row mb-0">
-        {% if visibility_level == 'total' %}
-        <dt class="col-sm-4 wh-label">Profesiones</dt>
-        <dd class="col-sm-8">{{ contact.professions|map(attribute='profession.name')|join(', ') or '—' }}</dd>
+      <div class="row">
+        {% if contact.image_path %}
+        <div class="col-md-3 mb-3">
+          <img src="{{ url_for('main.uploaded_file', filename=contact.image_path) }}" class="img-fluid rounded"
+               alt="{{ contact.nombre }}">
+        </div>
         {% endif %}
-        {% if current_user.is_admin or (active_character and active_character.es_untersuchung) %}
-        <dt class="col-sm-4 wh-label">Untersuchung</dt>
-        <dd class="col-sm-8">{{ 'Sí' if contact.es_untersuchung else 'No' }}</dd>
-        {% endif %}
-      </dl>
+        <div class="{% if contact.image_path %}col-md-9{% else %}col-12{% endif %}">
+          <dl class="row mb-0">
+            {% if visibility_level == 'total' %}
+            <dt class="col-sm-4 wh-label">Profesiones</dt>
+            <dd class="col-sm-8">{{ contact.professions|map(attribute='profession.name')|join(', ') or '—' }}</dd>
+            {% endif %}
+            {% if current_user.is_admin or (active_character and active_character.es_untersuchung) %}
+            <dt class="col-sm-4 wh-label">Untersuchung</dt>
+            <dd class="col-sm-8">{{ 'Sí' if contact.es_untersuchung else 'No' }}</dd>
+            {% if contact.es_untersuchung and contact.grados_untersuchung %}
+            <dt class="col-sm-4 wh-label">Grado(s)</dt>
+            <dd class="col-sm-8">{{ contact.grados_untersuchung|join(', ') }}</dd>
+            {% endif %}
+            {% endif %}
+          </dl>
+        </div>
+      </div>
     </div>
     <div class="card-footer d-flex justify-content-between align-items-center">
       <small class="text-muted">
@@ -52,7 +71,7 @@
         · Actualizado {{ contact.updated_at.strftime('%d/%m/%Y %H:%M') }}
         {% endif %}
       </small>
-      {% if current_user.is_admin %}
+      {% if can_edit %}
       <a href="{{ url_for('contacts.edit', contact_id=contact.id) }}" class="btn btn-outline-warning btn-sm">
         <i class="bi bi-pencil me-1"></i>Editar
       </a>
