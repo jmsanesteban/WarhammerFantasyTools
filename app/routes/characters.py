@@ -456,6 +456,11 @@ def inventario(char_id):
         container_capacity is not None and mochila_saco_weight > container_capacity
     )
 
+    unit_weights = {
+        inv_item.id: encumbrance_service.unit_weight(inv_item)
+        for items in items_by_location.values() for inv_item in items
+    }
+
     return render_template(
         'characters/inventario.html', char=char, items_by_location=items_by_location,
         locations=CharacterInventoryItem.LOCATIONS, location_labels=CharacterInventoryItem.LOCATION_LABELS,
@@ -468,6 +473,7 @@ def inventario(char_id):
         container_capacities=encumbrance_service.CONTAINER_CAPACITIES,
         container_capacity=container_capacity,
         container_overflow=container_overflow,
+        unit_weights=unit_weights,
     )
 
 

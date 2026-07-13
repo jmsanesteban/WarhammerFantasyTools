@@ -1,14 +1,17 @@
 """Tests for buying Comida y bebida directly from the catalog: charges the
 chosen character's money, creates a CharacterInventoryItem/CharacterPurchase
 polymorphic row (drink_id/recipe_id instead of equipment_item_id), respects
-ownership (owner or admin only), and applies the global ShopMarkup %."""
+ownership (owner or admin only), applies the global ShopMarkup %, and counts
+toward the character's carga (encumbrance) via encumbrance_service."""
 from app.models.equipment import CharacterInventoryItem, CharacterPurchase
 from app.models.food import Drink, Recipe
 from app.models.shop import ShopMarkup
+from app.services import encumbrance_service
 
 
-def _make_drink(db, nombre='Cerveza', origen='Imperio', precio_taberna_peniques=12):
-    drink = Drink(nombre=nombre, origen=origen, precio_taberna_peniques=precio_taberna_peniques)
+def _make_drink(db, nombre='Cerveza', origen='Imperio', precio_taberna_peniques=12, recipiente='Pinta'):
+    drink = Drink(nombre=nombre, origen=origen, precio_taberna_peniques=precio_taberna_peniques,
+                  recipiente=recipiente)
     db.session.add(drink)
     db.session.commit()
     return drink
@@ -196,3 +199,52 @@ def test_historial_links_to_recipe_detail(db, client, make_user, make_character,
     assert resp.status_code == 200
     assert f'/comida/recetas/{recipe.id}'.encode('utf-8') in resp.data
     assert 'Guiso especial'.encode('utf-8') in resp.data
+
+
+# ── Peso de comida/bebida (cuenta para la carga) ────────────────────────────
+# Confirmado con el usuario: una ración siempre pesa 0.5U (2 raciones = 1U);
+# una bebida pesa según su recipiente - 1 litro = 1U, y los 3 recipientes del
+# catálogo (Botella/Pinta/Chupito) representan cuántos salen de ese litro
+# (Botella = el propio litro = 1U; 2 pintas por litro = 0.5U; 10 chupitos = 0.1U).
+
+def test_drink_unit_weight_depends_on_recipiente(db, make_user, make_character):
+    owner = make_user(username='owner1', password='ownerpass123')
+    char = make_character(owner, name='Personaje')
+
+    botella = _make_drink(db, nombre='Vino', recipiente='Botella')
+    pinta = _make_drink(db, nombre='Cerveza', origen='Bretonia', recipiente='Pinta')
+    chupito = _make_drink(db, nombre='Brandy', origen='Bretonia', recipiente='Chupito')
+
+    inv_botella = CharacterInventoryItem(character_id=char.id, drink=botella,
+                                          quantity=1, location='equipamiento')
+    inv_pinta = CharacterInventoryItem(character_id=char.id, drink=pinta,
+                                        quantity=1, location='equipamiento')
+    inv_chupito = CharacterInventoryItem(character_id=char.id, drink=chupito,
+                                          quantity=1, location='equipamiento')
+
+    assert encumbrance_service.unit_weight(inv_botella) == 1.0
+    assert encumbrance_service.unit_weight(inv_pinta) == 0.5
+    assert encumbrance_service.unit_weight(inv_chupito) == 0.1
+
+
+def test_recipe_unit_weight_is_half_a_unit_per_racion(db, make_user, make_character):
+    owner = make_user(username='owner1', password='ownerpass123')
+    char = make_character(owner, name='Personaje')
+    recipe = _make_recipe(db)
+
+    inv = CharacterInventoryItem(character_id=char.id, recipe=recipe,
+                                  quantity=4, location='equipamiento')
+    assert encumbrance_service.unit_weight(inv) == 0.5
+    assert encumbrance_service.item_weight(inv) == 2.0  # 4 raciones x 0.5U
+
+
+def test_purchased_drink_counts_toward_inventario_weight(db, client, make_user, make_character, login_as):
+    char = _login_owner(client, make_user, make_character, login_as, dinero_coronas=10)
+    drink = _make_drink(db, nombre='Cerveza', recipiente='Pinta', precio_taberna_peniques=12)
+
+    _buy_drink(client, drink, char.id, cantidad=3, ubicacion='mochila_saco')
+
+    resp = client.get(f'/personajes/{char.id}/inventario')
+    assert resp.status_code == 200
+    inv = CharacterInventoryItem.query.filter_by(character_id=char.id).first()
+    assert encumbrance_service.item_weight(inv) == 1.5  # 3 pintas x 0.5U

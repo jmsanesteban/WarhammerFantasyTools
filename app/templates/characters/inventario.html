@@ -150,7 +150,7 @@
               </td>
               <td>{{ inv.quality_label or '—' }}</td>
               <td>{{ inv.quantity }}</td>
-              {% set unit_peso = inv.equipment_item.peso_for_quality(inv.quality) if inv.equipment_item else none %}
+              {% set unit_peso = unit_weights.get(inv.id) %}
               <td>
                 {% if unit_peso is not none %}
                 {{ '%.2f'|format(unit_peso) }} / {{ '%.2f'|format(unit_peso * inv.quantity) }}

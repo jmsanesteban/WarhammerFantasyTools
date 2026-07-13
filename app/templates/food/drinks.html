@@ -89,12 +89,6 @@
           <th>{{ sort_link('sabor', 'Sabor') }}</th>
           <th>Recipiente</th>
           <th>{{ sort_link('precio', 'Precio (taberna)') }}</th>
-          <th>Cantidad</th>
-          <th>Total</th>
-          {% if personajes %}
-          <th>Personaje</th>
-          <th>Ubicación</th>
-          {% endif %}
           <th style="width:9rem"></th>
         </tr>
       </thead>
@@ -110,37 +104,14 @@
             {% if drink.sabor_variante %}<br><small class="text-muted">{{ drink.sabor_variante }}</small>{% endif %}
           </td>
           <td>{{ drink.recipiente or '—' }}</td>
-          <td data-peniques="{{ drink.precio_taberna_peniques or 0 }}" class="wh-price">
-            {{ drink.precio_taberna_peniques | food_money }}
-          </td>
-          <td style="width:6rem">
-            <input type="number" min="1" value="1" class="form-control form-control-sm wh-qty-input"
-                   form="wh-buy-{{ drink.id }}" name="cantidad">
-          </td>
-          <td class="wh-qty-total"></td>
-          {% if personajes %}
-          <td>
-            <select class="form-select form-select-sm" form="wh-buy-{{ drink.id }}" name="personaje_id" style="min-width:8rem">
-              {% for char, owner in personajes %}
-              <option value="{{ char.id }}">{{ char.name }}{% if owner %} ({{ owner }}){% endif %}</option>
-              {% endfor %}
-            </select>
-          </td>
-          <td>
-            <select class="form-select form-select-sm" form="wh-buy-{{ drink.id }}" name="ubicacion" style="min-width:8rem">
-              {% for loc in locations %}
-              <option value="{{ loc }}">{{ location_labels[loc] }}</option>
-              {% endfor %}
-            </select>
-          </td>
-          {% endif %}
+          <td>{{ drink.precio_taberna_peniques | food_money }}</td>
           <td class="text-nowrap">
             <a href="{{ url_for('food.drink_detail', drink_id=drink.id) }}" class="btn btn-outline-secondary btn-sm">Ver</a>
             {% if personajes %}
-            <form id="wh-buy-{{ drink.id }}" method="POST" action="{{ url_for('food.comprar_bebida', drink_id=drink.id) }}" class="d-inline">
-              <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-            </form>
-            <button type="submit" form="wh-buy-{{ drink.id }}" class="btn btn-wh btn-sm">Comprar</button>
+            <button type="button" class="btn btn-wh btn-sm" data-bs-toggle="modal" data-bs-target="#buyModal"
+                    data-buy-nombre="{{ drink.nombre }}" data-buy-precio="{{ drink.precio_taberna_peniques or 0 }}"
+                    data-buy-recipiente="{{ drink.recipiente or 'unidades' }}"
+                    data-buy-action="{{ url_for('food.comprar_bebida', drink_id=drink.id) }}">Comprar</button>
             {% endif %}
           </td>
         </tr>
@@ -151,21 +122,54 @@
   {% endif %}
 </div>
 
+{% if personajes %}
+{# ── Modal de compra compartido por todas las filas ── #}
+<div class="modal fade" id="buyModal" tabindex="-1">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content wh-card">
+      <div class="modal-header wh-card-header border-0">
+        <h5 class="modal-title wh-label mb-0">Comprar <span id="buyModalNombre"></span></h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+      </div>
+      <form id="buyModalForm" method="POST">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <div class="modal-body">
+          <div class="mb-3">
+            <label class="form-label wh-label">Cantidad de <span id="buyModalRecipiente"></span></label>
+            <input type="number" min="1" value="1" name="cantidad" id="buyModalCantidad" class="form-control wh-input">
+          </div>
+          <div class="mb-3">
+            <strong>Total: <span id="buyModalTotal"></span></strong>
+          </div>
+          <div class="mb-3">
+            <label class="form-label wh-label">Personaje</label>
+            <select name="personaje_id" class="form-select wh-input">
+              {% for char, owner in personajes %}
+              <option value="{{ char.id }}">{{ char.name }}{% if owner %} ({{ owner }}){% endif %}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="mb-3">
+            <label class="form-label wh-label">Ubicación</label>
+            <select name="ubicacion" class="form-select wh-input">
+              {% for loc in locations %}
+              <option value="{{ loc }}">{{ location_labels[loc] }}</option>
+              {% endfor %}
+            </select>
+          </div>
+        </div>
+        <div class="modal-footer border-0">
+          <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
+          <button type="submit" class="btn btn-wh"><i class="bi bi-cart-plus me-1"></i>Comprar</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+{% endif %}
+
 <script>
 var whMarkupPct = {{ (markup_pct or 0) | int }};
-document.querySelectorAll('tr').forEach(function (row) {
-  var input = row.querySelector('.wh-qty-input');
-  var priceCell = row.querySelector('.wh-price');
-  var totalCell = row.querySelector('.wh-qty-total');
-  if (!input || !priceCell || !totalCell) return;
-  var unitPeniques = parseInt(priceCell.dataset.peniques, 10) || 0;
-  function render() {
-    var qty = parseInt(input.value, 10) || 0;
-    totalCell.textContent = formatPeniques(Math.round(unitPeniques * qty * (100 + whMarkupPct) / 100));
-  }
-  input.addEventListener('input', render);
-  render();
-});
 
 function formatPeniques(total) {
   if (!total) return '0 Pe';
@@ -179,5 +183,29 @@ function formatPeniques(total) {
   if (peniques || parts.length === 0) parts.push(peniques + ' Pe');
   return parts.join(' ');
 }
+
+(function () {
+  var modal = document.getElementById('buyModal');
+  if (!modal) return;
+  var unitPeniques = 0;
+  var cantidad = document.getElementById('buyModalCantidad');
+  var total = document.getElementById('buyModalTotal');
+
+  function renderTotal() {
+    var qty = parseInt(cantidad.value, 10) || 0;
+    total.textContent = formatPeniques(Math.round(unitPeniques * qty * (100 + whMarkupPct) / 100));
+  }
+  cantidad.addEventListener('input', renderTotal);
+
+  modal.addEventListener('show.bs.modal', function (ev) {
+    var btn = ev.relatedTarget;
+    unitPeniques = parseInt(btn.dataset.buyPrecio, 10) || 0;
+    document.getElementById('buyModalNombre').textContent = btn.dataset.buyNombre;
+    document.getElementById('buyModalRecipiente').textContent = btn.dataset.buyRecipiente;
+    document.getElementById('buyModalForm').action = btn.dataset.buyAction;
+    cantidad.value = 1;
+    renderTotal();
+  });
+})();
 </script>
 {% endblock %}

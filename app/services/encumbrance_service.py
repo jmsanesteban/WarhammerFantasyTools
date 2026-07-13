@@ -48,6 +48,16 @@ LEVEL_PENALTIES = {
 CONTAINER_CAPACITIES = {'mochila': 50.0, 'saco': 80.0}
 CONTAINER_LABELS = {'mochila': 'Mochila', 'saco': 'Saco'}
 
+# Comida/bebida weight (confirmed with the user): a ración always weighs the
+# same regardless of recipe (2 raciones = 1U - normal is 3 raciones/day).
+# A drink's weight depends only on its `recipiente` (serving size), not the
+# specific drink - all 61 catalog drinks use one of these 3 recipientes, and
+# the book's own examples (1L beer -> 2 pintas, 1 bottle wine -> 4 copas,
+# 1 bottle spirits -> 10 chupitos) all work out to the same 1U per container,
+# regardless of how many servings that container yields.
+RECIPE_PESO_RACION = 0.5
+DRINK_RECIPIENTE_PESO = {'Botella': 1.0, 'Pinta': 0.5, 'Chupito': 0.1}
+
 
 def has_robusto(character):
     return any(
@@ -79,11 +89,22 @@ def carry_level(weight, thresholds):
     return 'sin_carga'
 
 
+def unit_weight(inv_item):
+    """Weight of a single unit of this inventory line, or None if there's no
+    weight data to derive one from (custom items, or an equipment row whose
+    catalog peso is unset)."""
+    if inv_item.equipment_item:
+        return inv_item.equipment_item.peso_for_quality(inv_item.quality)
+    if inv_item.drink:
+        return DRINK_RECIPIENTE_PESO.get(inv_item.drink.recipiente)
+    if inv_item.recipe:
+        return RECIPE_PESO_RACION
+    return None
+
+
 def item_weight(inv_item):
-    """Weight of one CharacterInventoryItem row (peso_for_quality * quantity).
-    Items with no catalog link (custom_name only) or no stored peso don't
+    """Weight of one CharacterInventoryItem row (unit_weight * quantity).
+    Items with no catalog link (custom_name only) or no known weight don't
     contribute - there's no weight data to derive one from."""
-    if not inv_item.equipment_item:
-        return 0.0
-    peso = inv_item.equipment_item.peso_for_quality(inv_item.quality)
+    peso = unit_weight(inv_item)
     return (peso or 0.0) * inv_item.quantity

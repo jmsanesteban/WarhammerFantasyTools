@@ -91,7 +91,9 @@ def _process_food_purchase(unit_price_peniques, category_snapshot, item_name, dr
         inventory_item_id=inv_item.id,
     ))
     db.session.commit()
-    flash(f'«{item_name}» comprado para {char.name} por {format_peniques(total_price)}.', 'success')
+    location_label = CharacterInventoryItem.LOCATION_LABELS.get(location, location)
+    flash(f'«{item_name}» x{quantity} comprado para {char.name} por {format_peniques(total_price)} '
+          f'— enviado a su inventario ({location_label}).', 'success')
     return char, None
 
 
@@ -164,12 +166,13 @@ def drink_detail(drink_id):
 @login_required
 def comprar_bebida(drink_id):
     drink = Drink.query.get_or_404(drink_id)
-    _, error = _process_food_purchase(
+    char, error = _process_food_purchase(
         drink.precio_taberna_peniques, 'bebida', drink.nombre, drink_id=drink.id,
     )
     if error:
         flash(error, 'danger')
-    return redirect(url_for('food.drink_detail', drink_id=drink.id))
+        return redirect(request.referrer or url_for('food.drink_detail', drink_id=drink.id))
+    return redirect(url_for('characters.inventario', char_id=char.id))
 
 
 @food_bp.route('/recetas')
@@ -226,12 +229,13 @@ def comprar_receta(recipe_id):
     recipe = Recipe.query.get_or_404(recipe_id)
     if recipe.status != 'aprobada' and not current_user.is_admin and recipe.created_by_id != current_user.id:
         abort(404)
-    _, error = _process_food_purchase(
+    char, error = _process_food_purchase(
         recipe.precio_compra_peniques, 'comida', recipe.nombre, recipe_id=recipe.id,
     )
     if error:
         flash(error, 'danger')
-    return redirect(url_for('food.recipe_detail', recipe_id=recipe.id))
+        return redirect(request.referrer or url_for('food.recipe_detail', recipe_id=recipe.id))
+    return redirect(url_for('characters.inventario', char_id=char.id))
 
 
 @food_bp.route('/recetas/nueva', methods=['GET', 'POST'])
