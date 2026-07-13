@@ -75,48 +75,50 @@
   {% if not recipes %}
   <div class="alert alert-info wh-alert">No se encontraron recetas.</div>
   {% else %}
-  <div class="d-flex flex-column gap-3">
+  <div class="row g-3">
     {% for recipe in recipes %}
-    <div class="card wh-card">
-      <div class="row g-0">
-        {% if recipe.image_path %}
-        {% set image_url = url_for('main.uploaded_file', filename=recipe.image_path) %}
-        <div class="col-4 col-md-3 col-lg-2 wh-card-img-wrap">
-          <div class="wh-img-backdrop-clip"><div class="wh-img-backdrop" style="background-image:url('{{ image_url }}')"></div></div>
-          <img src="{{ image_url }}" class="wh-card-img-left wh-lightbox-trigger" alt="{{ recipe.nombre }}">
-        </div>
-        {% endif %}
-        <div class="{% if recipe.image_path %}col-8 col-md-9 col-lg-10{% else %}col-12{% endif %}">
-          <div class="card-body">
-            <h5 class="card-title wh-name mb-1">
-              <a href="{{ url_for('food.recipe_detail', recipe_id=recipe.id) }}" class="wh-link text-decoration-none">{{ recipe.nombre }}</a>
-            </h5>
-            <div class="d-flex gap-1 flex-wrap mb-2">
-              {% if recipe.solo_compra %}<span class="badge bg-secondary">Solo compra</span>{% endif %}
-              {% if recipe.created_by_id %}<span class="badge bg-info text-dark">Comunidad</span>{% endif %}
-              {% if current_user.is_admin and recipe.status != 'aprobada' %}
-              <span class="badge {{ 'bg-warning text-dark' if recipe.status == 'pendiente' else 'bg-danger' }}">
-                {{ 'Pendiente' if recipe.status == 'pendiente' else 'Rechazada' }}
-              </span>
-              {% endif %}
-              {% if recipe.cooking_method %}<span class="badge bg-dark">{{ recipe.cooking_method.nombre }}</span>{% endif %}
-              {% if recipe.calidad %}<span class="badge bg-secondary">Calidad: {{ recipe.calidad }}</span>{% endif %}
-            </div>
-            <p class="card-text small text-muted mb-1">
-              Vigor: {{ recipe.vigor }} · Moral: {{ recipe.moral }} ·
-              Duración: {{ recipe.duracion_dias ~ ' días' if recipe.duracion_dias is not none else '—' }}
-            </p>
-            <p class="card-text small text-muted mb-2">
-              Coste creación (12 raciones): {{ recipe.coste_creacion_peniques | food_money if recipe.coste_creacion_peniques is not none else '—' }} ·
-              Compra (1 ración): {{ recipe.precio_compra_peniques | food_money }}
-            </p>
-            <div class="d-flex gap-2 flex-wrap">
-              <a href="{{ url_for('food.recipe_detail', recipe_id=recipe.id) }}" class="btn btn-outline-secondary btn-sm">Ver</a>
-              {% if personajes and recipe.precio_compra_peniques is not none %}
-              <button type="button" class="btn btn-wh btn-sm" data-bs-toggle="modal" data-bs-target="#buyModal"
-                      data-buy-nombre="{{ recipe.nombre }}" data-buy-precio="{{ recipe.precio_compra_peniques }}"
-                      data-buy-action="{{ url_for('food.comprar_receta', recipe_id=recipe.id) }}">Comprar</button>
-              {% endif %}
+    <div class="col-md-6">
+      <div class="card wh-card h-100">
+        <div class="row g-0 h-100">
+          {% if recipe.image_path %}
+          {% set image_url = url_for('main.uploaded_file', filename=recipe.image_path) %}
+          <div class="col-4 wh-card-img-wrap" style="min-height:150px">
+            <div class="wh-img-backdrop-clip"><div class="wh-img-backdrop" style="background-image:url('{{ image_url }}')"></div></div>
+            <img src="{{ image_url }}" class="wh-card-img-left wh-lightbox-trigger" style="max-height:150px" alt="{{ recipe.nombre }}">
+          </div>
+          {% endif %}
+          <div class="{% if recipe.image_path %}col-8{% else %}col-12{% endif %}">
+            <div class="card-body py-2">
+              <h6 class="card-title wh-name mb-1">
+                <a href="{{ url_for('food.recipe_detail', recipe_id=recipe.id) }}" class="wh-link text-decoration-none">{{ recipe.nombre }}</a>
+              </h6>
+              <div class="d-flex gap-1 flex-wrap mb-1">
+                {% if recipe.solo_compra %}<span class="badge bg-secondary">Solo compra</span>{% endif %}
+                {% if recipe.created_by_id %}<span class="badge bg-info text-dark">Comunidad</span>{% endif %}
+                {% if current_user.is_admin and recipe.status != 'aprobada' %}
+                <span class="badge {{ 'bg-warning text-dark' if recipe.status == 'pendiente' else 'bg-danger' }}">
+                  {{ 'Pendiente' if recipe.status == 'pendiente' else 'Rechazada' }}
+                </span>
+                {% endif %}
+                {% if recipe.cooking_method %}<span class="badge bg-dark">{{ recipe.cooking_method.nombre }}</span>{% endif %}
+                {% if recipe.calidad %}<span class="badge bg-secondary">{{ recipe.calidad }}</span>{% endif %}
+              </div>
+              <p class="card-text small text-muted mb-1">
+                Vigor {{ recipe.vigor }} · Moral {{ recipe.moral }} ·
+                {{ recipe.duracion_dias ~ ' días' if recipe.duracion_dias is not none else '—' }}
+              </p>
+              <p class="card-text small text-muted mb-1">
+                Creación: {{ recipe.coste_creacion_peniques | food_money if recipe.coste_creacion_peniques is not none else '—' }} ·
+                Compra: {{ recipe.precio_compra_peniques | food_money }}
+              </p>
+              <div class="d-flex gap-2 flex-wrap mt-2">
+                <a href="{{ url_for('food.recipe_detail', recipe_id=recipe.id) }}" class="btn btn-outline-secondary btn-sm">Ver</a>
+                {% if personajes and recipe.precio_compra_peniques is not none %}
+                <button type="button" class="btn btn-wh btn-sm" data-bs-toggle="modal" data-bs-target="#buyModal"
+                        data-buy-nombre="{{ recipe.nombre }}" data-buy-precio="{{ recipe.precio_compra_peniques }}"
+                        data-buy-action="{{ url_for('food.comprar_receta', recipe_id=recipe.id) }}">Comprar</button>
+                {% endif %}
+              </div>
             </div>
           </div>
         </div>
