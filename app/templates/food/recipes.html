@@ -88,30 +88,32 @@
           </div>
           {% endif %}
           <div class="{% if recipe.image_path %}col-8{% else %}col-12{% endif %}">
-            <div class="card-body py-2">
-              <h6 class="card-title wh-name mb-1">
-                <a href="{{ url_for('food.recipe_detail', recipe_id=recipe.id) }}" class="wh-link text-decoration-none">{{ recipe.nombre }}</a>
-              </h6>
-              <div class="d-flex gap-1 flex-wrap mb-1">
-                {% if recipe.solo_compra %}<span class="badge bg-secondary">Solo compra</span>{% endif %}
-                {% if recipe.created_by_id %}<span class="badge bg-info text-dark">Comunidad</span>{% endif %}
-                {% if current_user.is_admin and recipe.status != 'aprobada' %}
-                <span class="badge {{ 'bg-warning text-dark' if recipe.status == 'pendiente' else 'bg-danger' }}">
-                  {{ 'Pendiente' if recipe.status == 'pendiente' else 'Rechazada' }}
-                </span>
-                {% endif %}
-                {% if recipe.cooking_method %}<span class="badge bg-dark">{{ recipe.cooking_method.nombre }}</span>{% endif %}
-                {% if recipe.calidad %}<span class="badge bg-secondary">{{ recipe.calidad }}</span>{% endif %}
+            <div class="card-body py-2 d-flex justify-content-between align-items-start gap-2">
+              <div class="wh-recipe-info">
+                <h5 class="card-title wh-name mb-1">
+                  <a href="{{ url_for('food.recipe_detail', recipe_id=recipe.id) }}" class="wh-link text-decoration-none">{{ recipe.nombre }}</a>
+                </h5>
+                <div class="d-flex gap-1 flex-wrap mb-1 wh-recipe-badges">
+                  {% if recipe.solo_compra %}<span class="badge bg-secondary">Solo compra</span>{% endif %}
+                  {% if recipe.created_by_id %}<span class="badge bg-info text-dark">Comunidad</span>{% endif %}
+                  {% if current_user.is_admin and recipe.status != 'aprobada' %}
+                  <span class="badge {{ 'bg-warning text-dark' if recipe.status == 'pendiente' else 'bg-danger' }}">
+                    {{ 'Pendiente' if recipe.status == 'pendiente' else 'Rechazada' }}
+                  </span>
+                  {% endif %}
+                  {% if recipe.cooking_method %}<span class="badge bg-dark">{{ recipe.cooking_method.nombre }}</span>{% endif %}
+                  {% if recipe.calidad %}<span class="badge bg-secondary">{{ recipe.calidad }}</span>{% endif %}
+                </div>
+                <p class="card-text text-muted mb-1">
+                  Vigor {{ recipe.vigor }} · Moral {{ recipe.moral }} ·
+                  {{ recipe.duracion_dias ~ ' días' if recipe.duracion_dias is not none else '—' }}
+                </p>
+                <p class="card-text text-muted mb-0">
+                  Creación: {{ recipe.coste_creacion_peniques | food_money if recipe.coste_creacion_peniques is not none else '—' }} ·
+                  Compra: {{ recipe.precio_compra_peniques | food_money }}
+                </p>
               </div>
-              <p class="card-text small text-muted mb-1">
-                Vigor {{ recipe.vigor }} · Moral {{ recipe.moral }} ·
-                {{ recipe.duracion_dias ~ ' días' if recipe.duracion_dias is not none else '—' }}
-              </p>
-              <p class="card-text small text-muted mb-1">
-                Creación: {{ recipe.coste_creacion_peniques | food_money if recipe.coste_creacion_peniques is not none else '—' }} ·
-                Compra: {{ recipe.precio_compra_peniques | food_money }}
-              </p>
-              <div class="d-flex gap-2 flex-wrap mt-2">
+              <div class="d-flex flex-column gap-2 flex-shrink-0">
                 <a href="{{ url_for('food.recipe_detail', recipe_id=recipe.id) }}" class="btn btn-outline-secondary btn-sm">Ver</a>
                 {% if personajes and recipe.precio_compra_peniques is not none %}
                 <button type="button" class="btn btn-wh btn-sm" data-bs-toggle="modal" data-bs-target="#buyModal"
@@ -128,6 +130,12 @@
   </div>
   {% endif %}
 </div>
+
+<style>
+.wh-recipe-info .card-title { font-size: 1.15rem; }
+.wh-recipe-badges .badge { font-size: 0.82rem; padding: 0.4em 0.65em; }
+.wh-recipe-info p.card-text { font-size: 0.95rem; }
+</style>
 
 {% if personajes %}
 {# ── Modal de compra compartido por todas las filas ── #}
