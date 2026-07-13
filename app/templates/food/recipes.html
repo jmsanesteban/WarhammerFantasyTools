@@ -1,15 +1,6 @@
 {% extends 'base.html' %}
 {% block title %}Recetas — Warhammer Fantasy Tools{% endblock %}
 
-{% macro sort_link(field, label) %}
-{% set new_dir = 'desc' if sort == field and direction == 'asc' else 'asc' %}
-<a href="{{ url_for('food.recipes', q=search, metodo=metodo, calidad=calidad, sort=field, dir=new_dir) }}"
-   class="wh-link text-decoration-none text-nowrap">
-  {{ label }}
-  {% if sort == field %}<i class="bi bi-caret-{{ 'up' if direction == 'asc' else 'down' }}-fill"></i>{% endif %}
-</a>
-{% endmacro %}
-
 {% block content %}
 <div class="container mt-4">
   <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
@@ -29,11 +20,11 @@
     </div>
   </div>
 
-  <form method="GET" class="row g-2 mb-2">
-    <div class="col-md-4">
+  <form method="GET" class="row g-2 mb-3">
+    <div class="col-md-3">
       <input type="text" name="q" class="form-control wh-input" placeholder="Buscar por nombre…" value="{{ search }}">
     </div>
-    <div class="col-md-3">
+    <div class="col-md-2">
       <select name="metodo" class="form-select wh-input">
         <option value="">Todos los métodos</option>
         {% for m in metodos %}
@@ -41,12 +32,31 @@
         {% endfor %}
       </select>
     </div>
-    <div class="col-md-3">
+    <div class="col-md-2">
       <select name="calidad" class="form-select wh-input">
         <option value="">Todas las calidades</option>
         {% for c in ('Mala', 'Normal', 'Buena', 'Excelente') %}
         <option value="{{ c }}" {% if calidad == c %}selected{% endif %}>{{ c }}</option>
         {% endfor %}
+      </select>
+    </div>
+    <div class="col-md-2">
+      <select name="sort" class="form-select wh-input">
+        <option value="">Ordenar por…</option>
+        <option value="nombre" {% if sort == 'nombre' %}selected{% endif %}>Nombre</option>
+        <option value="metodo" {% if sort == 'metodo' %}selected{% endif %}>Método</option>
+        <option value="calidad" {% if sort == 'calidad' %}selected{% endif %}>Calidad</option>
+        <option value="vigor" {% if sort == 'vigor' %}selected{% endif %}>Vigor</option>
+        <option value="moral" {% if sort == 'moral' %}selected{% endif %}>Moral</option>
+        <option value="duracion" {% if sort == 'duracion' %}selected{% endif %}>Duración</option>
+        <option value="coste_creacion" {% if sort == 'coste_creacion' %}selected{% endif %}>Coste creación</option>
+        <option value="precio_compra" {% if sort == 'precio_compra' %}selected{% endif %}>Precio de compra</option>
+      </select>
+    </div>
+    <div class="col-md-1">
+      <select name="dir" class="form-select wh-input">
+        <option value="asc" {% if direction == 'asc' %}selected{% endif %}>↑</option>
+        <option value="desc" {% if direction == 'desc' %}selected{% endif %}>↓</option>
       </select>
     </div>
     <div class="col-md-auto">
@@ -65,53 +75,54 @@
   {% if not recipes %}
   <div class="alert alert-info wh-alert">No se encontraron recetas.</div>
   {% else %}
-  <div class="table-responsive">
-    <table class="table wh-table align-middle">
-      <thead>
-        <tr>
-          <th>{{ sort_link('nombre', 'Nombre') }}</th>
-          <th>{{ sort_link('metodo', 'Método') }}</th>
-          <th>{{ sort_link('calidad', 'Calidad') }}</th>
-          <th>{{ sort_link('vigor', 'Vigor') }}</th>
-          <th>{{ sort_link('moral', 'Moral') }}</th>
-          <th>{{ sort_link('duracion', 'Duración') }}</th>
-          <th>{{ sort_link('coste_creacion', 'Coste creación (12 raciones)') }}</th>
-          <th>{{ sort_link('precio_compra', 'Compra (1 ración)') }}</th>
-          <th style="width:9rem"></th>
-        </tr>
-      </thead>
-      <tbody>
-        {% for recipe in recipes %}
-        <tr>
-          <td>
-            <strong>{{ recipe.nombre }}</strong>
-            {% if recipe.solo_compra %}<span class="badge bg-secondary">Solo compra</span>{% endif %}
-            {% if recipe.created_by_id %}<span class="badge bg-info text-dark">Comunidad</span>{% endif %}
-            {% if current_user.is_admin and recipe.status != 'aprobada' %}
-            <span class="badge {{ 'bg-warning text-dark' if recipe.status == 'pendiente' else 'bg-danger' }}">
-              {{ 'Pendiente' if recipe.status == 'pendiente' else 'Rechazada' }}
-            </span>
-            {% endif %}
-          </td>
-          <td>{{ recipe.cooking_method.nombre if recipe.cooking_method else '—' }}</td>
-          <td>{{ recipe.calidad or '—' }}</td>
-          <td>{{ recipe.vigor }}</td>
-          <td>{{ recipe.moral }}</td>
-          <td>{{ recipe.duracion_dias ~ ' días' if recipe.duracion_dias is not none else '—' }}</td>
-          <td>{{ recipe.coste_creacion_peniques | food_money if recipe.coste_creacion_peniques is not none else '—' }}</td>
-          <td>{{ recipe.precio_compra_peniques | food_money }}</td>
-          <td class="text-nowrap">
-            <a href="{{ url_for('food.recipe_detail', recipe_id=recipe.id) }}" class="btn btn-outline-secondary btn-sm">Ver</a>
-            {% if personajes and recipe.precio_compra_peniques is not none %}
-            <button type="button" class="btn btn-wh btn-sm" data-bs-toggle="modal" data-bs-target="#buyModal"
-                    data-buy-nombre="{{ recipe.nombre }}" data-buy-precio="{{ recipe.precio_compra_peniques }}"
-                    data-buy-action="{{ url_for('food.comprar_receta', recipe_id=recipe.id) }}">Comprar</button>
-            {% endif %}
-          </td>
-        </tr>
-        {% endfor %}
-      </tbody>
-    </table>
+  <div class="d-flex flex-column gap-3">
+    {% for recipe in recipes %}
+    <div class="card wh-card">
+      <div class="row g-0">
+        {% if recipe.image_path %}
+        {% set image_url = url_for('main.uploaded_file', filename=recipe.image_path) %}
+        <div class="col-4 col-md-3 col-lg-2 wh-card-img-wrap">
+          <div class="wh-img-backdrop-clip"><div class="wh-img-backdrop" style="background-image:url('{{ image_url }}')"></div></div>
+          <img src="{{ image_url }}" class="wh-card-img-left wh-lightbox-trigger" alt="{{ recipe.nombre }}">
+        </div>
+        {% endif %}
+        <div class="{% if recipe.image_path %}col-8 col-md-9 col-lg-10{% else %}col-12{% endif %}">
+          <div class="card-body">
+            <h5 class="card-title wh-name mb-1">
+              <a href="{{ url_for('food.recipe_detail', recipe_id=recipe.id) }}" class="wh-link text-decoration-none">{{ recipe.nombre }}</a>
+            </h5>
+            <div class="d-flex gap-1 flex-wrap mb-2">
+              {% if recipe.solo_compra %}<span class="badge bg-secondary">Solo compra</span>{% endif %}
+              {% if recipe.created_by_id %}<span class="badge bg-info text-dark">Comunidad</span>{% endif %}
+              {% if current_user.is_admin and recipe.status != 'aprobada' %}
+              <span class="badge {{ 'bg-warning text-dark' if recipe.status == 'pendiente' else 'bg-danger' }}">
+                {{ 'Pendiente' if recipe.status == 'pendiente' else 'Rechazada' }}
+              </span>
+              {% endif %}
+              {% if recipe.cooking_method %}<span class="badge bg-dark">{{ recipe.cooking_method.nombre }}</span>{% endif %}
+              {% if recipe.calidad %}<span class="badge bg-secondary">Calidad: {{ recipe.calidad }}</span>{% endif %}
+            </div>
+            <p class="card-text small text-muted mb-1">
+              Vigor: {{ recipe.vigor }} · Moral: {{ recipe.moral }} ·
+              Duración: {{ recipe.duracion_dias ~ ' días' if recipe.duracion_dias is not none else '—' }}
+            </p>
+            <p class="card-text small text-muted mb-2">
+              Coste creación (12 raciones): {{ recipe.coste_creacion_peniques | food_money if recipe.coste_creacion_peniques is not none else '—' }} ·
+              Compra (1 ración): {{ recipe.precio_compra_peniques | food_money }}
+            </p>
+            <div class="d-flex gap-2 flex-wrap">
+              <a href="{{ url_for('food.recipe_detail', recipe_id=recipe.id) }}" class="btn btn-outline-secondary btn-sm">Ver</a>
+              {% if personajes and recipe.precio_compra_peniques is not none %}
+              <button type="button" class="btn btn-wh btn-sm" data-bs-toggle="modal" data-bs-target="#buyModal"
+                      data-buy-nombre="{{ recipe.nombre }}" data-buy-precio="{{ recipe.precio_compra_peniques }}"
+                      data-buy-action="{{ url_for('food.comprar_receta', recipe_id=recipe.id) }}">Comprar</button>
+              {% endif %}
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    {% endfor %}
   </div>
   {% endif %}
 </div>

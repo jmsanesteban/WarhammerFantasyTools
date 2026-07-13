@@ -10,47 +10,50 @@
     </ol>
   </nav>
 
-  <h2 class="wh-title"><i class="bi bi-egg-fried me-2"></i>{{ recipe.nombre }}</h2>
-  {% if recipe.solo_compra %}
-  <span class="badge bg-secondary mb-3">Solo se puede comprar, no se puede elaborar</span>
-  {% endif %}
-  {% if recipe.created_by_id %}
-  <span class="badge bg-info text-dark mb-3">Comunidad — propuesta por {{ recipe.created_by.username if recipe.created_by else '—' }}</span>
-  {% endif %}
-  {% if current_user.is_admin and recipe.status != 'aprobada' %}
-  <span class="badge {{ 'bg-warning text-dark' if recipe.status == 'pendiente' else 'bg-danger' }} mb-3">
-    {{ 'Pendiente de revisión' if recipe.status == 'pendiente' else 'Rechazada' }}
-  </span>
-  {% endif %}
-
-  {% if recipe.image_path %}
-  <div class="mb-3">
-    <img src="{{ url_for('main.uploaded_file', filename=recipe.image_path) }}" class="img-fluid rounded" style="max-height:300px" alt="{{ recipe.nombre }}">
-  </div>
-  {% endif %}
-
   <div class="card wh-card mb-3">
-    <div class="card-header wh-card-header">Valores</div>
-    <div class="card-body">
-      <dl class="row mb-0">
-        <dt class="col-sm-3">Vigor</dt><dd class="col-sm-9">{{ recipe.vigor }}</dd>
-        <dt class="col-sm-3">Moral</dt><dd class="col-sm-9">{{ recipe.moral }}</dd>
-        <dt class="col-sm-3">Método de cocina</dt>
-        <dd class="col-sm-9">
-          {% if recipe.cooking_method %}
-          <a href="{{ url_for('food.cooking_methods') }}" class="wh-link">{{ recipe.cooking_method.nombre }}</a>
-          {% else %}—{% endif %}
-        </dd>
-        <dt class="col-sm-3">Calidad</dt><dd class="col-sm-9">{{ recipe.calidad or '—' }}</dd>
-        <dt class="col-sm-3">Duración</dt>
-        <dd class="col-sm-9">{{ recipe.duracion_dias ~ ' días' if recipe.duracion_dias is not none else '—' }}</dd>
-        <dt class="col-sm-3">Se puede recalentar</dt><dd class="col-sm-9">{{ 'Sí' if recipe.recalentar else 'No' }}</dd>
-        <dt class="col-sm-3">Complejidad</dt><dd class="col-sm-9">{{ recipe.complejidad if recipe.complejidad is not none else '—' }}</dd>
-        <dt class="col-sm-3">Coste creación (12 raciones)</dt>
-        <dd class="col-sm-9">{{ recipe.coste_creacion_peniques | food_money if recipe.coste_creacion_peniques is not none else '—' }}</dd>
-        <dt class="col-sm-3">Precio de compra (1 ración)</dt>
-        <dd class="col-sm-9">{{ recipe.precio_compra_peniques | food_money }}</dd>
-      </dl>
+    <div class="row g-0">
+      {% if recipe.image_path %}
+      {% set image_url = url_for('main.uploaded_file', filename=recipe.image_path) %}
+      <div class="col-md-5 wh-detail-img-wrap">
+        <div class="wh-img-backdrop-clip"><div class="wh-img-backdrop" style="background-image:url('{{ image_url }}')"></div></div>
+        <img src="{{ image_url }}" class="wh-detail-img wh-lightbox-trigger" alt="{{ recipe.nombre }}">
+      </div>
+      {% endif %}
+      <div class="{% if recipe.image_path %}col-md-7{% else %}col-12{% endif %}">
+        <div class="card-header wh-card-header"><i class="bi bi-egg-fried me-2"></i>{{ recipe.nombre }}</div>
+        <div class="card-body">
+          <div class="d-flex gap-1 flex-wrap mb-3">
+            {% if recipe.solo_compra %}<span class="badge bg-secondary">Solo se puede comprar, no se puede elaborar</span>{% endif %}
+            {% if recipe.created_by_id %}
+            <span class="badge bg-info text-dark">Comunidad — propuesta por {{ recipe.created_by.username if recipe.created_by else '—' }}</span>
+            {% endif %}
+            {% if current_user.is_admin and recipe.status != 'aprobada' %}
+            <span class="badge {{ 'bg-warning text-dark' if recipe.status == 'pendiente' else 'bg-danger' }}">
+              {{ 'Pendiente de revisión' if recipe.status == 'pendiente' else 'Rechazada' }}
+            </span>
+            {% endif %}
+          </div>
+          <dl class="row mb-0">
+            <dt class="col-sm-4">Vigor</dt><dd class="col-sm-8">{{ recipe.vigor }}</dd>
+            <dt class="col-sm-4">Moral</dt><dd class="col-sm-8">{{ recipe.moral }}</dd>
+            <dt class="col-sm-4">Método de cocina</dt>
+            <dd class="col-sm-8">
+              {% if recipe.cooking_method %}
+              <a href="{{ url_for('food.cooking_methods') }}" class="wh-link">{{ recipe.cooking_method.nombre }}</a>
+              {% else %}—{% endif %}
+            </dd>
+            <dt class="col-sm-4">Calidad</dt><dd class="col-sm-8">{{ recipe.calidad or '—' }}</dd>
+            <dt class="col-sm-4">Duración</dt>
+            <dd class="col-sm-8">{{ recipe.duracion_dias ~ ' días' if recipe.duracion_dias is not none else '—' }}</dd>
+            <dt class="col-sm-4">Se puede recalentar</dt><dd class="col-sm-8">{{ 'Sí' if recipe.recalentar else 'No' }}</dd>
+            <dt class="col-sm-4">Complejidad</dt><dd class="col-sm-8">{{ recipe.complejidad if recipe.complejidad is not none else '—' }}</dd>
+            <dt class="col-sm-4">Coste creación (12 raciones)</dt>
+            <dd class="col-sm-8">{{ recipe.coste_creacion_peniques | food_money if recipe.coste_creacion_peniques is not none else '—' }}</dd>
+            <dt class="col-sm-4">Precio de compra (1 ración)</dt>
+            <dd class="col-sm-8">{{ recipe.precio_compra_peniques | food_money }}</dd>
+          </dl>
+        </div>
+      </div>
     </div>
   </div>
 
