@@ -93,44 +93,59 @@
       {% if not backups %}
       <p class="text-muted small mb-0">Todavía no se ha generado ningún backup en este servidor.</p>
       {% else %}
-      <div class="d-flex flex-column gap-2">
-        {% for b in backups %}
-        <div class="wh-backup-row d-flex flex-wrap align-items-center gap-2 py-2 px-2">
-          <div class="wh-backup-main">
-            <div class="small font-monospace">
-              {{ b.filename }}
-              {% if b.compressed %}<span class="badge bg-dark ms-1">Comprimido</span>{% endif %}
+
+      {# ── Acciones sobre el backup seleccionado en la lista de abajo ── #}
+      <div class="d-flex gap-2 flex-wrap mb-3 align-items-center">
+        <span class="text-muted small me-2" id="wh-backup-selected-label">Ningún backup seleccionado</span>
+        <a id="wh-action-download" class="btn btn-outline-secondary btn-sm disabled" href="#" tabindex="-1" aria-disabled="true">
+          <i class="bi bi-download me-1"></i>Descargar
+        </a>
+        <form id="wh-action-compress-form" method="POST" class="d-inline">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+          <button type="submit" id="wh-action-compress-btn" class="btn btn-outline-secondary btn-sm" disabled>
+            <i class="bi bi-file-earmark-zip me-1"></i><span id="wh-action-compress-label">Comprimir</span>
+          </button>
+        </form>
+        <form id="wh-action-delete-form" method="POST" class="d-inline"
+              onsubmit="return confirm('¿Eliminar «' + (window.whSelectedFilename || '') + '»? Esta acción no se puede deshacer.')">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+          <button type="submit" class="btn btn-outline-danger btn-sm" disabled id="wh-action-delete-btn">
+            <i class="bi bi-trash me-1"></i>Eliminar
+          </button>
+        </form>
+      </div>
+
+      <div class="row g-3">
+        <div class="col-md-5">
+          <form id="wh-bulk-compress-form" method="POST" action="{{ url_for('admin.backup_compress_bulk') }}">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <div class="list-group mb-2" style="max-height:340px; overflow-y:auto">
+              {% for b in backups %}
+              <div class="list-group-item d-flex align-items-center gap-2 wh-backup-item" data-idx="{{ loop.index0 }}"
+                   role="button" style="cursor:pointer">
+                <input type="checkbox" class="form-check-input wh-backup-bulk-check" name="filenames" value="{{ b.filename }}"
+                       onclick="event.stopPropagation()" {% if b.compressed %}disabled{% endif %}>
+                <span class="font-monospace small">{{ b.filename }}</span>
+                {% if b.compressed %}<i class="bi bi-file-earmark-zip text-muted ms-auto" title="Comprimido"></i>{% endif %}
+              </div>
+              {% endfor %}
             </div>
-            <div class="text-muted small">{{ b.exported_at or '—' }} · {{ (b.size / 1024) | round(1) }} KB</div>
+            <button type="submit" class="btn btn-outline-secondary btn-sm" onclick="return whConfirmBulkCompress()">
+              <i class="bi bi-file-earmark-zip me-1"></i>Comprimir seleccionados
+            </button>
+          </form>
+        </div>
+        <div class="col-md-7">
+          <div id="wh-backup-detail-empty" class="text-muted small">
+            Selecciona un backup de la lista para ver su contenido.
           </div>
-          <div class="d-flex flex-wrap gap-1 wh-backup-secciones">
-            {% for key in b.secciones %}<span class="badge bg-secondary">{{ section_labels.get(key, key) }}</span>{% endfor %}
-          </div>
-          <div class="d-flex gap-1 ms-auto">
-            <a href="{{ url_for('admin.backup_view', filename=b.filename) }}" class="btn btn-outline-secondary btn-sm" title="Ver contenido">
-              <i class="bi bi-eye"></i>
-            </a>
-            <a href="{{ url_for('admin.backup_download', filename=b.filename) }}" class="btn btn-outline-secondary btn-sm" title="Descargar">
-              <i class="bi bi-download"></i>
-            </a>
-            {% if not b.compressed %}
-            <form method="POST" action="{{ url_for('admin.backup_compress', filename=b.filename) }}" class="d-inline">
-              <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-              <button type="submit" class="btn btn-outline-secondary btn-sm" title="Comprimir">
-                <i class="bi bi-file-earmark-zip"></i>
-              </button>
-            </form>
-            {% endif %}
-            <form method="POST" action="{{ url_for('admin.backup_delete', filename=b.filename) }}" class="d-inline"
-                  onsubmit="return confirm('¿Eliminar «{{ b.filename }}»? Esta acción no se puede deshacer.')">
-              <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-              <button type="submit" class="btn btn-outline-danger btn-sm" title="Eliminar">
-                <i class="bi bi-trash"></i>
-              </button>
-            </form>
+          <div id="wh-backup-detail" style="display:none">
+            <p class="text-muted small mb-2" id="wh-detail-meta"></p>
+            <table class="table table-sm wh-stat-table mb-0">
+              <tbody id="wh-detail-rows"></tbody>
+            </table>
           </div>
         </div>
-        {% endfor %}
       </div>
       {% endif %}
     </div>
@@ -138,15 +153,77 @@
 </div>
 
 <style>
-.wh-backup-row { border: 1px solid var(--wh-border-gold, #6b5636); border-radius: .375rem; }
-.wh-backup-main { min-width: 15rem; flex-shrink: 0; }
-.wh-backup-secciones { flex: 1 1 auto; min-width: 12rem; }
-.wh-backup-secciones .badge { font-size: .7rem; }
+.wh-backup-item.active {
+  background-color: rgba(180, 140, 60, .25) !important;
+  border-color: var(--wh-border-gold, #6b5636) !important;
+}
 </style>
 
 <script>
 function whSetAllSecciones(checked) {
   document.querySelectorAll('.wh-seccion-check').forEach(function (c) { c.checked = checked; });
 }
+
+{% if backups %}
+var whBackups = {{ backups | tojson }};
+var whUrls = {
+  download: "{{ url_for('admin.backup_download', filename='__FN__') }}",
+  compress: "{{ url_for('admin.backup_compress', filename='__FN__') }}",
+  decompress: "{{ url_for('admin.backup_decompress', filename='__FN__') }}",
+  delete: "{{ url_for('admin.backup_delete', filename='__FN__') }}",
+};
+window.whSelectedFilename = null;
+
+function whSelectBackup(idx) {
+  var b = whBackups[idx];
+  if (!b) return;
+  window.whSelectedFilename = b.filename;
+
+  document.querySelectorAll('.wh-backup-item').forEach(function (el) { el.classList.remove('active'); });
+  document.querySelector('.wh-backup-item[data-idx="' + idx + '"]').classList.add('active');
+
+  document.getElementById('wh-backup-selected-label').textContent = b.filename;
+  document.getElementById('wh-backup-detail-empty').style.display = 'none';
+  document.getElementById('wh-backup-detail').style.display = '';
+  document.getElementById('wh-detail-meta').textContent =
+    (b.exported_at || '—') + ' · ' + (b.size / 1024).toFixed(1) + ' KB' + (b.compressed ? ' · Comprimido' : '');
+
+  var rowsHtml = '';
+  b.rows.forEach(function (r) {
+    rowsHtml += '<tr><td>' + r.label + '</td><td>' + r.count + '</td></tr>';
+  });
+  document.getElementById('wh-detail-rows').innerHTML =
+    rowsHtml || '<tr><td colspan="2" class="text-muted">Sin secciones</td></tr>';
+
+  var dl = document.getElementById('wh-action-download');
+  dl.href = whUrls.download.replace('__FN__', encodeURIComponent(b.filename));
+  dl.classList.remove('disabled');
+  dl.removeAttribute('aria-disabled');
+
+  document.getElementById('wh-action-compress-form').action =
+    (b.compressed ? whUrls.decompress : whUrls.compress).replace('__FN__', encodeURIComponent(b.filename));
+  document.getElementById('wh-action-compress-label').textContent = b.compressed ? 'Descomprimir' : 'Comprimir';
+  document.getElementById('wh-action-compress-btn').disabled = false;
+
+  document.getElementById('wh-action-delete-form').action =
+    whUrls.delete.replace('__FN__', encodeURIComponent(b.filename));
+  document.getElementById('wh-action-delete-btn').disabled = false;
+}
+
+document.querySelectorAll('.wh-backup-item').forEach(function (el) {
+  el.addEventListener('click', function () { whSelectBackup(parseInt(el.dataset.idx, 10)); });
+});
+
+function whConfirmBulkCompress() {
+  var anyChecked = Array.prototype.some.call(
+    document.querySelectorAll('.wh-backup-bulk-check'), function (c) { return c.checked; },
+  );
+  if (!anyChecked) {
+    alert('Selecciona al menos un fichero sin comprimir.');
+    return false;
+  }
+  return true;
+}
+{% endif %}
 </script>
 {% endblock %}

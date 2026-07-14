@@ -5,6 +5,7 @@ tests/test_backup_service.py; these tests focus on route wiring, permission
 gating, and the JSON download/upload plumbing."""
 import io
 import json
+import re
 
 from app.models.user import User
 from app.models.character import Character
@@ -221,6 +222,20 @@ def test_backup_export_saves_a_file_listed_on_the_page(app, client, admin_user, 
     assert saved[0].encode('utf-8') in resp.data
 
 
+def test_backup_export_twice_never_overwrites_the_previous_file(app, client, admin_user, login_as, tmp_path):
+    """Two exports landing in the same second used to silently collide on
+    the same filename and overwrite each other."""
+    app.config['BACKUP_FOLDER'] = str(tmp_path)
+    login_as(client, admin_user, 'adminpass123')
+
+    client.post('/admin/backup/exportar', data={'secciones': ['professions']})
+    client.post('/admin/backup/exportar', data={'secciones': ['equipment']})
+
+    import os
+    saved = os.listdir(str(tmp_path))
+    assert len(saved) == 2
+
+
 def test_backup_download_requires_admin(client, regular_user, login_as):
     login_as(client, regular_user, 'userpass123')
     resp = client.get('/admin/backup/archivos/anything.json/descargar')
@@ -246,19 +261,33 @@ def test_backup_download_serves_a_saved_file(app, client, admin_user, login_as, 
     assert json.loads(resp.data)['secciones'] == ['professions']
 
 
-def test_backup_view_shows_record_counts_per_section(app, client, admin_user, make_profession, login_as, tmp_path):
+def _backups_json_from_page(resp):
+    """Pulls the `whBackups = [...]` JS blob out of admin/backup.html and
+    parses it back into a Python list, so tests can assert on structured
+    data instead of brittle raw-HTML substring matching."""
+    body = resp.data.decode('utf-8')
+    match = re.search(r'var whBackups = (\[.*?\]);', body, re.DOTALL)
+    assert match, 'whBackups JS blob not found on the page'
+    return json.loads(match.group(1))
+
+
+def test_backup_home_embeds_record_counts_per_section(app, client, admin_user, make_profession, login_as, tmp_path):
+    """The per-section counts used to live on a separate /ver page - now
+    they're embedded directly in admin/backup.html's JS data so the detail
+    panel can render them without a server round-trip."""
     app.config['BACKUP_FOLDER'] = str(tmp_path)
     make_profession(name='Soldado')
     make_profession(name='Mago')
     login_as(client, admin_user, 'adminpass123')
     client.post('/admin/backup/exportar', data={'secciones': ['professions']})
 
-    import os
-    filename = os.listdir(str(tmp_path))[0]
-    resp = client.get(f'/admin/backup/archivos/{filename}/ver')
+    resp = client.get('/admin/backup')
     assert resp.status_code == 200
-    assert 'Profesiones'.encode('utf-8') in resp.data
-    assert b'2' in resp.data  # two professions in this partial backup
+    backups = _backups_json_from_page(resp)
+    assert len(backups) == 1
+    row = next(r for r in backups[0]['rows'] if r['key'] == 'professions')
+    assert row['label'] == 'Profesiones'
+    assert row['count'] == 2
 
 
 def test_backup_compress_requires_admin(client, regular_user, login_as):
@@ -281,11 +310,11 @@ def test_backup_compress_shrinks_file_and_stays_readable(app, client, admin_user
     files = os.listdir(str(tmp_path))
     assert files == [original_filename + '.gz']
 
-    # Still viewable/downloadable/re-importable as plain JSON despite being
-    # stored gzipped on disk.
-    resp = client.get(f'/admin/backup/archivos/{original_filename}.gz/ver')
-    assert resp.status_code == 200
-    assert 'Profesiones'.encode('utf-8') in resp.data
+    # Still downloadable/re-importable as plain JSON despite being stored
+    # gzipped on disk, and its section counts still show on the page.
+    backups = _backups_json_from_page(client.get('/admin/backup'))
+    assert backups[0]['compressed'] is True
+    assert any(r['label'] == 'Profesiones' for r in backups[0]['rows'])
 
     resp = client.get(f'/admin/backup/archivos/{original_filename}.gz/descargar')
     assert resp.status_code == 200
@@ -309,6 +338,84 @@ def test_backup_compress_twice_is_a_noop(app, client, admin_user, login_as, tmp_
     resp = client.post(f'/admin/backup/archivos/{gz_filename}/comprimir', follow_redirects=True)
     assert resp.status_code == 200
     assert os.listdir(str(tmp_path)) == [gz_filename]  # untouched, not double-compressed
+
+
+def test_backup_compress_bulk_requires_admin(client, regular_user, login_as):
+    login_as(client, regular_user, 'userpass123')
+    resp = client.post('/admin/backup/archivos/comprimir-varios', data={'filenames': ['a.json']})
+    assert resp.status_code == 403
+
+
+def test_backup_compress_bulk_compresses_each_selected_file(app, client, admin_user, login_as, tmp_path):
+    app.config['BACKUP_FOLDER'] = str(tmp_path)
+    login_as(client, admin_user, 'adminpass123')
+    client.post('/admin/backup/exportar', data={'secciones': ['professions']})
+    client.post('/admin/backup/exportar', data={'secciones': ['equipment']})
+
+    import os
+    filenames = sorted(os.listdir(str(tmp_path)))
+    assert len(filenames) == 2
+
+    resp = client.post('/admin/backup/archivos/comprimir-varios',
+                        data={'filenames': filenames}, follow_redirects=True)
+    assert resp.status_code == 200
+    assert sorted(os.listdir(str(tmp_path))) == sorted(f + '.gz' for f in filenames)
+
+
+def test_backup_compress_bulk_skips_already_compressed(app, client, admin_user, login_as, tmp_path):
+    app.config['BACKUP_FOLDER'] = str(tmp_path)
+    login_as(client, admin_user, 'adminpass123')
+    client.post('/admin/backup/exportar', data={'secciones': ['professions']})
+
+    import os
+    filename = os.listdir(str(tmp_path))[0]
+    client.post(f'/admin/backup/archivos/{filename}/comprimir')
+    gz_filename = filename + '.gz'
+
+    resp = client.post('/admin/backup/archivos/comprimir-varios',
+                        data={'filenames': [gz_filename]}, follow_redirects=True)
+    assert resp.status_code == 200
+    assert 'ya estaban comprimidos'.encode('utf-8') in resp.data
+    assert os.listdir(str(tmp_path)) == [gz_filename]
+
+
+def test_backup_decompress_requires_admin(client, regular_user, login_as):
+    login_as(client, regular_user, 'userpass123')
+    resp = client.post('/admin/backup/archivos/anything.json.gz/descomprimir')
+    assert resp.status_code == 403
+
+
+def test_backup_decompress_restores_plain_json(app, client, admin_user, make_profession, login_as, tmp_path):
+    app.config['BACKUP_FOLDER'] = str(tmp_path)
+    make_profession(name='Soldado')
+    login_as(client, admin_user, 'adminpass123')
+    client.post('/admin/backup/exportar', data={'secciones': ['professions']})
+
+    import os
+    filename = os.listdir(str(tmp_path))[0]
+    client.post(f'/admin/backup/archivos/{filename}/comprimir')
+    gz_filename = filename + '.gz'
+
+    resp = client.post(f'/admin/backup/archivos/{gz_filename}/descomprimir', follow_redirects=True)
+    assert resp.status_code == 200
+    assert os.listdir(str(tmp_path)) == [filename]  # back to the plain .json name
+
+    with open(os.path.join(str(tmp_path), filename), encoding='utf-8') as f:
+        data = json.load(f)
+    assert data['secciones'] == ['professions']
+
+
+def test_backup_decompress_rejects_uncompressed_file(app, client, admin_user, login_as, tmp_path):
+    app.config['BACKUP_FOLDER'] = str(tmp_path)
+    login_as(client, admin_user, 'adminpass123')
+    client.post('/admin/backup/exportar', data={'secciones': ['professions']})
+
+    import os
+    filename = os.listdir(str(tmp_path))[0]
+    resp = client.post(f'/admin/backup/archivos/{filename}/descomprimir', follow_redirects=True)
+    assert resp.status_code == 200
+    assert 'no está comprimido'.encode('utf-8') in resp.data
+    assert os.listdir(str(tmp_path)) == [filename]  # untouched
 
 
 def test_backup_delete_requires_admin(client, regular_user, login_as):

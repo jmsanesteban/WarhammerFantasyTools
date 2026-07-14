@@ -1827,8 +1827,11 @@ def _read_backup_json(path):
 def _list_saved_backups():
     """Newest first - reads each file's own `secciones`/`exported_at` rather
     than trusting the filename, so the list stays correct even if a file was
-    renamed or dropped in by hand."""
-    from app.services.backup_service import _parse_iso
+    renamed or dropped in by hand. Includes a per-section record count
+    (`rows`) so the admin/backup.html detail panel can render everything
+    about a backup without a server round-trip on selection."""
+    from app.services.backup_service import _parse_iso, BACKUP_SECTIONS
+    labels = {key: label for key, label, _ in BACKUP_SECTIONS}
 
     folder = _backup_folder()
     items = []
@@ -1845,14 +1848,36 @@ def _list_saved_backups():
             exported_at = _parse_iso(exported_at).strftime('%Y-%m-%d %H:%M:%S') if exported_at else None
         except ValueError:
             pass  # keep the raw string if it's ever in an unexpected shape
+
+        rows = []
+        for key in data.get('secciones', []):
+            value = data.get(key)
+            count = len(value) if isinstance(value, list) else ('Sí' if value else 'No')
+            rows.append({'key': key, 'label': labels.get(key, key), 'count': count})
+
         items.append({
             'filename': filename,
             'size': os.path.getsize(path),
             'exported_at': exported_at,
             'secciones': data.get('secciones', []),
+            'rows': rows,
             'compressed': filename.endswith('.gz'),
         })
     return items
+
+
+def _compress_one(filename):
+    """Gzips a single saved backup in place. Returns None on success, or a
+    warning string if it was already compressed (never raises for that -
+    both the single-file and bulk routes just want to skip and report it)."""
+    if filename.endswith('.gz'):
+        return f'«{filename}» ya está comprimido.'
+    path = _safe_backup_path(filename)
+    gz_path = path + '.gz'
+    with open(path, 'rb') as src, gzip.open(gz_path, 'wb') as dst:
+        dst.write(src.read())
+    os.remove(path)
+    return None
 
 
 def _safe_backup_path(filename):
@@ -1887,8 +1912,18 @@ def backup_export():
     # empty file.
     data = export_full_backup(sections=selected or all_keys)
 
-    filename = f"wft_backup_{datetime.utcnow().strftime('%Y%m%d_%H%M%S')}.json"
-    path = os.path.join(_backup_folder(), filename)
+    folder = _backup_folder()
+    base_name = f"wft_backup_{datetime.utcnow().strftime('%Y%m%d_%H%M%S')}"
+    filename = f'{base_name}.json'
+    # Guards against two exports landing in the same second (same base_name)
+    # silently overwriting each other - genuinely possible from the bulk
+    # "Marcar todas" one-click flow, not just a theoretical race.
+    suffix = 2
+    while os.path.exists(os.path.join(folder, filename)):
+        filename = f'{base_name}_{suffix}.json'
+        suffix += 1
+
+    path = os.path.join(folder, filename)
     with open(path, 'w', encoding='utf-8') as f:
         json.dump(data, f, ensure_ascii=False, indent=2)
 
@@ -1918,15 +1953,50 @@ def backup_compress(filename):
         return redirect(url_for('admin.backup_home'))
 
     path = _safe_backup_path(filename)
-    gz_path = path + '.gz'
     original_size = os.path.getsize(path)
-    with open(path, 'rb') as src, gzip.open(gz_path, 'wb') as dst:
+    _compress_one(filename)
+    new_size = os.path.getsize(path + '.gz')
+    saved_pct = round(100 * (1 - new_size / original_size)) if original_size else 0
+    flash(f'«{filename}» comprimido ({saved_pct}% menos de espacio).', 'success')
+    return redirect(url_for('admin.backup_home'))
+
+
+@admin_bp.route('/backup/archivos/comprimir-varios', methods=['POST'])
+@login_required
+@admin_required
+def backup_compress_bulk():
+    filenames = request.form.getlist('filenames')
+    if not filenames:
+        flash('No se seleccionó ningún fichero.', 'warning')
+        return redirect(url_for('admin.backup_home'))
+
+    compressed, skipped = [], []
+    for filename in filenames:
+        warning = _compress_one(filename)
+        (skipped if warning else compressed).append(filename)
+
+    if compressed:
+        flash(f'{len(compressed)} fichero(s) comprimido(s): {", ".join(compressed)}.', 'success')
+    if skipped:
+        flash(f'{len(skipped)} ya estaban comprimidos, sin cambios.', 'warning')
+    return redirect(url_for('admin.backup_home'))
+
+
+@admin_bp.route('/backup/archivos/<path:filename>/descomprimir', methods=['POST'])
+@login_required
+@admin_required
+def backup_decompress(filename):
+    if not filename.endswith('.gz'):
+        flash(f'«{filename}» no está comprimido.', 'warning')
+        return redirect(url_for('admin.backup_home'))
+
+    path = _safe_backup_path(filename)
+    raw_path = path[:-3]
+    with gzip.open(path, 'rb') as src, open(raw_path, 'wb') as dst:
         dst.write(src.read())
     os.remove(path)
 
-    new_size = os.path.getsize(gz_path)
-    saved_pct = round(100 * (1 - new_size / original_size)) if original_size else 0
-    flash(f'«{filename}» comprimido ({saved_pct}% menos de espacio).', 'success')
+    flash(f'«{filename}» descomprimido.', 'success')
     return redirect(url_for('admin.backup_home'))
 
 
@@ -1938,27 +2008,6 @@ def backup_delete(filename):
     os.remove(path)
     flash(f'«{filename}» eliminado.', 'warning')
     return redirect(url_for('admin.backup_home'))
-
-
-@admin_bp.route('/backup/archivos/<path:filename>/ver')
-@login_required
-@admin_required
-def backup_view(filename):
-    from app.services.backup_service import BACKUP_SECTIONS
-    path = _safe_backup_path(filename)
-    data = _read_backup_json(path)
-
-    labels = {key: label for key, label, _ in BACKUP_SECTIONS}
-    rows = []
-    for key in data.get('secciones', []):
-        value = data.get(key)
-        count = len(value) if isinstance(value, list) else ('Sí' if value else 'No')
-        rows.append({'key': key, 'label': labels.get(key, key), 'count': count})
-
-    return render_template(
-        'admin/backup_view.html', filename=filename,
-        version=data.get('version'), exported_at=data.get('exported_at'), rows=rows,
-    )
 
 
 @admin_bp.route('/backup/importar', methods=['POST'])
