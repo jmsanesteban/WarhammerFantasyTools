@@ -1824,6 +1824,16 @@ def _read_backup_json(path):
         return json.load(f)
 
 
+def _write_backup_json(path, data):
+    """Writes JSON back to a backup file, preserving gzip compression if it
+    was already compressed - used when editing a backup's `notas` in place,
+    since that shouldn't force a decompressed/compressed round-trip visible
+    to the admin."""
+    opener = gzip.open if path.endswith('.gz') else open
+    with opener(path, 'wt', encoding='utf-8') as f:
+        json.dump(data, f, ensure_ascii=False, indent=2)
+
+
 def _list_saved_backups():
     """Newest first - reads each file's own `secciones`/`exported_at` rather
     than trusting the filename, so the list stays correct even if a file was
@@ -1862,6 +1872,7 @@ def _list_saved_backups():
             'secciones': data.get('secciones', []),
             'rows': rows,
             'compressed': filename.endswith('.gz'),
+            'notas': data.get('notas'),
         })
     return items
 
@@ -2035,6 +2046,22 @@ def backup_delete(filename):
     path = _safe_backup_path(filename)
     os.remove(path)
     flash(f'«{filename}» eliminado.', 'warning')
+    return redirect(url_for('admin.backup_home'))
+
+
+@admin_bp.route('/backup/archivos/<path:filename>/nota', methods=['POST'])
+@login_required
+@admin_required
+def backup_note(filename):
+    """Notas are stored inside the backup JSON itself (not a separate
+    sidecar index) so they travel with the file wherever it goes - moved,
+    downloaded, compressed/decompressed - with no separate index to keep in
+    sync. Preserves whatever compression state the file was already in."""
+    path = _safe_backup_path(filename)
+    data = _read_backup_json(path)
+    data['notas'] = request.form.get('nota', '').strip() or None
+    _write_backup_json(path, data)
+    flash(f'Nota guardada para «{filename}».', 'success')
     return redirect(url_for('admin.backup_home'))
 
 

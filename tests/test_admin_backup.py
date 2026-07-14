@@ -482,6 +482,60 @@ def test_backup_delete_rejects_path_traversal(app, client, admin_user, login_as,
     assert resp.status_code == 404
 
 
+def test_backup_note_requires_admin(client, regular_user, login_as):
+    login_as(client, regular_user, 'userpass123')
+    resp = client.post('/admin/backup/archivos/anything.json/nota', data={'nota': 'x'})
+    assert resp.status_code == 403
+
+
+def test_backup_note_saved_and_shown_on_the_page(app, client, admin_user, login_as, tmp_path):
+    app.config['BACKUP_FOLDER'] = str(tmp_path)
+    login_as(client, admin_user, 'adminpass123')
+    client.post('/admin/backup/exportar', data={'secciones': ['professions']})
+
+    import os
+    filename = os.listdir(str(tmp_path))[0]
+    resp = client.post(f'/admin/backup/archivos/{filename}/nota',
+                        data={'nota': 'antes de actualizar profesiones'}, follow_redirects=True)
+    assert resp.status_code == 200
+
+    backups = _backups_json_from_page(client.get('/admin/backup'))
+    assert backups[0]['notas'] == 'antes de actualizar profesiones'
+
+    # Also persisted inside the file itself, not a separate sidecar index.
+    with open(os.path.join(str(tmp_path), filename), encoding='utf-8') as f:
+        assert json.load(f)['notas'] == 'antes de actualizar profesiones'
+
+
+def test_backup_note_survives_compression_round_trip(app, client, admin_user, login_as, tmp_path):
+    app.config['BACKUP_FOLDER'] = str(tmp_path)
+    login_as(client, admin_user, 'adminpass123')
+    client.post('/admin/backup/exportar', data={'secciones': ['professions']})
+
+    import os
+    filename = os.listdir(str(tmp_path))[0]
+    client.post(f'/admin/backup/archivos/{filename}/nota', data={'nota': 'nota importante'})
+    client.post(f'/admin/backup/archivos/{filename}/comprimir')
+
+    backups = _backups_json_from_page(client.get('/admin/backup'))
+    assert backups[0]['notas'] == 'nota importante'
+    assert backups[0]['compressed'] is True
+
+
+def test_backup_note_can_be_cleared(app, client, admin_user, login_as, tmp_path):
+    app.config['BACKUP_FOLDER'] = str(tmp_path)
+    login_as(client, admin_user, 'adminpass123')
+    client.post('/admin/backup/exportar', data={'secciones': ['professions']})
+
+    import os
+    filename = os.listdir(str(tmp_path))[0]
+    client.post(f'/admin/backup/archivos/{filename}/nota', data={'nota': 'algo'})
+    client.post(f'/admin/backup/archivos/{filename}/nota', data={'nota': '   '})
+
+    backups = _backups_json_from_page(client.get('/admin/backup'))
+    assert backups[0]['notas'] is None
+
+
 def test_backup_import_restores_everything(db, app, client, admin_user, regular_user, make_character,
                                             make_profession, make_equipment_item, login_as, tmp_path):
     app.config['BACKUP_FOLDER'] = str(tmp_path)

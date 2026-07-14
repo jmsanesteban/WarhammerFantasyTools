@@ -125,7 +125,10 @@
                    role="button" style="cursor:pointer">
                 <input type="checkbox" class="form-check-input wh-backup-bulk-check" name="filenames" value="{{ b.filename }}">
                 <span class="font-monospace small">{{ b.filename }}</span>
-                {% if b.compressed %}<i class="bi bi-file-earmark-zip text-muted ms-auto" title="Comprimido"></i>{% endif %}
+                <div class="ms-auto d-flex gap-1">
+                  {% if b.notas %}<i class="bi bi-sticky text-warning" title="{{ b.notas }}"></i>{% endif %}
+                  {% if b.compressed %}<i class="bi bi-file-earmark-zip text-muted" title="Comprimido"></i>{% endif %}
+                </div>
               </div>
               {% endfor %}
             </div>
@@ -152,9 +155,18 @@
           </div>
           <div id="wh-backup-detail" style="display:none">
             <p class="text-muted small mb-2" id="wh-detail-meta"></p>
-            <table class="table table-sm wh-stat-table mb-0">
+            <table class="table table-sm wh-stat-table mb-3">
               <tbody id="wh-detail-rows"></tbody>
             </table>
+            <form id="wh-action-note-form" method="POST">
+              <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+              <label class="form-label wh-label small mb-1" for="wh-detail-nota">Nota</label>
+              <textarea name="nota" id="wh-detail-nota" class="form-control wh-input form-control-sm" rows="2"
+                        placeholder="Sin nota — p.ej. «antes de actualizar profesión X»"></textarea>
+              <button type="submit" class="btn btn-outline-secondary btn-sm mt-2">
+                <i class="bi bi-check-lg me-1"></i>Guardar nota
+              </button>
+            </form>
           </div>
         </div>
       </div>
@@ -188,6 +200,7 @@ var whUrls = {
   compress: "{{ url_for('admin.backup_compress', filename='__FN__') }}",
   decompress: "{{ url_for('admin.backup_decompress', filename='__FN__') }}",
   delete: "{{ url_for('admin.backup_delete', filename='__FN__') }}",
+  note: "{{ url_for('admin.backup_note', filename='__FN__') }}",
 };
 window.whSelectedFilename = null;
 
@@ -225,6 +238,10 @@ function whSelectBackup(idx) {
   document.getElementById('wh-action-delete-form').action =
     whUrls.delete.replace('__FN__', encodeURIComponent(b.filename));
   document.getElementById('wh-action-delete-btn').disabled = false;
+
+  document.getElementById('wh-detail-nota').value = b.notas || '';
+  document.getElementById('wh-action-note-form').action =
+    whUrls.note.replace('__FN__', encodeURIComponent(b.filename));
 }
 
 document.querySelectorAll('.wh-backup-item').forEach(function (el) {
