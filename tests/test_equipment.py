@@ -136,6 +136,17 @@ def test_ammo_card_never_shows_quality_badge(client, make_equipment_item):
     assert 'Calidad: Excelente'.encode('utf-8') not in resp.data
 
 
+def test_municion_catalog_hides_subcategory_and_quality_filters(client, make_equipment_item):
+    """Ammo has no subcategory or quality of its own - those filters would
+    never match anything real, so the catalog page hides them entirely
+    (the search box still shows)."""
+    make_equipment_item(name='Flecha/virote común', category='municion')
+    resp = client.get('/equipamiento/municion')
+    assert b'name="q"' in resp.data
+    assert b'name="subcategory"' not in resp.data
+    assert b'name="quality"' not in resp.data
+
+
 def test_ammo_detail_never_shows_quality_badge(client, make_equipment_item):
     item = make_equipment_item(name='Flecha/virote común', category='municion')
     resp = client.get(f'/equipamiento/{item.id}?quality=excelente')

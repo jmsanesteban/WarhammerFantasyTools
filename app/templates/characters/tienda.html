@@ -37,6 +37,7 @@
         {% endfor %}
       </select>
     </div>
+    {% if category != 'municion' %}
     <div class="col-md-2">
       <select name="subcategory" class="form-select wh-input">
         <option value="">Todos los tipos</option>
@@ -53,6 +54,7 @@
         {% endfor %}
       </select>
     </div>
+    {% endif %}
     <div class="col-md-1">
       <button class="btn btn-wh w-100" type="submit"><i class="bi bi-search"></i></button>
     </div>
