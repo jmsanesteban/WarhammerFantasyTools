@@ -49,6 +49,15 @@ def _normalize(text):
     return stripped.strip().lower()
 
 
+def _normalize_filename(text):
+    """Like _normalize(), but also drops standalone "de" connectors - some
+    photo filenames skip them ("Menestra verduras invernales.jpg" for the
+    recipe "Menestra de verduras invernales", "Ración cecina.jpg" for
+    "Ración de cecina") even though the recipe's own nombre keeps them."""
+    words = [w for w in _normalize(text).split() if w != 'de']
+    return ' '.join(words)
+
+
 def parse_recetas_pdf(file_bytes):
     """Returns a list of dicts, one per recipe block found in the PDF, each
     with every Recipe field needed to create the row plus `image_bytes`/
@@ -182,13 +191,13 @@ def sync_recipe_images_from_folder():
     if not os.path.isdir(folder):
         return summary
 
-    recipes_by_norm = {_normalize(r.nombre): r for r in Recipe.query.all()}
+    recipes_by_norm = {_normalize_filename(r.nombre): r for r in Recipe.query.all()}
 
     for filename in sorted(os.listdir(folder)):
         stem, ext = os.path.splitext(filename)
         if ext.lower().lstrip('.') not in _ALLOWED_IMAGE_EXTENSIONS:
             continue
-        recipe = recipes_by_norm.get(_normalize(stem))
+        recipe = recipes_by_norm.get(_normalize_filename(stem))
         if recipe is None:
             summary['unmatched_files'].append(filename)
             continue

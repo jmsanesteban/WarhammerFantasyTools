@@ -234,6 +234,31 @@ def test_sync_recipe_images_only_fills_missing_photos(app, db, tmp_path):
         assert untouched.image_path == 'recetas/existing.jpg'  # never overwritten
 
 
+def test_sync_recipe_images_matches_filenames_missing_the_word_de(app, db, tmp_path):
+    """Real-world gotcha found manually this session: some photo filenames
+    drop the "de" connector the recipe's own nombre keeps (e.g. "Menestra
+    verduras invernales.jpg" for "Menestra de verduras invernales")."""
+    app.config['UPLOAD_FOLDER'] = str(tmp_path)
+    with app.app_context():
+        db.session.add(Recipe(nombre='Menestra de verduras invernales', vigor=1, moral=1))
+        db.session.add(Recipe(nombre='Ración de cecina', vigor=1, moral=1))
+        db.session.commit()
+
+    import os
+    folder = os.path.join(str(tmp_path), 'imagenes_comidas')
+    os.makedirs(folder, exist_ok=True)
+    with open(os.path.join(folder, 'Menestra verduras invernales.jpg'), 'wb') as f:
+        f.write(_tiny_jpeg_bytes())
+    with open(os.path.join(folder, 'Ración cecina.jpg'), 'wb') as f:
+        f.write(_tiny_jpeg_bytes())
+
+    with app.app_context():
+        summary = sync_recipe_images_from_folder()
+
+    assert set(summary['linked']) == {'Menestra de verduras invernales', 'Ración de cecina'}
+    assert summary['unmatched_files'] == []
+
+
 def test_comida_sync_fotos_requires_admin(client, regular_user, login_as):
     login_as(client, regular_user, 'userpass123')
     resp = client.post('/admin/comida/sincronizar-fotos')
