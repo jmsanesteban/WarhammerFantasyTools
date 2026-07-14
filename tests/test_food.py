@@ -199,6 +199,36 @@ def test_recipe_detail_special_recipe_has_no_method(app, client, regular_user, l
     assert 'Solo se puede comprar'.encode('utf-8') in resp.data
 
 
+def test_recipe_duracion_display_shows_whole_years_not_days():
+    """Un año en esta edición dura 400 días - una duración de años exactos
+    (p.ej. Pan de piedra: 100 años) se muestra en años, no como un número de
+    días enorme (40000)."""
+    recipe = Recipe(nombre='x', duracion_dias=40000)
+    assert recipe.duracion_display == '100 años'
+
+    recipe = Recipe(nombre='x', duracion_dias=400)
+    assert recipe.duracion_display == '1 año'
+
+    recipe = Recipe(nombre='x', duracion_dias=8)
+    assert recipe.duracion_display == '8 días'
+
+    recipe = Recipe(nombre='x', duracion_dias=None)
+    assert recipe.duracion_display is None
+
+
+def test_recipe_detail_shows_pan_de_piedra_duration_in_years(app, client, regular_user, login_as):
+    with app.app_context():
+        seed_food_catalog()
+        recipe = Recipe.query.filter_by(nombre='Pan de piedra').first()
+        assert recipe.duracion_dias == 40000
+    login_as(client, regular_user, 'userpass123')
+
+    resp = client.get(f'/comida/recetas/{recipe.id}')
+    assert resp.status_code == 200
+    assert '100 años'.encode('utf-8') in resp.data
+    assert '40000'.encode('utf-8') not in resp.data
+
+
 def test_ingredients_reference_page(app, client, regular_user, login_as):
     with app.app_context():
         seed_food_catalog()

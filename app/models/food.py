@@ -115,6 +115,21 @@ class Recipe(db.Model):
     def condimentos(self):
         return [c for c in (self.condimento_1, self.condimento_2) if c]
 
+    # Un año en esta edición de WFRP2 dura 400 días - duracion_dias sigue
+    # almacenando siempre días (para que ordenar por duración funcione), pero
+    # una duración de años exactos (p.ej. Pan de piedra, 100 años) se muestra
+    # en años en vez de un número de días absurdamente grande.
+    DIAS_POR_ANO = 400
+
+    @property
+    def duracion_display(self):
+        if self.duracion_dias is None:
+            return None
+        if self.duracion_dias >= self.DIAS_POR_ANO and self.duracion_dias % self.DIAS_POR_ANO == 0:
+            anos = self.duracion_dias // self.DIAS_POR_ANO
+            return f'{anos} año' if anos == 1 else f'{anos} años'
+        return f'{self.duracion_dias} días'
+
     def __repr__(self):
         return f'<Recipe {self.nombre}>'
 

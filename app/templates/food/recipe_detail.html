@@ -44,7 +44,7 @@
             </dd>
             <dt class="col-sm-4">Calidad</dt><dd class="col-sm-8">{{ recipe.calidad or '—' }}</dd>
             <dt class="col-sm-4">Duración</dt>
-            <dd class="col-sm-8">{{ recipe.duracion_dias ~ ' días' if recipe.duracion_dias is not none else '—' }}</dd>
+            <dd class="col-sm-8">{{ recipe.duracion_display or '—' }}</dd>
             <dt class="col-sm-4">Se puede recalentar</dt><dd class="col-sm-8">{{ 'Sí' if recipe.recalentar else 'No' }}</dd>
             <dt class="col-sm-4">Complejidad</dt><dd class="col-sm-8">{{ recipe.complejidad if recipe.complejidad is not none else '—' }}</dd>
             <dt class="col-sm-4">Coste creación (12 raciones)</dt>
