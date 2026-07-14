@@ -261,6 +261,81 @@ def test_backup_view_shows_record_counts_per_section(app, client, admin_user, ma
     assert b'2' in resp.data  # two professions in this partial backup
 
 
+def test_backup_compress_requires_admin(client, regular_user, login_as):
+    login_as(client, regular_user, 'userpass123')
+    resp = client.post('/admin/backup/archivos/anything.json/comprimir')
+    assert resp.status_code == 403
+
+
+def test_backup_compress_shrinks_file_and_stays_readable(app, client, admin_user, make_profession, login_as, tmp_path):
+    app.config['BACKUP_FOLDER'] = str(tmp_path)
+    make_profession(name='Soldado')
+    login_as(client, admin_user, 'adminpass123')
+    client.post('/admin/backup/exportar', data={'secciones': ['professions']})
+
+    import os
+    original_filename = os.listdir(str(tmp_path))[0]
+    resp = client.post(f'/admin/backup/archivos/{original_filename}/comprimir', follow_redirects=True)
+    assert resp.status_code == 200
+
+    files = os.listdir(str(tmp_path))
+    assert files == [original_filename + '.gz']
+
+    # Still viewable/downloadable/re-importable as plain JSON despite being
+    # stored gzipped on disk.
+    resp = client.get(f'/admin/backup/archivos/{original_filename}.gz/ver')
+    assert resp.status_code == 200
+    assert 'Profesiones'.encode('utf-8') in resp.data
+
+    resp = client.get(f'/admin/backup/archivos/{original_filename}.gz/descargar')
+    assert resp.status_code == 200
+    assert json.loads(resp.data)['secciones'] == ['professions']
+
+    resp = client.get('/admin/backup')
+    assert resp.status_code == 200
+    assert 'Comprimido'.encode('utf-8') in resp.data
+
+
+def test_backup_compress_twice_is_a_noop(app, client, admin_user, login_as, tmp_path):
+    app.config['BACKUP_FOLDER'] = str(tmp_path)
+    login_as(client, admin_user, 'adminpass123')
+    client.post('/admin/backup/exportar', data={'secciones': ['professions']})
+
+    import os
+    filename = os.listdir(str(tmp_path))[0]
+    client.post(f'/admin/backup/archivos/{filename}/comprimir')
+    gz_filename = filename + '.gz'
+
+    resp = client.post(f'/admin/backup/archivos/{gz_filename}/comprimir', follow_redirects=True)
+    assert resp.status_code == 200
+    assert os.listdir(str(tmp_path)) == [gz_filename]  # untouched, not double-compressed
+
+
+def test_backup_delete_requires_admin(client, regular_user, login_as):
+    login_as(client, regular_user, 'userpass123')
+    resp = client.post('/admin/backup/archivos/anything.json/eliminar')
+    assert resp.status_code == 403
+
+
+def test_backup_delete_removes_the_file(app, client, admin_user, login_as, tmp_path):
+    app.config['BACKUP_FOLDER'] = str(tmp_path)
+    login_as(client, admin_user, 'adminpass123')
+    client.post('/admin/backup/exportar', data={'secciones': ['professions']})
+
+    import os
+    filename = os.listdir(str(tmp_path))[0]
+    resp = client.post(f'/admin/backup/archivos/{filename}/eliminar', follow_redirects=True)
+    assert resp.status_code == 200
+    assert os.listdir(str(tmp_path)) == []
+
+
+def test_backup_delete_rejects_path_traversal(app, client, admin_user, login_as, tmp_path):
+    app.config['BACKUP_FOLDER'] = str(tmp_path)
+    login_as(client, admin_user, 'adminpass123')
+    resp = client.post('/admin/backup/archivos/..%2F..%2Fapp/eliminar')
+    assert resp.status_code == 404
+
+
 def test_backup_import_restores_everything(db, app, client, admin_user, regular_user, make_character,
                                             make_profession, make_equipment_item, login_as, tmp_path):
     app.config['BACKUP_FOLDER'] = str(tmp_path)

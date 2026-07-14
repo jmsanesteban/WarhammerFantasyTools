@@ -1,4 +1,6 @@
 import difflib
+import gzip
+import io
 import json
 import logging
 import os
@@ -9,7 +11,7 @@ import uuid
 from datetime import datetime
 from markupsafe import Markup
 from flask import (Blueprint, render_template, redirect, url_for,
-                   flash, request, current_app, jsonify, send_file, send_from_directory, abort)
+                   flash, request, current_app, jsonify, send_file, abort)
 from flask_login import login_required, current_user
 from app.extensions import db
 from app.models.user import User
@@ -1814,6 +1816,14 @@ def _backup_folder():
     return folder
 
 
+def _read_backup_json(path):
+    """Reads a backup file, transparently gunzipping it first if it was
+    compressed via "Comprimir" (filename ending .json.gz)."""
+    opener = gzip.open if path.endswith('.gz') else open
+    with opener(path, 'rt', encoding='utf-8') as f:
+        return json.load(f)
+
+
 def _list_saved_backups():
     """Newest first - reads each file's own `secciones`/`exported_at` rather
     than trusting the filename, so the list stays correct even if a file was
@@ -1821,12 +1831,11 @@ def _list_saved_backups():
     folder = _backup_folder()
     items = []
     for filename in sorted(os.listdir(folder), reverse=True):
-        if not filename.endswith('.json'):
+        if not (filename.endswith('.json') or filename.endswith('.json.gz')):
             continue
         path = os.path.join(folder, filename)
         try:
-            with open(path, encoding='utf-8') as f:
-                data = json.load(f)
+            data = _read_backup_json(path)
         except Exception:
             data = {}
         items.append({
@@ -1834,6 +1843,7 @@ def _list_saved_backups():
             'size': os.path.getsize(path),
             'exported_at': data.get('exported_at'),
             'secciones': data.get('secciones', []),
+            'compressed': filename.endswith('.gz'),
         })
     return items
 
@@ -1882,8 +1892,45 @@ def backup_export():
 @login_required
 @admin_required
 def backup_download(filename):
+    """Always serves plain JSON, even if the file is stored gzipped on disk
+    - so a downloaded backup can always be fed straight back into Importar,
+    regardless of whether "Comprimir" was used on it."""
     path = _safe_backup_path(filename)
-    return send_from_directory(os.path.dirname(path), os.path.basename(path), as_attachment=True)
+    data = _read_backup_json(path)
+    download_name = filename[:-3] if filename.endswith('.gz') else filename
+    buffer = io.BytesIO(json.dumps(data, ensure_ascii=False, indent=2).encode('utf-8'))
+    return send_file(buffer, as_attachment=True, download_name=download_name, mimetype='application/json')
+
+
+@admin_bp.route('/backup/archivos/<path:filename>/comprimir', methods=['POST'])
+@login_required
+@admin_required
+def backup_compress(filename):
+    if filename.endswith('.gz'):
+        flash(f'«{filename}» ya está comprimido.', 'warning')
+        return redirect(url_for('admin.backup_home'))
+
+    path = _safe_backup_path(filename)
+    gz_path = path + '.gz'
+    original_size = os.path.getsize(path)
+    with open(path, 'rb') as src, gzip.open(gz_path, 'wb') as dst:
+        dst.write(src.read())
+    os.remove(path)
+
+    new_size = os.path.getsize(gz_path)
+    saved_pct = round(100 * (1 - new_size / original_size)) if original_size else 0
+    flash(f'«{filename}» comprimido ({saved_pct}% menos de espacio).', 'success')
+    return redirect(url_for('admin.backup_home'))
+
+
+@admin_bp.route('/backup/archivos/<path:filename>/eliminar', methods=['POST'])
+@login_required
+@admin_required
+def backup_delete(filename):
+    path = _safe_backup_path(filename)
+    os.remove(path)
+    flash(f'«{filename}» eliminado.', 'warning')
+    return redirect(url_for('admin.backup_home'))
 
 
 @admin_bp.route('/backup/archivos/<path:filename>/ver')
@@ -1892,8 +1939,7 @@ def backup_download(filename):
 def backup_view(filename):
     from app.services.backup_service import BACKUP_SECTIONS
     path = _safe_backup_path(filename)
-    with open(path, encoding='utf-8') as f:
-        data = json.load(f)
+    data = _read_backup_json(path)
 
     labels = {key: label for key, label, _ in BACKUP_SECTIONS}
     rows = []

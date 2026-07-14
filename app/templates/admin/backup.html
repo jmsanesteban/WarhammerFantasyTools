@@ -107,7 +107,10 @@
           <tbody>
             {% for b in backups %}
             <tr>
-              <td class="small">{{ b.filename }}</td>
+              <td class="small">
+                {{ b.filename }}
+                {% if b.compressed %}<span class="badge bg-dark">Comprimido</span>{% endif %}
+              </td>
               <td class="small">{{ b.exported_at or '—' }}</td>
               <td>
                 {% for key in b.secciones %}<span class="badge bg-secondary">{{ section_labels.get(key, key) }}</span>{% endfor %}
@@ -116,6 +119,17 @@
               <td class="text-nowrap">
                 <a href="{{ url_for('admin.backup_view', filename=b.filename) }}" class="btn btn-outline-secondary btn-sm">Ver</a>
                 <a href="{{ url_for('admin.backup_download', filename=b.filename) }}" class="btn btn-outline-secondary btn-sm">Descargar</a>
+                {% if not b.compressed %}
+                <form method="POST" action="{{ url_for('admin.backup_compress', filename=b.filename) }}" class="d-inline">
+                  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                  <button type="submit" class="btn btn-outline-secondary btn-sm">Comprimir</button>
+                </form>
+                {% endif %}
+                <form method="POST" action="{{ url_for('admin.backup_delete', filename=b.filename) }}" class="d-inline"
+                      onsubmit="return confirm('¿Eliminar «{{ b.filename }}»? Esta acción no se puede deshacer.')">
+                  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                  <button type="submit" class="btn btn-outline-danger btn-sm">Eliminar</button>
+                </form>
               </td>
             </tr>
             {% endfor %}
