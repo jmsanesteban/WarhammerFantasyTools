@@ -2,7 +2,7 @@
 {% block title %}Backup completo — Warhammer Fantasy Tools{% endblock %}
 
 {% block content %}
-<div class="container mt-4" style="max-width:800px">
+<div class="container mt-4" style="max-width:900px">
   <div class="d-flex justify-content-between align-items-center mb-3">
     <h2 class="wh-heading mb-0"><i class="bi bi-shield-check me-2"></i>Backup completo</h2>
     <a href="{{ url_for('admin.dashboard') }}" class="btn btn-outline-secondary btn-sm">
@@ -28,17 +28,37 @@
   </div>
 
   <div class="card wh-card mb-3">
-    <div class="card-header wh-card-header">Exportar todo</div>
+    <div class="card-header wh-card-header">Exportar</div>
     <div class="card-body">
-      <p class="text-muted small">Descarga un único fichero JSON con todas las secciones.</p>
-      <a href="{{ url_for('admin.backup_export') }}" class="btn btn-wh">
-        <i class="bi bi-download me-1"></i>Exportar todo
-      </a>
+      <p class="text-muted small">
+        Deja todas las secciones marcadas para un backup total, o desmarca las que no necesites — el propio
+        fichero generado guarda qué secciones incluye. Cada exportación queda guardada en el servidor (lista
+        más abajo), además de descargarse al momento.
+      </p>
+      <form method="POST" action="{{ url_for('admin.backup_export') }}">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <div class="d-flex gap-2 mb-2">
+          <button type="button" class="btn btn-outline-secondary btn-sm" onclick="whSetAllSecciones(true)">Marcar todas</button>
+          <button type="button" class="btn btn-outline-secondary btn-sm" onclick="whSetAllSecciones(false)">Ninguna</button>
+        </div>
+        <div class="row row-cols-1 row-cols-md-3 g-2 mb-3">
+          {% for key, label, _ in sections %}
+          <div class="col">
+            <div class="form-check">
+              <input class="form-check-input wh-seccion-check" type="checkbox" name="secciones" value="{{ key }}"
+                     id="seccion_{{ key }}" checked>
+              <label class="form-check-label wh-label" for="seccion_{{ key }}">{{ label }}</label>
+            </div>
+          </div>
+          {% endfor %}
+        </div>
+        <button type="submit" class="btn btn-wh"><i class="bi bi-download me-1"></i>Exportar</button>
+      </form>
     </div>
   </div>
 
-  <div class="card wh-card">
-    <div class="card-header wh-card-header">Importar todo</div>
+  <div class="card wh-card mb-3">
+    <div class="card-header wh-card-header">Importar</div>
     <div class="card-body">
       <form method="POST" action="{{ url_for('admin.backup_import') }}" enctype="multipart/form-data">
         <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
@@ -62,9 +82,54 @@
           </div>
         </div>
 
-        <button type="submit" class="btn btn-wh"><i class="bi bi-upload me-1"></i>Importar todo</button>
+        <button type="submit" class="btn btn-wh"><i class="bi bi-upload me-1"></i>Importar</button>
       </form>
     </div>
   </div>
+
+  <div class="card wh-card">
+    <div class="card-header wh-card-header">Backups guardados</div>
+    <div class="card-body">
+      {% if not backups %}
+      <p class="text-muted small mb-0">Todavía no se ha generado ningún backup en este servidor.</p>
+      {% else %}
+      <div class="table-responsive">
+        <table class="table wh-table align-middle">
+          <thead>
+            <tr>
+              <th>Fichero</th>
+              <th>Fecha</th>
+              <th>Secciones</th>
+              <th>Tamaño</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for b in backups %}
+            <tr>
+              <td class="small">{{ b.filename }}</td>
+              <td class="small">{{ b.exported_at or '—' }}</td>
+              <td>
+                {% for key in b.secciones %}<span class="badge bg-secondary">{{ section_labels.get(key, key) }}</span>{% endfor %}
+              </td>
+              <td class="small">{{ (b.size / 1024) | round(1) }} KB</td>
+              <td class="text-nowrap">
+                <a href="{{ url_for('admin.backup_view', filename=b.filename) }}" class="btn btn-outline-secondary btn-sm">Ver</a>
+                <a href="{{ url_for('admin.backup_download', filename=b.filename) }}" class="btn btn-outline-secondary btn-sm">Descargar</a>
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      {% endif %}
+    </div>
+  </div>
 </div>
+
+<script>
+function whSetAllSecciones(checked) {
+  document.querySelectorAll('.wh-seccion-check').forEach(function (c) { c.checked = checked; });
+}
+</script>
 {% endblock %}

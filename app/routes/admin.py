@@ -9,7 +9,7 @@ import uuid
 from datetime import datetime
 from markupsafe import Markup
 from flask import (Blueprint, render_template, redirect, url_for,
-                   flash, request, current_app, jsonify, send_file)
+                   flash, request, current_app, jsonify, send_file, send_from_directory, abort)
 from flask_login import login_required, current_user
 from app.extensions import db
 from app.models.user import User
@@ -1808,19 +1808,104 @@ def contacts_full_import():
 # en el orden correcto de dependencias.
 # ---------------------------------------------------------------------------
 
+def _backup_folder():
+    folder = current_app.config['BACKUP_FOLDER']
+    os.makedirs(folder, exist_ok=True)
+    return folder
+
+
+def _list_saved_backups():
+    """Newest first - reads each file's own `secciones`/`exported_at` rather
+    than trusting the filename, so the list stays correct even if a file was
+    renamed or dropped in by hand."""
+    folder = _backup_folder()
+    items = []
+    for filename in sorted(os.listdir(folder), reverse=True):
+        if not filename.endswith('.json'):
+            continue
+        path = os.path.join(folder, filename)
+        try:
+            with open(path, encoding='utf-8') as f:
+                data = json.load(f)
+        except Exception:
+            data = {}
+        items.append({
+            'filename': filename,
+            'size': os.path.getsize(path),
+            'exported_at': data.get('exported_at'),
+            'secciones': data.get('secciones', []),
+        })
+    return items
+
+
+def _safe_backup_path(filename):
+    """Resolves filename within BACKUP_FOLDER, 404ing on any path-traversal
+    attempt or missing file - same check as main.uploaded_file."""
+    folder = _backup_folder()
+    path = os.path.join(folder, filename)
+    if not os.path.abspath(path).startswith(os.path.abspath(folder)) or not os.path.isfile(path):
+        abort(404)
+    return path
+
+
 @admin_bp.route('/backup')
 @login_required
 @admin_required
 def backup_home():
-    return render_template('admin/backup.html')
+    from app.services.backup_service import BACKUP_SECTIONS
+    section_labels = {key: label for key, label, _ in BACKUP_SECTIONS}
+    return render_template('admin/backup.html', sections=BACKUP_SECTIONS, section_labels=section_labels,
+                            backups=_list_saved_backups())
 
 
-@admin_bp.route('/backup/exportar')
+@admin_bp.route('/backup/exportar', methods=['POST'])
 @login_required
 @admin_required
 def backup_export():
-    from app.services.backup_service import export_full_backup
-    return json_download_response(export_full_backup(), 'wft_backup_completo.json')
+    from app.services.backup_service import export_full_backup, BACKUP_SECTIONS
+    all_keys = {key for key, _, _ in BACKUP_SECTIONS}
+    selected = set(request.form.getlist('secciones')) & all_keys
+    # An empty selection (nothing checked) still means "backup total", not
+    # "backup vacío" - a blank submission should never silently create an
+    # empty file.
+    data = export_full_backup(sections=selected or all_keys)
+
+    filename = f"wft_backup_{datetime.utcnow().strftime('%Y%m%d_%H%M%S')}.json"
+    path = os.path.join(_backup_folder(), filename)
+    with open(path, 'w', encoding='utf-8') as f:
+        json.dump(data, f, ensure_ascii=False, indent=2)
+
+    return send_file(path, as_attachment=True, download_name=filename, mimetype='application/json')
+
+
+@admin_bp.route('/backup/archivos/<path:filename>/descargar')
+@login_required
+@admin_required
+def backup_download(filename):
+    path = _safe_backup_path(filename)
+    return send_from_directory(os.path.dirname(path), os.path.basename(path), as_attachment=True)
+
+
+@admin_bp.route('/backup/archivos/<path:filename>/ver')
+@login_required
+@admin_required
+def backup_view(filename):
+    from app.services.backup_service import BACKUP_SECTIONS
+    path = _safe_backup_path(filename)
+    with open(path, encoding='utf-8') as f:
+        data = json.load(f)
+
+    labels = {key: label for key, label, _ in BACKUP_SECTIONS}
+    rows = []
+    for key in data.get('secciones', []):
+        value = data.get(key)
+        count = len(value) if isinstance(value, list) else ('Sí' if value else 'No')
+        rows.append({'key': key, 'label': labels.get(key, key), 'count': count})
+
+    return render_template(
+        'admin/backup_view.html', filename=filename,
+        version=data.get('version'), exported_at=data.get('exported_at'), rows=rows,
+    )
 
 
 @admin_bp.route('/backup/importar', methods=['POST'])
@@ -1838,16 +1923,11 @@ def backup_import():
         flash(f'Error al leer el fichero: {e}', 'danger')
         return redirect(url_for('admin.backup_home'))
 
-    from app.services.backup_service import import_full_backup
+    from app.services.backup_service import import_full_backup, BACKUP_SECTIONS
     mode = request.form.get('mode', 'skip')
     summaries = import_full_backup(data, mode=mode)
 
-    labels = {
-        'permission_templates': 'Plantillas de permisos', 'synonyms': 'Sinónimos', 'users': 'Usuarios',
-        'professions': 'Profesiones', 'equipment': 'Equipamiento', 'recipes': 'Recetas',
-        'shop_markup': 'Recargo de precios', 'characters': 'Personajes', 'contacts': 'Contactos y vínculos',
-    }
-    for key, label in labels.items():
+    for key, label, _ in BACKUP_SECTIONS:
         s = summaries[key]
         flash(f"{label}: {s['created']} creados, {s['updated']} actualizados, {s['skipped']} omitidos.", 'success')
         warnings = s.get('warnings') or []

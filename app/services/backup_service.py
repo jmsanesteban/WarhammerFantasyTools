@@ -950,20 +950,38 @@ def import_shop_markup(data, mode='skip'):
 # Backup completo: orquesta todas las secciones en el orden de dependencias
 # ---------------------------------------------------------------------------
 
-def export_full_backup():
-    return {
+# Única fuente de verdad para el orden/etiquetas/función de cada sección -
+# usada tanto por export_full_backup() como por la UI de selección y el
+# resumen de import (app/routes/admin.py).
+BACKUP_SECTIONS = [
+    ('permission_templates', 'Plantillas de permisos', export_permission_templates),
+    ('synonyms', 'Sinónimos', export_synonyms),
+    ('users', 'Usuarios', export_users),
+    ('professions', 'Profesiones', export_professions),
+    ('equipment', 'Equipamiento', export_equipment),
+    ('recipes', 'Recetas', export_recipes),
+    ('shop_markup', 'Recargo de precios', export_shop_markup),
+    ('characters', 'Personajes', export_characters),
+    ('contacts', 'Contactos y vínculos', export_contacts_full),
+]
+
+
+def export_full_backup(sections=None):
+    """`sections=None` (o todas) exporta las nueve secciones - el "backup
+    total" de siempre. Si se pide un subconjunto, las claves no incluidas
+    no aparecen en absoluto en el resultado (no listas vacías) - el nuevo
+    campo `secciones` deja sin ambigüedad qué trae el fichero, tanto para un
+    humano como para el visor de backups guardados."""
+    include = set(sections) if sections is not None else {key for key, _, _ in BACKUP_SECTIONS}
+    data = {
         'version': BACKUP_VERSION,
         'exported_at': datetime.utcnow().isoformat() + 'Z',
-        'permission_templates': export_permission_templates(),
-        'synonyms': export_synonyms(),
-        'users': export_users(),
-        'professions': export_professions(),
-        'equipment': export_equipment(),
-        'recipes': export_recipes(),
-        'shop_markup': export_shop_markup(),
-        'characters': export_characters(),
-        'contacts': export_contacts_full(),
+        'secciones': [key for key, _, _ in BACKUP_SECTIONS if key in include],
     }
+    for key, _, export_fn in BACKUP_SECTIONS:
+        if key in include:
+            data[key] = export_fn()
+    return data
 
 
 def import_full_backup(data, mode='skip'):

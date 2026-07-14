@@ -259,7 +259,11 @@
         <div class="card-header wh-card-header"><i class="bi bi-egg-fried me-2"></i>Comida y bebida</div>
         <div class="card-body">
           <p>Exportar/importar Recetas, importar un PDF de recetas hechas (con foto) y sincronizar fotos.</p>
-          <a href="{{ url_for('admin.food_home') }}" class="btn btn-wh">Gestionar</a>
+          <div class="d-flex gap-2 flex-wrap">
+            <a href="{{ url_for('admin.food_home') }}" class="btn btn-wh">Gestionar</a>
+            <a href="{{ url_for('admin.comida_import') }}" class="btn btn-outline-secondary">Importar</a>
+            <a href="{{ url_for('admin.comida_export') }}" class="btn btn-outline-secondary">Exportar</a>
+          </div>
         </div>
       </div>
     </div>

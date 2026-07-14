@@ -5,6 +5,11 @@ class Config:
     SECRET_KEY = os.environ.get('SECRET_KEY', 'dev-secret-key-change-in-prod')
     SQLALCHEMY_TRACK_MODIFICATIONS = False
     UPLOAD_FOLDER = os.environ.get('UPLOAD_FOLDER', os.path.join(os.path.dirname(os.path.dirname(__file__)), 'uploads'))
+    # Separate from UPLOAD_FOLDER on purpose: uploads/ is served publicly with
+    # no login check (main.uploaded_file) - a full backup carries real user
+    # emails/contacts/characters, so it needs its own directory only ever
+    # reachable through an @admin_required route.
+    BACKUP_FOLDER = os.environ.get('BACKUP_FOLDER', os.path.join(os.path.dirname(os.path.dirname(__file__)), 'backups'))
     MAX_CONTENT_LENGTH = int(os.environ.get('MAX_CONTENT_LENGTH', 104857600))  # 100 MB
     ALLOWED_EXTENSIONS = {'pdf'}
     WTF_CSRF_ENABLED = True

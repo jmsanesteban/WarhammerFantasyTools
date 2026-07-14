@@ -38,6 +38,9 @@ instance/
 # Uploads
 uploads/
 
+# Backups (real user data - never commit)
+backups/
+
 # IDE
 .vscode/
 .idea/
