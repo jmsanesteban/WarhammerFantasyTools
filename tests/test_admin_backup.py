@@ -418,6 +418,45 @@ def test_backup_decompress_rejects_uncompressed_file(app, client, admin_user, lo
     assert os.listdir(str(tmp_path)) == [filename]  # untouched
 
 
+def test_backup_decompress_bulk_requires_admin(client, regular_user, login_as):
+    login_as(client, regular_user, 'userpass123')
+    resp = client.post('/admin/backup/archivos/descomprimir-varios', data={'filenames': ['a.json.gz']})
+    assert resp.status_code == 403
+
+
+def test_backup_decompress_bulk_decompresses_each_selected_file(app, client, admin_user, login_as, tmp_path):
+    app.config['BACKUP_FOLDER'] = str(tmp_path)
+    login_as(client, admin_user, 'adminpass123')
+    client.post('/admin/backup/exportar', data={'secciones': ['professions']})
+    client.post('/admin/backup/exportar', data={'secciones': ['equipment']})
+
+    import os
+    filenames = sorted(os.listdir(str(tmp_path)))
+    for f in filenames:
+        client.post(f'/admin/backup/archivos/{f}/comprimir')
+    gz_filenames = sorted(os.listdir(str(tmp_path)))
+
+    resp = client.post('/admin/backup/archivos/descomprimir-varios',
+                        data={'filenames': gz_filenames}, follow_redirects=True)
+    assert resp.status_code == 200
+    assert sorted(os.listdir(str(tmp_path))) == filenames
+
+
+def test_backup_decompress_bulk_skips_already_uncompressed(app, client, admin_user, login_as, tmp_path):
+    app.config['BACKUP_FOLDER'] = str(tmp_path)
+    login_as(client, admin_user, 'adminpass123')
+    client.post('/admin/backup/exportar', data={'secciones': ['professions']})
+
+    import os
+    filename = os.listdir(str(tmp_path))[0]
+
+    resp = client.post('/admin/backup/archivos/descomprimir-varios',
+                        data={'filenames': [filename]}, follow_redirects=True)
+    assert resp.status_code == 200
+    assert 'ya estaban sin comprimir'.encode('utf-8') in resp.data
+    assert os.listdir(str(tmp_path)) == [filename]  # untouched
+
+
 def test_backup_delete_requires_admin(client, regular_user, login_as):
     login_as(client, regular_user, 'userpass123')
     resp = client.post('/admin/backup/archivos/anything.json/eliminar')

@@ -123,20 +123,28 @@
               {% for b in backups %}
               <div class="list-group-item d-flex align-items-center gap-2 wh-backup-item" data-idx="{{ loop.index0 }}"
                    role="button" style="cursor:pointer">
-                <input type="checkbox" class="form-check-input wh-backup-bulk-check" name="filenames" value="{{ b.filename }}"
-                       {% if b.compressed %}disabled title="Ya está comprimido"{% endif %}>
+                <input type="checkbox" class="form-check-input wh-backup-bulk-check" name="filenames" value="{{ b.filename }}">
                 <span class="font-monospace small">{{ b.filename }}</span>
                 {% if b.compressed %}<i class="bi bi-file-earmark-zip text-muted ms-auto" title="Comprimido"></i>{% endif %}
               </div>
               {% endfor %}
             </div>
-            <div class="d-flex align-items-center gap-2">
-              <button type="submit" class="btn btn-outline-secondary btn-sm" onclick="return whConfirmBulkCompress()">
+            <div class="d-flex align-items-center gap-2 flex-wrap">
+              <button type="submit" formaction="{{ url_for('admin.backup_compress_bulk') }}"
+                      class="btn btn-outline-secondary btn-sm" onclick="return whConfirmBulkAction()">
                 <i class="bi bi-file-earmark-zip me-1"></i>Comprimir seleccionados
+              </button>
+              <button type="submit" formaction="{{ url_for('admin.backup_decompress_bulk') }}"
+                      class="btn btn-outline-secondary btn-sm" onclick="return whConfirmBulkAction()">
+                <i class="bi bi-file-earmark-zip me-1"></i>Descomprimir seleccionados
               </button>
               <span class="text-muted small" id="wh-bulk-count"></span>
             </div>
           </form>
+          <p class="text-muted small mt-1 mb-0">
+            Cada acción solo se aplica a los seleccionados que correspondan (comprimir ignora los ya
+            comprimidos, y viceversa) — se puede marcar cualquier combinación.
+          </p>
         </div>
         <div class="col-md-7">
           <div id="wh-backup-detail-empty" class="text-muted small">
@@ -241,12 +249,12 @@ document.querySelectorAll('.wh-backup-bulk-check').forEach(function (c) {
   c.addEventListener('change', whUpdateBulkCount);
 });
 
-function whConfirmBulkCompress() {
+function whConfirmBulkAction() {
   var anyChecked = Array.prototype.some.call(
     document.querySelectorAll('.wh-backup-bulk-check'), function (c) { return c.checked; },
   );
   if (!anyChecked) {
-    alert('Selecciona al menos un fichero sin comprimir (marca su casilla, a la izquierda del nombre).');
+    alert('Selecciona al menos un fichero (marca su casilla, a la izquierda del nombre).');
     return false;
   }
   return true;

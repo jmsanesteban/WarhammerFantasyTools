@@ -1880,6 +1880,19 @@ def _compress_one(filename):
     return None
 
 
+def _decompress_one(filename):
+    """Reverse of _compress_one - same "return a warning instead of raising"
+    contract so a bulk pass can skip already-uncompressed files."""
+    if not filename.endswith('.gz'):
+        return f'«{filename}» no está comprimido.'
+    path = _safe_backup_path(filename)
+    raw_path = path[:-3]
+    with gzip.open(path, 'rb') as src, open(raw_path, 'wb') as dst:
+        dst.write(src.read())
+    os.remove(path)
+    return None
+
+
 def _safe_backup_path(filename):
     """Resolves filename within BACKUP_FOLDER, 404ing on any path-traversal
     attempt or missing file - same check as main.uploaded_file."""
@@ -1986,17 +1999,32 @@ def backup_compress_bulk():
 @login_required
 @admin_required
 def backup_decompress(filename):
-    if not filename.endswith('.gz'):
-        flash(f'«{filename}» no está comprimido.', 'warning')
+    warning = _decompress_one(filename)
+    if warning:
+        flash(warning, 'warning')
+    else:
+        flash(f'«{filename}» descomprimido.', 'success')
+    return redirect(url_for('admin.backup_home'))
+
+
+@admin_bp.route('/backup/archivos/descomprimir-varios', methods=['POST'])
+@login_required
+@admin_required
+def backup_decompress_bulk():
+    filenames = request.form.getlist('filenames')
+    if not filenames:
+        flash('No se seleccionó ningún fichero.', 'warning')
         return redirect(url_for('admin.backup_home'))
 
-    path = _safe_backup_path(filename)
-    raw_path = path[:-3]
-    with gzip.open(path, 'rb') as src, open(raw_path, 'wb') as dst:
-        dst.write(src.read())
-    os.remove(path)
+    decompressed, skipped = [], []
+    for filename in filenames:
+        warning = _decompress_one(filename)
+        (skipped if warning else decompressed).append(filename)
 
-    flash(f'«{filename}» descomprimido.', 'success')
+    if decompressed:
+        flash(f'{len(decompressed)} fichero(s) descomprimido(s): {", ".join(decompressed)}.', 'success')
+    if skipped:
+        flash(f'{len(skipped)} ya estaban sin comprimir, sin cambios.', 'warning')
     return redirect(url_for('admin.backup_home'))
 
 
