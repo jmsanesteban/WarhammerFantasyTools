@@ -124,15 +124,18 @@
               <div class="list-group-item d-flex align-items-center gap-2 wh-backup-item" data-idx="{{ loop.index0 }}"
                    role="button" style="cursor:pointer">
                 <input type="checkbox" class="form-check-input wh-backup-bulk-check" name="filenames" value="{{ b.filename }}"
-                       onclick="event.stopPropagation()" {% if b.compressed %}disabled{% endif %}>
+                       {% if b.compressed %}disabled title="Ya está comprimido"{% endif %}>
                 <span class="font-monospace small">{{ b.filename }}</span>
                 {% if b.compressed %}<i class="bi bi-file-earmark-zip text-muted ms-auto" title="Comprimido"></i>{% endif %}
               </div>
               {% endfor %}
             </div>
-            <button type="submit" class="btn btn-outline-secondary btn-sm" onclick="return whConfirmBulkCompress()">
-              <i class="bi bi-file-earmark-zip me-1"></i>Comprimir seleccionados
-            </button>
+            <div class="d-flex align-items-center gap-2">
+              <button type="submit" class="btn btn-outline-secondary btn-sm" onclick="return whConfirmBulkCompress()">
+                <i class="bi bi-file-earmark-zip me-1"></i>Comprimir seleccionados
+              </button>
+              <span class="text-muted small" id="wh-bulk-count"></span>
+            </div>
           </form>
         </div>
         <div class="col-md-7">
@@ -156,6 +159,12 @@
 .wh-backup-item.active {
   background-color: rgba(180, 140, 60, .25) !important;
   border-color: var(--wh-border-gold, #6b5636) !important;
+}
+/* Distinct from .active (single "viewing in detail panel") - this one marks
+   rows checked for the multi-select "Comprimir seleccionados" bulk action,
+   so both states stay visible even when they overlap on the same row. */
+.wh-backup-item.wh-backup-selected {
+  box-shadow: inset 0 0 0 2px rgba(70, 130, 180, .6);
 }
 </style>
 
@@ -211,7 +220,25 @@ function whSelectBackup(idx) {
 }
 
 document.querySelectorAll('.wh-backup-item').forEach(function (el) {
-  el.addEventListener('click', function () { whSelectBackup(parseInt(el.dataset.idx, 10)); });
+  el.addEventListener('click', function (event) {
+    // Clicking the checkbox itself should only toggle it for bulk-compress,
+    // not also change which file is shown in the detail panel.
+    if (event.target.closest('.wh-backup-bulk-check')) return;
+    whSelectBackup(parseInt(el.dataset.idx, 10));
+  });
+});
+
+function whUpdateBulkCount() {
+  var checks = document.querySelectorAll('.wh-backup-bulk-check');
+  checks.forEach(function (c) {
+    c.closest('.wh-backup-item').classList.toggle('wh-backup-selected', c.checked);
+  });
+  var n = Array.prototype.filter.call(checks, function (c) { return c.checked; }).length;
+  document.getElementById('wh-bulk-count').textContent = n ? (n + ' seleccionado(s)') : '';
+}
+
+document.querySelectorAll('.wh-backup-bulk-check').forEach(function (c) {
+  c.addEventListener('change', whUpdateBulkCount);
 });
 
 function whConfirmBulkCompress() {
@@ -219,7 +246,7 @@ function whConfirmBulkCompress() {
     document.querySelectorAll('.wh-backup-bulk-check'), function (c) { return c.checked; },
   );
   if (!anyChecked) {
-    alert('Selecciona al menos un fichero sin comprimir.');
+    alert('Selecciona al menos un fichero sin comprimir (marca su casilla, a la izquierda del nombre).');
     return false;
   }
   return true;
