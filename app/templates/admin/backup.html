@@ -93,53 +93,56 @@
       {% if not backups %}
       <p class="text-muted small mb-0">Todavía no se ha generado ningún backup en este servidor.</p>
       {% else %}
-      <div class="table-responsive">
-        <table class="table wh-table align-middle">
-          <thead>
-            <tr>
-              <th>Fichero</th>
-              <th>Fecha</th>
-              <th>Secciones</th>
-              <th>Tamaño</th>
-              <th></th>
-            </tr>
-          </thead>
-          <tbody>
-            {% for b in backups %}
-            <tr>
-              <td class="small">
-                {{ b.filename }}
-                {% if b.compressed %}<span class="badge bg-dark">Comprimido</span>{% endif %}
-              </td>
-              <td class="small">{{ b.exported_at or '—' }}</td>
-              <td>
-                {% for key in b.secciones %}<span class="badge bg-secondary">{{ section_labels.get(key, key) }}</span>{% endfor %}
-              </td>
-              <td class="small">{{ (b.size / 1024) | round(1) }} KB</td>
-              <td class="text-nowrap">
-                <a href="{{ url_for('admin.backup_view', filename=b.filename) }}" class="btn btn-outline-secondary btn-sm">Ver</a>
-                <a href="{{ url_for('admin.backup_download', filename=b.filename) }}" class="btn btn-outline-secondary btn-sm">Descargar</a>
-                {% if not b.compressed %}
-                <form method="POST" action="{{ url_for('admin.backup_compress', filename=b.filename) }}" class="d-inline">
-                  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                  <button type="submit" class="btn btn-outline-secondary btn-sm">Comprimir</button>
-                </form>
-                {% endif %}
-                <form method="POST" action="{{ url_for('admin.backup_delete', filename=b.filename) }}" class="d-inline"
-                      onsubmit="return confirm('¿Eliminar «{{ b.filename }}»? Esta acción no se puede deshacer.')">
-                  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                  <button type="submit" class="btn btn-outline-danger btn-sm">Eliminar</button>
-                </form>
-              </td>
-            </tr>
-            {% endfor %}
-          </tbody>
-        </table>
+      <div class="d-flex flex-column gap-2">
+        {% for b in backups %}
+        <div class="wh-backup-row d-flex flex-wrap align-items-center gap-2 py-2 px-2">
+          <div class="wh-backup-main">
+            <div class="small font-monospace">
+              {{ b.filename }}
+              {% if b.compressed %}<span class="badge bg-dark ms-1">Comprimido</span>{% endif %}
+            </div>
+            <div class="text-muted small">{{ b.exported_at or '—' }} · {{ (b.size / 1024) | round(1) }} KB</div>
+          </div>
+          <div class="d-flex flex-wrap gap-1 wh-backup-secciones">
+            {% for key in b.secciones %}<span class="badge bg-secondary">{{ section_labels.get(key, key) }}</span>{% endfor %}
+          </div>
+          <div class="d-flex gap-1 ms-auto">
+            <a href="{{ url_for('admin.backup_view', filename=b.filename) }}" class="btn btn-outline-secondary btn-sm" title="Ver contenido">
+              <i class="bi bi-eye"></i>
+            </a>
+            <a href="{{ url_for('admin.backup_download', filename=b.filename) }}" class="btn btn-outline-secondary btn-sm" title="Descargar">
+              <i class="bi bi-download"></i>
+            </a>
+            {% if not b.compressed %}
+            <form method="POST" action="{{ url_for('admin.backup_compress', filename=b.filename) }}" class="d-inline">
+              <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+              <button type="submit" class="btn btn-outline-secondary btn-sm" title="Comprimir">
+                <i class="bi bi-file-earmark-zip"></i>
+              </button>
+            </form>
+            {% endif %}
+            <form method="POST" action="{{ url_for('admin.backup_delete', filename=b.filename) }}" class="d-inline"
+                  onsubmit="return confirm('¿Eliminar «{{ b.filename }}»? Esta acción no se puede deshacer.')">
+              <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+              <button type="submit" class="btn btn-outline-danger btn-sm" title="Eliminar">
+                <i class="bi bi-trash"></i>
+              </button>
+            </form>
+          </div>
+        </div>
+        {% endfor %}
       </div>
       {% endif %}
     </div>
   </div>
 </div>
+
+<style>
+.wh-backup-row { border: 1px solid var(--wh-border-gold, #6b5636); border-radius: .375rem; }
+.wh-backup-main { min-width: 15rem; flex-shrink: 0; }
+.wh-backup-secciones { flex: 1 1 auto; min-width: 12rem; }
+.wh-backup-secciones .badge { font-size: .7rem; }
+</style>
 
 <script>
 function whSetAllSecciones(checked) {

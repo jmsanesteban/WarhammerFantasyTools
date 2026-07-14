@@ -1828,6 +1828,8 @@ def _list_saved_backups():
     """Newest first - reads each file's own `secciones`/`exported_at` rather
     than trusting the filename, so the list stays correct even if a file was
     renamed or dropped in by hand."""
+    from app.services.backup_service import _parse_iso
+
     folder = _backup_folder()
     items = []
     for filename in sorted(os.listdir(folder), reverse=True):
@@ -1838,10 +1840,15 @@ def _list_saved_backups():
             data = _read_backup_json(path)
         except Exception:
             data = {}
+        exported_at = data.get('exported_at')
+        try:
+            exported_at = _parse_iso(exported_at).strftime('%Y-%m-%d %H:%M:%S') if exported_at else None
+        except ValueError:
+            pass  # keep the raw string if it's ever in an unexpected shape
         items.append({
             'filename': filename,
             'size': os.path.getsize(path),
-            'exported_at': data.get('exported_at'),
+            'exported_at': exported_at,
             'secciones': data.get('secciones', []),
             'compressed': filename.endswith('.gz'),
         })
