@@ -30,7 +30,7 @@
           {% endif %}
         </div>
         <div class="card-body">
-          {% set show_quality = quality and item.category in ('arma', 'armadura') and item.subcategory != 'municion' %}
+          {% set show_quality = quality and item.category in ('arma', 'armadura') %}
           <div class="d-flex gap-2 flex-wrap mb-3">
             <span class="badge bg-secondary">{{ item.category_label }}</span>
             {% if item.subcategory %}<span class="badge bg-dark">{{ item.subcategory_label }}</span>{% endif %}

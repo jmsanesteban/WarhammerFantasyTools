@@ -222,7 +222,7 @@ def test_anadir_sin_coste_respects_batch_quantity(db, client, make_user, make_ch
     owner = make_user(username='owner1', password='ownerpass123', puede_anadir_equipo_sin_coste=True)
     char = make_character(owner, name='Personaje', dinero_coronas=20)
     login_as(client, owner, 'ownerpass123')
-    item = make_equipment_item(name='Flecha/virote común', category='arma', subcategory='municion',
+    item = make_equipment_item(name='Flecha/virote común', category='municion',
                                 precio_peniques=12, unidades_por_precio=5)
 
     resp = client.post(f'/personajes/{char.id}/tienda/{item.id}/anadir-sin-coste', data={
@@ -382,7 +382,7 @@ def test_checkout_ropa_uses_row_price_without_multiplier(db, client, make_user, 
 def test_ammo_confirm_page_hides_quality_picker(client, make_user, make_character,
                                                  make_equipment_item, login_as):
     char = _login_owner(client, make_user, make_character, login_as, dinero_coronas=20)
-    item = make_equipment_item(name='Flecha/virote común', category='arma', subcategory='municion',
+    item = make_equipment_item(name='Flecha/virote común', category='municion',
                                 price_text='1C (5)', precio_peniques=12, unidades_por_precio=5)
 
     resp = client.get(f'/personajes/{char.id}/tienda/{item.id}/anadir-carrito')
@@ -393,7 +393,7 @@ def test_ammo_confirm_page_hides_quality_picker(client, make_user, make_characte
 def test_ammo_add_to_cart_rejects_non_multiple_quantity(db, client, make_user, make_character,
                                                           make_equipment_item, login_as):
     char = _login_owner(client, make_user, make_character, login_as, dinero_coronas=20)
-    item = make_equipment_item(name='Flecha/virote común', category='arma', subcategory='municion',
+    item = make_equipment_item(name='Flecha/virote común', category='municion',
                                 price_text='1C (5)', precio_peniques=12, unidades_por_precio=5)
 
     resp = _add_to_cart(client, char, item, quantity=7)
@@ -405,7 +405,7 @@ def test_ammo_add_to_cart_rejects_non_multiple_quantity(db, client, make_user, m
 def test_ammo_checkout_charges_proportionally_to_batch(db, client, make_user, make_character,
                                                         make_equipment_item, login_as):
     char = _login_owner(client, make_user, make_character, login_as, dinero_coronas=20)
-    item = make_equipment_item(name='Flecha/virote común', category='arma', subcategory='municion',
+    item = make_equipment_item(name='Flecha/virote común', category='municion',
                                 price_text='1C (5)', precio_peniques=12, unidades_por_precio=5)
 
     _add_to_cart(client, char, item, quantity=10)

@@ -49,7 +49,7 @@
         {% endif %}
         {% else %}
         <p>
-          {% if item.subcategory != 'municion' %}<strong class="wh-label">Calidad:</strong> {{ item.quality_label or 'Excelente' }}{% endif %}
+          {% if item.category != 'municion' %}<strong class="wh-label">Calidad:</strong> {{ item.quality_label or 'Excelente' }}{% endif %}
           {% if fixed_price is not none %} — {{ fixed_price | money }}{% if item.unidades_por_precio > 1 %} <small class="text-muted">(lote de {{ item.unidades_por_precio }})</small>{% endif %}{% endif %}
         </p>
         {% if item.precio_escala_clase_social %}

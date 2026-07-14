@@ -183,7 +183,7 @@ class EquipmentItem(db.Model):
     base_item = db.relationship('EquipmentItem', remote_side=[id], backref='special_variants')
     created_by = db.relationship('User')
 
-    CATEGORIES = ('arma', 'armadura', 'ropa', 'especial', 'libro', 'otros')
+    CATEGORIES = ('arma', 'armadura', 'municion', 'ropa', 'especial', 'libro', 'otros')
     QUALITIES = ('mala', 'normal', 'buena', 'excelente')
     # Book rule (Armaduras "Datos adicionales"): quality only scales price for
     # arma/armadura. Ropa's tiers are already separate catalog rows with their
@@ -203,8 +203,8 @@ class EquipmentItem(db.Model):
     }
 
     CATEGORY_LABELS = {
-        'arma': 'Arma', 'armadura': 'Armadura', 'ropa': 'Ropa', 'especial': 'Especial',
-        'libro': 'Libro', 'otros': 'Otros objetos',
+        'arma': 'Arma', 'armadura': 'Armadura', 'municion': 'Munición', 'ropa': 'Ropa',
+        'especial': 'Especial', 'libro': 'Libro', 'otros': 'Otros objetos',
     }
     QUALITY_LABELS = {'mala': 'Mala', 'normal': 'Normal', 'buena': 'Buena', 'excelente': 'Excelente'}
     # Clothing tiers are the same quality scale under the hood, but players
@@ -213,7 +213,6 @@ class EquipmentItem(db.Model):
     SUBCATEGORY_LABELS = {
         'cuerpo_a_cuerpo': 'Cuerpo a cuerpo',
         'distancia': 'A distancia',
-        'municion': 'Munición',
         'acolchada': 'Acolchada / Gambesón',
         'cuero': 'Cuero',
         'pieles': 'Pieles gruesas',
@@ -268,7 +267,7 @@ class EquipmentItem(db.Model):
             if nivel_social is None or nivel_social - 2 <= 0:
                 return None
             return self.precio_peniques * (nivel_social - 2)
-        if self.category == 'ropa' or self.subcategory == 'municion':
+        if self.category in ('ropa', 'municion'):
             # Ropa: each quality tier is already its own row. Ammo: the book
             # is explicit that manufacture quality never applies to it ("No
             # hay modificadores por calidad") - price is always the catalog
@@ -305,7 +304,7 @@ class EquipmentItem(db.Model):
             adjusted['agilidad'] = adjusted.pop('agilidad_por_calidad')[quality]
             return adjusted
 
-        if self.category != 'arma' or self.subcategory == 'municion':
+        if self.category != 'arma':
             return self.stats
         mods = self.QUALITY_WEAPON_STAT_MODIFIERS.get(quality)
         if not mods:

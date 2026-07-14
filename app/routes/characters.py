@@ -26,7 +26,7 @@ from app.utils import admin_required
 
 characters_bp = Blueprint('characters', __name__, template_folder='../templates')
 
-_TIENDA_CATEGORIES = ('arma', 'armadura', 'ropa')
+_TIENDA_CATEGORIES = ('arma', 'armadura', 'municion', 'ropa')
 
 _RAZAS = ['Humano', 'Halfling', 'Enano', 'Elfo Silvano', 'Alto Elfo']
 
@@ -269,7 +269,7 @@ def anadir_carrito_confirmar(char_id, item_id):
     # excelente. Ammo never varies by quality ("No hay modificadores por
     # calidad" - manufacture quality is always treated as normal) - only
     # genuinely-variable-quality arma/armadura show a picker.
-    qualities = ([] if (item.category == 'ropa' or item.is_special or item.subcategory == 'municion')
+    qualities = ([] if (item.category in ('ropa', 'municion') or item.is_special)
                  else list(EquipmentItem.QUALITIES))
     puede_sin_coste = current_user.is_admin or current_user.puede_anadir_equipo_sin_coste
     return render_template('characters/anadir_carrito_confirmar.html', char=char, item=item,
@@ -286,7 +286,7 @@ def _resolve_cart_line(item):
     # Burguesa/Noble are separate rows). Special items built on a mundane base
     # are always excelente. Ammo has no quality concept at all. None of these
     # three is a player choice on this one row.
-    if item.category == 'ropa' or item.is_special or item.subcategory == 'municion':
+    if item.category in ('ropa', 'municion') or item.is_special:
         quality = item.quality
     else:
         quality = request.form.get('quality', '').strip() or None

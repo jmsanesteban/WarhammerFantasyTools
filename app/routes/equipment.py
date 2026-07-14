@@ -100,6 +100,11 @@ def list_armaduras():
     return _render_catalog('armadura', locked_category=True)
 
 
+@equipment_bp.route('/municion')
+def list_municion():
+    return _render_catalog('municion', locked_category=True)
+
+
 @equipment_bp.route('/ropa')
 def list_ropa():
     return _render_catalog('ropa', locked_category=True)

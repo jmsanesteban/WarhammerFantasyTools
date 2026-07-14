@@ -122,22 +122,22 @@ def test_quality_filter_leaves_ropa_untouched(client, make_equipment_item):
 
 
 def test_ammo_stats_never_adjusted_by_quality(client, make_equipment_item):
-    make_equipment_item(name='Flecha/virote común', category='arma', subcategory='municion',
+    make_equipment_item(name='Flecha/virote común', category='municion',
                          stats={'uso': '-', 'daño': '-'})
-    resp = client.get('/equipamiento/armas?quality=excelente')
+    resp = client.get('/equipamiento/municion?quality=excelente')
     assert resp.status_code == 200  # renders fine, no crash from stats_for_quality on ammo
 
 
 def test_ammo_card_never_shows_quality_badge(client, make_equipment_item):
     """Ammo is always manufactured "normal" - the quality filter on the
     catalog page shouldn't tag ammo cards with a calidad they don't have."""
-    make_equipment_item(name='Flecha/virote común', category='arma', subcategory='municion')
-    resp = client.get('/equipamiento/armas?quality=excelente')
+    make_equipment_item(name='Flecha/virote común', category='municion')
+    resp = client.get('/equipamiento/municion?quality=excelente')
     assert 'Calidad: Excelente'.encode('utf-8') not in resp.data
 
 
 def test_ammo_detail_never_shows_quality_badge(client, make_equipment_item):
-    item = make_equipment_item(name='Flecha/virote común', category='arma', subcategory='municion')
+    item = make_equipment_item(name='Flecha/virote común', category='municion')
     resp = client.get(f'/equipamiento/{item.id}?quality=excelente')
     assert 'Calidad: Excelente'.encode('utf-8') not in resp.data
 
@@ -316,11 +316,11 @@ def test_edit_item_updates_custom_fields(db, client, admin_user, login_as, make_
 
 
 def test_edit_item_recomputes_batch_pricing_from_price_text(db, client, admin_user, login_as, make_equipment_item):
-    item = make_equipment_item(name='Flecha/virote común', category='arma', subcategory='municion')
+    item = make_equipment_item(name='Flecha/virote común', category='municion')
     login_as(client, admin_user, 'adminpass123')
 
     resp = client.post(f'/equipamiento/{item.id}/editar', data={
-        'name': 'Flecha/virote común', 'category': 'arma', 'subcategory': 'municion',
+        'name': 'Flecha/virote común', 'category': 'municion',
         'price_text': '1C (5)',
     }, follow_redirects=True)
     assert resp.status_code == 200

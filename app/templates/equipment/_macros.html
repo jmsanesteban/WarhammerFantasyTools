@@ -48,7 +48,7 @@
 {# A quality is only meaningful to show for Arma/Armadura - Ropa's quality
    IS the row (item.quality is already set), Especial is GM-priced, and
    ammo is always manufactured "normal" (no quality concept at all). #}
-{% set show_quality = quality and item.category in ('arma', 'armadura') and item.subcategory != 'municion' %}
+{% set show_quality = quality and item.category in ('arma', 'armadura') %}
 <div class="card wh-card h-100">
   <div class="row g-0 h-100">
     {% if item.image_path %}

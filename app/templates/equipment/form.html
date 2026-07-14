@@ -41,7 +41,7 @@
           <div class="col-md-3">
             <label class="form-label wh-label">Categoría</label>
             <select name="category" id="category-select" class="form-select wh-input" required>
-              {% for cat, label in [('arma','Arma'), ('armadura','Armadura'), ('ropa','Ropa'), ('libro','Libro'), ('otros','Otros objetos'), ('especial','Especial')] %}
+              {% for cat, label in [('arma','Arma'), ('armadura','Armadura'), ('municion','Munición'), ('ropa','Ropa'), ('libro','Libro'), ('otros','Otros objetos'), ('especial','Especial')] %}
               <option value="{{ cat }}" {% if item and item.category == cat %}selected{% endif %}>{{ label }}</option>
               {% endfor %}
             </select>
