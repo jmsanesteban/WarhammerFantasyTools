@@ -1,0 +1,72 @@
+{% extends 'base.html' %}
+{% block title %}Comida y bebida — Warhammer Fantasy Tools{% endblock %}
+
+{% block content %}
+<div class="container mt-4" style="max-width:800px">
+  <div class="d-flex justify-content-between align-items-center mb-3">
+    <h2 class="wh-heading mb-0"><i class="bi bi-egg-fried me-2"></i>Comida y bebida</h2>
+    <a href="{{ url_for('admin.dashboard') }}" class="btn btn-outline-secondary btn-sm">
+      <i class="bi bi-arrow-left me-1"></i>Panel
+    </a>
+  </div>
+
+  <div class="alert alert-info wh-alert">
+    Solo cubre <strong>Recetas</strong> — el catálogo de bebidas/métodos de cocina/ingredientes es cerrado y se
+    siembra solo desde el fichero de datos del proyecto al arrancar, no hace falta gestionarlo aquí.
+  </div>
+
+  <div class="card wh-card mb-3">
+    <div class="card-header wh-card-header">Exportar / Importar recetas</div>
+    <div class="card-body">
+      <p class="text-muted small">Igual que el resto de catálogos — también viaja dentro del Backup completo.</p>
+      <div class="d-flex gap-2 flex-wrap">
+        <a href="{{ url_for('admin.comida_export') }}" class="btn btn-wh">
+          <i class="bi bi-download me-1"></i>Exportar
+        </a>
+        <a href="{{ url_for('admin.comida_import') }}" class="btn btn-outline-secondary">
+          <i class="bi bi-upload me-1"></i>Importar
+        </a>
+      </div>
+    </div>
+  </div>
+
+  <div class="card wh-card mb-3">
+    <div class="card-header wh-card-header">Importar PDF de recetas hechas</div>
+    <div class="card-body">
+      <p class="text-muted small">
+        Sube un PDF con el mismo formato que "Recetas hechas" (una receta por bloque, con foto incluida) y añade
+        las que falten en el catálogo — las que ya existen se detectan y se omiten. Antes de guardar nada se
+        muestra una pantalla de revisión con la miniatura de cada foto.
+      </p>
+      <a href="{{ url_for('admin.comida_import_pdf') }}" class="btn btn-wh">
+        <i class="bi bi-file-earmark-pdf me-1"></i>Importar PDF
+      </a>
+    </div>
+  </div>
+
+  <div class="card wh-card mb-3">
+    <div class="card-header wh-card-header">Sincronizar fotos de recetas</div>
+    <div class="card-body">
+      <p class="text-muted small">
+        Sube las fotos a mano a <code>uploads/imagenes_comidas/</code> con el nombre exacto de la receta
+        (p.ej. <code>Olla podrida.jpg</code>) y pulsa aquí para vincularlas — solo rellena recetas que
+        todavía no tienen foto, nunca sobrescribe una ya asignada.
+      </p>
+      <form method="POST" action="{{ url_for('admin.comida_sync_fotos') }}">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <button type="submit" class="btn btn-wh"><i class="bi bi-arrow-repeat me-1"></i>Sincronizar fotos</button>
+      </form>
+    </div>
+  </div>
+
+  <div class="card wh-card">
+    <div class="card-header wh-card-header">Recetas propuestas por jugadores</div>
+    <div class="card-body">
+      <p class="text-muted small">Revisión de recetas enviadas por usuarios (Fase 2), pendientes de aprobar.</p>
+      <a href="{{ url_for('admin.recipes_pending') }}" class="btn btn-outline-secondary">
+        <i class="bi bi-clipboard-check me-1"></i>Ver pendientes
+      </a>
+    </div>
+  </div>
+</div>
+{% endblock %}

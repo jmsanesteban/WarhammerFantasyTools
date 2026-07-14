@@ -565,6 +565,7 @@ pytest --cov=app --cov-report=term-missing
 | `tests/test_untersuchung_grados.py` | `app/models/untersuchung.py` (compartido entre Contactos y Personajes): tope de 3 grados (`clamp_grados`, preservando duplicados a propósito), qué grados cuentan como "con marca" (`has_marca` — Bazas/Contactos nunca cuentan), la imagen de marca de cada uno, `grados_display` (colapsa duplicados en "Gato x2"); que elegir un grado "con marca" marca automáticamente `es_untersuchung=True` en Contacto y en Personaje, que uno "sin marca" no lo hace, que se puede asignar el mismo grado a dos de las 3 marcas (doble marca), y que el tope de 3 slots se respeta en el servidor |
 | `tests/test_admin_synonyms.py` | Diccionario de sinónimos: crear/editar/eliminar, y la regresión de un bug real donde el botón "Editar" dejaba de funcionar en cuanto un término contenía una comilla (los valores viajan por atributos `data-*`, no incrustados con `\|tojson` dentro de un `onclick="..."`) |
 | `tests/test_food_purchases.py` | Compra directa de bebida/receta vinculada a un personaje: descuenta el dinero y crea el inventario (`drink_id`/`recipe_id`, sin `equipment_item_id`) y el historial de compras (`category_snapshot` bebida/comida); rechaza sin cobrar nada si falta dinero o si la receta no tiene precio de compra; solo el dueño del personaje (o un admin, para cualquiera) puede comprar; el recargo global de `ShopMarkup` se aplica al precio cobrado (nunca al enviado por el cliente); la página admin de Recargo de precios exige admin y persiste el %; inventario/historial enlazan de vuelta a la bebida/receta comprada; el peso de comida (0,5U por ración) y de bebida (según su recipiente — Botella/Pinta/Chupito) se calcula en `encumbrance_service.unit_weight`/`item_weight` y una compra real lo refleja en el inventario del personaje |
+| `tests/test_admin_food.py` | Sección admin "Comida y bebida": Exportar/Importar Recetas exige admin; `food_pdf_service.parse_recetas_pdf` (construyendo un PDF sintético con PyMuPDF en el propio test, no depende del PDF real) extrae correctamente un bloque de receta normal (con su foto incrustada) y uno especial (método/calidad `*`, solo compra), resolviendo método/ingrediente/condimento por nombre tolerando acentos (el PDF real tiene alguna errata, p.ej. "Almibar" sin tilde); detecta recetas ya existentes en el catálogo y no las ofrece para importar; el POST de confirmación crea la receta + guarda la foto y vuelve a comprobar duplicados por si la pantalla de revisión quedó desactualizada; `sync_recipe_images_from_folder` solo enlaza recetas sin foto, nunca sobrescribe una ya asignada, y reporta los ficheros sin receta correspondiente |
 
 ### Notas de diseño
 
@@ -578,7 +579,7 @@ pytest --cov=app --cov-report=term-missing
 
 ### Acceso al panel de administración
 
-Inicia sesión con las credenciales de administrador y accede desde el menú **Admin → Panel**. El menú desplegable "Admin" del navbar tiene los accesos directos más habituales; el **Panel** en sí es el punto central que reúne *todo* lo administrable de la aplicación (estadísticas + una tarjeta por área: habilidades, talentos, importar PDF, profesiones, usuarios, contactos, vínculos, personajes, plantillas de permisos, diccionario de sinónimos), para no depender de recordar en qué desplegable vive cada cosa. **Cada tarjeta incluye Exportar e Importar cuando esa sección los tiene** (aunque también vivan en el menú propio de esa sección) — nada obliga a salir del Panel para hacer un backup puntual de algo.
+Inicia sesión con las credenciales de administrador y accede desde el menú **Admin → Panel**. El menú desplegable "Admin" del navbar tiene los accesos directos más habituales; el **Panel** en sí es el punto central que reúne *todo* lo administrable de la aplicación (estadísticas + una tarjeta por área: habilidades, talentos, importar PDF, profesiones, usuarios, contactos, vínculos, personajes, plantillas de permisos, diccionario de sinónimos, comida y bebida), para no depender de recordar en qué desplegable vive cada cosa. **Cada tarjeta incluye Exportar e Importar cuando esa sección los tiene** (aunque también vivan en el menú propio de esa sección) — nada obliga a salir del Panel para hacer un backup puntual de algo.
 
 #### Vínculos (`/admin/vinculos`)
 
@@ -586,6 +587,22 @@ Directorio de solo lectura con **todas** las relaciones contacto↔personaje: co
 - **Ver contacto** — abre la ficha del contacto ya filtrada como ese personaje concreto (ahí están el vínculo completo, el salario y las notas).
 - **Editar personaje** — va directo a la edición rápida de ese personaje.
 - **Notas** — el número ya no es un simple contador: al pulsarlo se despliega el contenido real de las notas personales de ese personaje sobre el contacto, con un formulario para añadir una nueva sin salir de la tabla.
+
+#### Comida y bebida (`/admin/comida`)
+
+- **Exportar/Importar Recetas** — igual que el resto de catálogos (también viaja dentro del Backup completo).
+- **Importar PDF de recetas hechas** — sube un PDF con el mismo formato que "Recetas hechas" del libro (una
+  receta por bloque: Vigor/Moral/Método/Duración/Calidad/Ingredientes/Condimentos/Costes, con una foto
+  incrustada por receta). Se parsea al momento con **PyMuPDF** (sin OCR — el texto ya es digital) y muestra una
+  **pantalla de revisión** con la miniatura de cada foto antes de guardar nada — las recetas que ya existen en
+  el catálogo se detectan por nombre y se omiten automáticamente, mostrando solo las nuevas con una casilla de
+  selección. La foto de cada receta se empareja con su bloque de texto por orden dentro de la página del PDF —
+  de ahí la revisión visual, para detectar a simple vista si algún emparejamiento fuese incorrecto antes de
+  confirmar.
+- **Sincronizar fotos** — para fotos sueltas: sube el fichero a mano a `uploads/imagenes_comidas/` con el
+  nombre exacto de la receta (p.ej. `Olla podrida.jpg`) y pulsa "Sincronizar fotos" para vincularlas. Solo
+  rellena recetas que **todavía no tienen foto** — nunca sobrescribe una ya asignada; para reemplazar una foto
+  existente hay que quitarla primero (editando la receta) o hacerlo a mano.
 
 ---
 
@@ -841,7 +858,7 @@ Además de la copia de seguridad completa por `mysqldump` (ver [Copias de seguri
 | **Profesiones** | Profesiones → Exportar/Importar (requiere permiso `professions.edit`) | Todos los campos propios + habilidades/talentos/enseres/salidas de carrera |
 | **Usuarios** | Admin → Usuarios → Exportar/Importar | Todos los campos **salvo la contraseña** (ver más abajo) |
 | **Equipamiento** | Equipamiento → Exportar/Importar (requiere permiso `equipment.import`), o Admin → Panel | Todos los objetos del catálogo (armas, armaduras, ropa, libros, otros, especiales), con sus estadísticas, campos adicionales y el enlace al objeto base para objetos especiales. Empareja por (nombre, categoría, subcategoría, calidad) — no por id — porque el catálogo tiene bastantes objetos que comparten nombre dentro de una categoría (p.ej. cada tier de calidad de ropa) |
-| **Recetas** | Solo dentro del Backup completo (sin página propia) | Recetas propuestas por jugadores (pendiente/aprobada/rechazada) y las del libro, con método/ingredientes/condimentos por nombre. El resto del catálogo de Comida y bebida (métodos de cocina, ingredientes, bebidas) se siembra solo al arrancar el contenedor, no hace falta respaldarlo |
+| **Recetas** | Admin → Comida y bebida → Exportar/Importar | Recetas propuestas por jugadores (pendiente/aprobada/rechazada) y las del libro, con método/ingredientes/condimentos por nombre. El resto del catálogo de Comida y bebida (métodos de cocina, ingredientes, bebidas) se siembra solo al arrancar el contenedor, no hace falta respaldarlo |
 | **Recargo de precios** | Solo dentro del Backup completo (sin página propia) | El % global de recargo activo sobre las compras de comida/bebida y quién lo estableció por última vez |
 | **Personajes** | Personajes → Exportar/Importar (solo visible para admin) | Ficha completa: características, trasfondo, carrera, habilidades, talentos, rasgos, contactos generados en creación, posesiones, objetos mágicos, grado(s) y mochila/saco de la Untersuchung, **inventario** (qué tiene y en qué ubicación, incluida comida/bebida comprada), **historial de compras** y **dinero concedido a mano** |
 | **Plantillas de permisos** | Admin → Usuarios → Plantillas de permisos → Exportar/Importar | Nombre, descripción y permisos incluidos |
@@ -1321,6 +1338,8 @@ WarhammerFantasyTools/
     │   ├── currency_service.py   # Conversión/formateo Coronas de oro / Chelines de plata / Peniques
     │   ├── food_seed_service.py  # Siembra idempotente del catálogo de Comida y bebida desde app/data/food/
     │   ├── recipe_calc_service.py  # Cálculo de vigor/moral/coste/precio/duración/complejidad de una receta
+    │   ├── food_pdf_service.py    # Admin: parsea PDFs de "recetas hechas" (con foto) y sincroniza fotos
+    │   │                          # sueltas en uploads/imagenes_comidas/ con el catálogo
     │   └── backup_service.py     # Export/import JSON: Profesiones, Usuarios, Equipamiento, Personajes,
     │                             # Plantillas, Sinónimos, Contactos+Vínculos, y el orquestador de Backup completo
     ├── templates/

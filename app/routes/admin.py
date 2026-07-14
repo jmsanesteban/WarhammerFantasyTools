@@ -1884,6 +1884,150 @@ def shop_markup_edit():
 
 
 # ---------------------------------------------------------------------------
+# Comida y bebida: gestión del catálogo de recetas (export/import, PDF, fotos)
+# ---------------------------------------------------------------------------
+
+@admin_bp.route('/comida')
+@login_required
+@admin_required
+def food_home():
+    return render_template('admin/comida_home.html')
+
+
+@admin_bp.route('/comida/exportar')
+@login_required
+@admin_required
+def comida_export():
+    from app.services.backup_service import export_recipes
+    return json_download_response(export_recipes(), 'recetas_backup.json')
+
+
+@admin_bp.route('/comida/importar', methods=['GET', 'POST'])
+@login_required
+@admin_required
+def comida_import():
+    if request.method == 'GET':
+        return render_template('admin/comida_import.html')
+
+    f = request.files.get('file')
+    if not f or not f.filename:
+        flash('Selecciona un fichero JSON.', 'danger')
+        return redirect(request.url)
+
+    try:
+        data = json.loads(f.read())
+    except Exception as e:
+        flash(f'Error al leer el fichero: {e}', 'danger')
+        return redirect(request.url)
+
+    from app.services.backup_service import import_recipes
+    mode = request.form.get('mode', 'skip')
+    summary = import_recipes(data, mode=mode)
+    flash_import_summary(summary)
+    return redirect(url_for('admin.food_home'))
+
+
+@admin_bp.route('/comida/importar-pdf', methods=['GET', 'POST'])
+@login_required
+@admin_required
+def comida_import_pdf():
+    if request.method == 'GET':
+        return render_template('admin/comida_importar_pdf.html', parsed=None)
+
+    f = request.files.get('file')
+    if not f or not f.filename or not f.filename.lower().endswith('.pdf'):
+        flash('Selecciona un fichero PDF.', 'danger')
+        return redirect(request.url)
+
+    import base64
+    from app.services.food_pdf_service import parse_recetas_pdf
+    try:
+        parsed = parse_recetas_pdf(f.read())
+    except Exception as e:
+        flash(f'No se pudo leer el PDF: {e}', 'danger')
+        return redirect(request.url)
+
+    # image_bytes (raw) isn't JSON-serializable for the hidden field on the
+    # review form - swap it for a base64 string used both as the thumbnail
+    # <img> src and as the payload the confirm step decodes back to bytes.
+    for row in parsed:
+        image_bytes = row.pop('image_bytes')
+        row['image_b64'] = base64.b64encode(image_bytes).decode('ascii') if image_bytes else None
+
+    return render_template('admin/comida_importar_pdf.html', parsed=parsed)
+
+
+@admin_bp.route('/comida/importar-pdf/confirmar', methods=['POST'])
+@login_required
+@admin_required
+def comida_import_pdf_confirmar():
+    import base64
+    from app.services.food_pdf_service import save_recipe_image_bytes
+
+    created, skipped = [], []
+    for key, raw in request.form.items():
+        if not key.startswith('receta_') or not request.form.get(f'importar_{key[7:]}'):
+            continue
+        row = json.loads(raw)
+
+        # Re-check at commit time - the review screen may be stale (another
+        # admin session, or a re-submitted form) - never create a duplicate.
+        if Recipe.query.filter_by(nombre=row['nombre']).first():
+            skipped.append(row['nombre'])
+            continue
+
+        recipe = Recipe(
+            nombre=row['nombre'], vigor=row['vigor'], moral=row['moral'],
+            cooking_method_id=row.get('cooking_method_id'), calidad=row.get('calidad'),
+            complejidad=row.get('complejidad'), duracion_dias=row.get('duracion_dias'),
+            recalentar=row.get('recalentar', False),
+            precio_compra_peniques=row.get('precio_compra_peniques'),
+            coste_creacion_peniques=row.get('coste_creacion_peniques'),
+            solo_compra=row.get('solo_compra', False), notas=row.get('notas'),
+            status='aprobada',
+            ingrediente_1_id=row.get('ingrediente_1_id'), ingrediente_2_id=row.get('ingrediente_2_id'),
+            ingrediente_3_id=row.get('ingrediente_3_id'), ingrediente_4_id=row.get('ingrediente_4_id'),
+            condimento_1_id=row.get('condimento_1_id'), condimento_2_id=row.get('condimento_2_id'),
+        )
+        db.session.add(recipe)
+
+        image_b64 = row.get('image_b64')
+        if image_b64:
+            recipe.image_path = save_recipe_image_bytes(
+                row['nombre'], base64.b64decode(image_b64), row.get('image_ext'),
+            )
+        created.append(row['nombre'])
+
+    db.session.commit()
+    if created:
+        flash(f"{len(created)} receta(s) importada(s): {', '.join(created)}.", 'success')
+    if skipped:
+        flash(f"{len(skipped)} ya existían y se omitieron: {', '.join(skipped)}.", 'warning')
+    if not created and not skipped:
+        flash('No se seleccionó ninguna receta para importar.', 'warning')
+    return redirect(url_for('admin.food_home'))
+
+
+@admin_bp.route('/comida/sincronizar-fotos', methods=['POST'])
+@login_required
+@admin_required
+def comida_sync_fotos():
+    from app.services.food_pdf_service import sync_recipe_images_from_folder
+    summary = sync_recipe_images_from_folder()
+    flash(
+        f"{len(summary['linked'])} foto(s) vinculada(s), "
+        f"{len(summary['already_had_photo'])} receta(s) ya tenían foto (sin tocar), "
+        f"{len(summary['unmatched_files'])} fichero(s) sin receta correspondiente.",
+        'success',
+    )
+    if summary['linked']:
+        flash(f"Vinculadas: {', '.join(summary['linked'])}.", 'success')
+    if summary['unmatched_files']:
+        flash(f"Sin receta correspondiente: {', '.join(summary['unmatched_files'])}.", 'warning')
+    return redirect(url_for('admin.food_home'))
+
+
+# ---------------------------------------------------------------------------
 # Comida y bebida: revisión de recetas propuestas por usuarios
 # ---------------------------------------------------------------------------
 

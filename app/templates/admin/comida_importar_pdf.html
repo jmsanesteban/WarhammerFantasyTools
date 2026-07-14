@@ -1,0 +1,94 @@
+{% extends 'base.html' %}
+{% block title %}Importar PDF de recetas — Warhammer Fantasy Tools{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+  <div class="d-flex justify-content-between align-items-center mb-3">
+    <h2 class="wh-heading mb-0"><i class="bi bi-file-earmark-pdf me-2"></i>Importar PDF de recetas hechas</h2>
+    <a href="{{ url_for('admin.food_home') }}" class="btn btn-outline-secondary btn-sm">
+      <i class="bi bi-arrow-left me-1"></i>Comida y bebida
+    </a>
+  </div>
+
+  {% if parsed is none %}
+  <div class="alert alert-info wh-alert">
+    Sube un PDF con el mismo formato que "Recetas hechas" del libro (una receta por bloque, con foto). Se
+    parsea al momento y se muestra una pantalla de revisión antes de guardar nada.
+  </div>
+  <div class="card wh-card" style="max-width:600px">
+    <div class="card-body">
+      <form method="POST" enctype="multipart/form-data">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <div class="mb-3">
+          <label class="form-label wh-label">Fichero (.pdf)</label>
+          <input type="file" name="file" class="form-control wh-input" accept=".pdf" required>
+        </div>
+        <button type="submit" class="btn btn-wh"><i class="bi bi-search me-1"></i>Analizar PDF</button>
+      </form>
+    </div>
+  </div>
+
+  {% else %}
+  {% set nuevas = parsed | selectattr('existe_ya', 'equalto', false) | list %}
+  {% set existentes = parsed | selectattr('existe_ya', 'equalto', true) | list %}
+
+  {% if not parsed %}
+  <div class="alert alert-warning wh-alert">No se ha reconocido ninguna receta en este PDF.</div>
+  {% else %}
+
+  {% if existentes %}
+  <div class="alert alert-secondary wh-alert">
+    {{ existentes | length }} receta(s) ya existen en el catálogo y se omiten:
+    {{ existentes | map(attribute='nombre') | join(', ') }}.
+  </div>
+  {% endif %}
+
+  {% if not nuevas %}
+  <div class="alert alert-info wh-alert">No hay recetas nuevas que importar en este PDF.</div>
+  {% else %}
+  <form method="POST" action="{{ url_for('admin.comida_import_pdf_confirmar') }}">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <div class="d-flex flex-column gap-3 mb-3">
+      {% for row in nuevas %}
+      <div class="card wh-card">
+        <div class="row g-0">
+          {% if row.image_b64 %}
+          <div class="col-3 col-md-2 wh-card-img-wrap" style="min-height:120px">
+            <img src="data:image/{{ row.image_ext }};base64,{{ row.image_b64 }}"
+                 class="wh-card-img-left" style="max-height:120px" alt="{{ row.nombre }}">
+          </div>
+          {% endif %}
+          <div class="{% if row.image_b64 %}col-9 col-md-10{% else %}col-12{% endif %}">
+            <div class="card-body py-2">
+              <div class="form-check mb-1">
+                <input class="form-check-input" type="checkbox" name="importar_{{ loop.index0 }}"
+                       id="importar_{{ loop.index0 }}" checked>
+                <label class="form-check-label wh-name" for="importar_{{ loop.index0 }}"><strong>{{ row.nombre }}</strong></label>
+              </div>
+              <p class="small text-muted mb-1">
+                Vigor {{ row.vigor }} · Moral {{ row.moral }} ·
+                {{ row.metodo_nombre or '—' }} · Calidad: {{ row.calidad or '—' }}
+                {% if row.complejidad is not none %}({{ row.complejidad }}){% endif %}
+              </p>
+              <p class="small text-muted mb-0">
+                {% if row.ingredientes_nombres %}Ingredientes: {{ row.ingredientes_nombres | join(', ') }}{% endif %}
+                {% if row.condimentos_nombres %} · Condimentos: {{ row.condimentos_nombres | join(', ') }}{% endif %}
+                {% if not row.cooking_method_id and row.metodo_nombre and row.metodo_nombre != '*' %}
+                <span class="text-warning">(método "{{ row.metodo_nombre }}" no reconocido)</span>
+                {% endif %}
+              </p>
+              <input type="hidden" name="receta_{{ loop.index0 }}" value="{{ row | tojson }}">
+            </div>
+          </div>
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+    <button type="submit" class="btn btn-wh"><i class="bi bi-upload me-1"></i>Importar seleccionadas</button>
+    <a href="{{ url_for('admin.comida_import_pdf') }}" class="btn btn-outline-secondary">Cancelar</a>
+  </form>
+  {% endif %}
+  {% endif %}
+  {% endif %}
+</div>
+{% endblock %}
