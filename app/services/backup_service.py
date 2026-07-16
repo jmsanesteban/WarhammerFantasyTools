@@ -3,6 +3,14 @@ Personajes (incluido su inventario, historial de compras y dinero concedido),
 Contactos+Vínculos (incluidas sus notas privadas por personaje), Recetas
 propuestas, Equipamiento, Plantillas de permisos y Sinónimos.
 
+Las cuatro secciones con foto propia (Profesiones, Equipamiento, Recetas,
+Contactos) incrustan también los bytes de la imagen en base64
+(`image_data_b64`, ver `_encode_image_b64`/`_write_image_b64`) junto a
+`image_path` - sin esto, el JSON solo llevaba la ruta y una instancia nueva
+se quedaba sin las fotos porque `uploads/` no viaja con el backup ni con
+`git pull`. Un backup sin `image_data_b64` (fichero viejo, o fila sin foto)
+simplemente no reescribe nada al importar.
+
 The stated goal (2026-07-14) is that this "Backup completo" is the single
 source of truth for standing up a brand new instance from scratch (e.g. a
 fresh container on a NAS after a disk failure) with zero data loss other than
@@ -39,7 +47,11 @@ Comida y bebida's catalog (métodos de cocina, ingredientes, bebidas) is
 seeded idempotently at container startup (`food_seed_service`), not part of
 this module - only user-facing Recetas are backed up here.
 """
+import base64
+import os
 from datetime import datetime
+
+from flask import current_app
 
 from app.extensions import db
 from app.utils import generate_secure_password
@@ -91,6 +103,37 @@ def _find_equipment_item(name, category, subcategory, quality):
 
 def _parse_iso(value):
     return datetime.fromisoformat(value) if value else None
+
+
+# ---------------------------------------------------------------------------
+# Imágenes: cada `image_path` guardado en BD es relativo a UPLOAD_FOLDER
+# (uploads/), que no viaja con `git pull` ni con el JSON de por sí - solo la
+# ruta quedaba respaldada, no el fichero. Las cuatro secciones con fotos
+# (Profesiones, Equipamiento, Recetas, Contactos) incrustan también los bytes
+# en base64 junto a la ruta, así el JSON es autocontenido de principio a fin:
+# reconstruir una instancia nueva desde cero recupera las imágenes sin
+# depender de que uploads/ del origen siga existiendo o se copie a mano.
+# ---------------------------------------------------------------------------
+
+def _encode_image_b64(image_path):
+    if not image_path:
+        return None
+    full_path = os.path.join(current_app.config['UPLOAD_FOLDER'], image_path)
+    if not os.path.isfile(full_path):
+        return None
+    with open(full_path, 'rb') as f:
+        return base64.b64encode(f.read()).decode('ascii')
+
+
+def _write_image_b64(image_path, b64_data):
+    """No-op if there's no path or no image data - covers rows without a
+    photo, and old backups taken before this field existed."""
+    if not image_path or not b64_data:
+        return
+    full_path = os.path.join(current_app.config['UPLOAD_FOLDER'], image_path)
+    os.makedirs(os.path.dirname(full_path), exist_ok=True)
+    with open(full_path, 'wb') as f:
+        f.write(base64.b64decode(b64_data))
 
 
 # ---------------------------------------------------------------------------
@@ -264,6 +307,7 @@ def export_professions():
     for p in Profession.query.order_by(Profession.name).all():
         row = {field: getattr(p, field) for field in _PROFESSION_SCALAR_FIELDS}
         row['name'] = p.name
+        row['image_data_b64'] = _encode_image_b64(p.image_path)
         row['skills'] = [
             {'skill_name': ps.skill.name_es, 'specialization': ps.specialization, 'choice_group': ps.choice_group}
             for ps in p.profession_skills
@@ -304,6 +348,7 @@ def import_professions(data, mode='skip'):
         for field in _PROFESSION_SCALAR_FIELDS:
             if field in row:
                 setattr(prof, field, row[field])
+        _write_image_b64(prof.image_path, row.get('image_data_b64'))
 
         for s in row.get('skills', []):
             skill = Skill.query.filter_by(name_es=s['skill_name']).first()
@@ -359,6 +404,7 @@ def export_equipment():
     for item in EquipmentItem.query.order_by(EquipmentItem.category, EquipmentItem.name).all():
         row = {field: getattr(item, field) for field in _EQUIPMENT_SCALAR_FIELDS}
         row['name'] = item.name
+        row['image_data_b64'] = _encode_image_b64(item.image_path)
         if item.base_item_id and item.base_item:
             row['base_item_name'] = item.base_item.name
             row['base_item_category'] = item.base_item.category
@@ -401,6 +447,7 @@ def import_equipment(data, mode='skip'):
         for field in _EQUIPMENT_SCALAR_FIELDS:
             if field in row:
                 setattr(item, field, row[field])
+        _write_image_b64(item.image_path, row.get('image_data_b64'))
 
         by_key[key] = item
         by_name_category[(row['name'], row['category'])] = item
@@ -655,6 +702,7 @@ def export_contacts_full():
             'estado': contact.estado, 'paradero': contact.paradero,
             'grados_untersuchung': contact.grados_untersuchung,
             'image_path': contact.image_path,
+            'image_data_b64': _encode_image_b64(contact.image_path),
             'is_visible': contact.is_visible,
             'created_by_username': contact.created_by.username if contact.created_by else None,
             'profesiones': [cp.profession.name for cp in contact.professions if cp.profession],
@@ -724,6 +772,7 @@ def import_contacts_full(data, mode='skip'):
         contact.paradero = row.get('paradero')
         contact.grados_untersuchung = row.get('grados_untersuchung')
         contact.image_path = row.get('image_path')
+        _write_image_b64(contact.image_path, row.get('image_data_b64'))
         contact.is_visible = row.get('is_visible', True)
         if row.get('created_by_username'):
             creator = User.query.filter_by(username=row['created_by_username']).first()
@@ -820,6 +869,7 @@ def export_recipes():
     for r in Recipe.query.order_by(Recipe.nombre).all():
         row = {field: getattr(r, field) for field in _RECIPE_SCALAR_FIELDS}
         row['nombre'] = r.nombre
+        row['image_data_b64'] = _encode_image_b64(r.image_path)
         row['cooking_method_name'] = r.cooking_method.nombre if r.cooking_method else None
         row['ingredientes'] = [i.nombre for i in r.ingredientes]
         row['condimentos'] = [i.nombre for i in r.condimentos]
@@ -854,6 +904,7 @@ def import_recipes(data, mode='skip'):
                 if field in ('requested_at', 'approved_at'):
                     value = _parse_iso(value)
                 setattr(recipe, field, value)
+        _write_image_b64(recipe.image_path, row.get('image_data_b64'))
 
         if row.get('cooking_method_name'):
             method = CookingMethod.query.filter_by(nombre=row['cooking_method_name']).first()

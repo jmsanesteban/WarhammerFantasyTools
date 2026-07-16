@@ -3,6 +3,9 @@ pair must reproduce the original data when re-imported into an empty table,
 'update' mode must overwrite in place without duplicating, and a dangling
 cross-reference (unknown username/profession/skill/talent) must be skipped
 with a warning rather than raising."""
+import base64
+import os
+
 from app.services import backup_service as bkp
 
 
@@ -612,6 +615,114 @@ def test_recipes_import_warns_on_missing_ingredient(app, db):
         assert summary['warnings']
         restored = Recipe.query.filter_by(nombre='Receta huerfana').first()
         assert restored.ingrediente_1_id is None
+
+
+# ── Imágenes (Profesiones/Equipamiento/Recetas/Contactos) ──────────────────────
+# El JSON de backup solo llevaba `image_path`; sin los bytes en base64, una
+# instancia nueva (o cualquiera sin acceso al `uploads/` original) se quedaba
+# sin fotos aunque el JSON se reimportase perfectamente. Cada test escribe un
+# fichero real bajo UPLOAD_FOLDER, lo borra tras exportar, y comprueba que
+# importar lo reconstruye con el mismo contenido.
+
+def _write_fake_image(app, relative_path, content=b'fake-image-bytes'):
+    full_path = os.path.join(app.config['UPLOAD_FOLDER'], relative_path)
+    os.makedirs(os.path.dirname(full_path), exist_ok=True)
+    with open(full_path, 'wb') as f:
+        f.write(content)
+    return full_path
+
+
+def test_profession_image_round_trips_through_backup(app, db, make_profession, tmp_path):
+    app.config['UPLOAD_FOLDER'] = str(tmp_path)
+    with app.app_context():
+        from app.models.profession import Profession
+        make_profession(name='Zz Con Foto', image_path='professions/zz.jpg')
+        _write_fake_image(app, 'professions/zz.jpg', b'profession-bytes')
+
+        data = bkp.export_professions()
+        row = next(r for r in data if r['name'] == 'Zz Con Foto')
+        assert base64.b64decode(row['image_data_b64']) == b'profession-bytes'
+
+        Profession.query.filter_by(name='Zz Con Foto').delete()
+        db.session.commit()
+        (tmp_path / 'professions' / 'zz.jpg').unlink()
+
+        bkp.import_professions(data)
+        restored_path = tmp_path / 'professions' / 'zz.jpg'
+        assert restored_path.read_bytes() == b'profession-bytes'
+
+
+def test_equipment_image_round_trips_through_backup(app, db, make_equipment_item, tmp_path):
+    app.config['UPLOAD_FOLDER'] = str(tmp_path)
+    with app.app_context():
+        from app.models.equipment import EquipmentItem
+        make_equipment_item(name='Zz Espada Foto', category='arma', image_path='equipamiento/zz.jpg')
+        _write_fake_image(app, 'equipamiento/zz.jpg', b'equipment-bytes')
+
+        data = bkp.export_equipment()
+        row = next(r for r in data if r['name'] == 'Zz Espada Foto')
+        assert base64.b64decode(row['image_data_b64']) == b'equipment-bytes'
+
+        EquipmentItem.query.filter_by(name='Zz Espada Foto').delete()
+        db.session.commit()
+        (tmp_path / 'equipamiento' / 'zz.jpg').unlink()
+
+        bkp.import_equipment(data)
+        restored_path = tmp_path / 'equipamiento' / 'zz.jpg'
+        assert restored_path.read_bytes() == b'equipment-bytes'
+
+
+def test_recipe_image_round_trips_through_backup(app, db, tmp_path):
+    app.config['UPLOAD_FOLDER'] = str(tmp_path)
+    with app.app_context():
+        from app.models.food import Recipe
+        recipe = Recipe(nombre='Zz Receta Foto', status='aprobada', image_path='recetas/zz.jpg')
+        db.session.add(recipe)
+        db.session.commit()
+        _write_fake_image(app, 'recetas/zz.jpg', b'recipe-bytes')
+
+        data = bkp.export_recipes()
+        row = next(r for r in data if r['nombre'] == 'Zz Receta Foto')
+        assert base64.b64decode(row['image_data_b64']) == b'recipe-bytes'
+
+        Recipe.query.filter_by(nombre='Zz Receta Foto').delete()
+        db.session.commit()
+        (tmp_path / 'recetas' / 'zz.jpg').unlink()
+
+        bkp.import_recipes(data)
+        restored_path = tmp_path / 'recetas' / 'zz.jpg'
+        assert restored_path.read_bytes() == b'recipe-bytes'
+
+
+def test_contact_image_round_trips_through_backup(app, db, make_contact, tmp_path):
+    app.config['UPLOAD_FOLDER'] = str(tmp_path)
+    with app.app_context():
+        from app.models.contact import Contact
+        make_contact(nombre='Zz Contacto Foto', image_path='contactos/zz.jpg')
+        _write_fake_image(app, 'contactos/zz.jpg', b'contact-bytes')
+
+        data = bkp.export_contacts_full()
+        row = next(r for r in data if r['nombre'] == 'Zz Contacto Foto')
+        assert base64.b64decode(row['image_data_b64']) == b'contact-bytes'
+
+        Contact.query.filter_by(nombre='Zz Contacto Foto').delete()
+        db.session.commit()
+        (tmp_path / 'contactos' / 'zz.jpg').unlink()
+
+        bkp.import_contacts_full(data)
+        restored_path = tmp_path / 'contactos' / 'zz.jpg'
+        assert restored_path.read_bytes() == b'contact-bytes'
+
+
+def test_image_backup_is_noop_without_b64_data(app, db, make_profession, tmp_path):
+    """Old backups (taken before this field existed) or rows without a photo
+    must import cleanly without trying to write anything."""
+    app.config['UPLOAD_FOLDER'] = str(tmp_path)
+    with app.app_context():
+        data = [{'name': 'Zz Sin Foto', 'image_path': None, 'skills': [], 'talents': [], 'trappings': [], 'exits': []}]
+        summary = bkp.import_professions(data)
+        assert summary['created'] == 1
+        assert list(tmp_path.iterdir()) == []
 
 
 # ── Backup completo ──────────────────────────────────────────────────────────
