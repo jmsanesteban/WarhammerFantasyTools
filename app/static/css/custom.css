@@ -945,6 +945,32 @@ mark { background: rgba(212, 168, 48, .28); color: var(--wh-gold-light); padding
 [data-theme="light"] .wh-accordion-btn:not(.collapsed) { background: #e3d0a0; }
 [data-theme="light"] .form-check-input { background-color: #ffffff; }
 
+/* .btn-wh (botón "primario": Ver, Generador de personaje, Nueva...) - la
+   versión oscura es un bronce apagado con texto casi negro; sin retocarlo,
+   se ve como una isla de modo oscuro sobre una página clara. En claro pasa
+   a un dorado más luminoso ("latón al sol" en vez de "bronce viejo"). */
+[data-theme="light"] .btn-wh {
+  background: linear-gradient(180deg, #e0b040 0%, #c0922a 100%);
+  color: #2b1d00;
+  border-color: #8a6010;
+}
+[data-theme="light"] .btn-wh:hover,
+[data-theme="light"] .btn-wh:focus {
+  background: linear-gradient(180deg, #f0c860 0%, #d4a830 100%);
+  color: #1a1100;
+  border-color: var(--wh-gold-light);
+  box-shadow: 0 0 10px rgba(212, 168, 48, 0.35);
+}
+
+/* Botones outline (Editar/Eliminar/Creación rápida/Exportar/Importar...) ya
+   se leían bien, pero sobre una página casi blanca un simple contorno fino
+   cuesta un poco de detectar como botón - un tinte de fondo muy sutil (no
+   un relleno, eso ya lo hace `:hover`) ayuda a que se perciban como control
+   interactivo de un vistazo. */
+[data-theme="light"] .btn-outline-secondary { background-color: rgba(120, 90, 40, .05); }
+[data-theme="light"] .btn-outline-warning   { background-color: rgba(224, 160, 32, .07); }
+[data-theme="light"] .btn-outline-danger    { background-color: rgba(220, 53, 69, .05); }
+
 /* Iconos pensados para fondo oscuro (invertidos con filter) - en claro basta
    con el color por defecto de Bootstrap, ya oscuro y legible de por sí. */
 [data-theme="light"] .btn-close { filter: none; }
