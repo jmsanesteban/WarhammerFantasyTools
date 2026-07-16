@@ -2329,3 +2329,20 @@ def recipe_reject(recipe_id):
     db.session.commit()
     flash(f'Receta "{recipe.nombre}" rechazada.', 'warning')
     return redirect(url_for('admin.recipes_pending'))
+
+
+@admin_bp.route('/recetas/<int:recipe_id>/eliminar', methods=['POST'])
+@login_required
+@admin_required
+def recipe_delete(recipe_id):
+    recipe = Recipe.query.get_or_404(recipe_id)
+    nombre = recipe.nombre
+    was_pending = recipe.status == 'pendiente'
+    if recipe.image_path:
+        img_path = os.path.join(current_app.config['UPLOAD_FOLDER'], recipe.image_path)
+        if os.path.isfile(img_path):
+            os.remove(img_path)
+    db.session.delete(recipe)
+    db.session.commit()
+    flash(f'Receta "{nombre}" eliminada.', 'success')
+    return redirect(url_for('admin.recipes_pending') if was_pending else url_for('admin.food_home'))

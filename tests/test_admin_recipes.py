@@ -148,3 +148,46 @@ def test_recipe_reject_with_reason(app, client, regular_user, admin_user, login_
     text = resp.data.decode('utf-8')
     assert 'Rechazada' in text
     assert 'Ingrediente incorrecto' in text
+
+
+def test_recipe_delete_requires_admin(app, client, regular_user, login_as):
+    recipe_id = _seed_and_propose(app, client, regular_user, login_as, nombre='Gachas no borrables')
+    resp = client.post(f'/admin/recetas/{recipe_id}/eliminar', data={}, follow_redirects=True)
+    assert resp.status_code == 403
+    with app.app_context():
+        assert Recipe.query.get(recipe_id) is not None
+
+
+def test_recipe_delete_removes_pending_recipe(app, client, regular_user, admin_user, login_as):
+    recipe_id = _seed_and_propose(app, client, regular_user, login_as, nombre='Receta de prueba a borrar')
+
+    client.get('/auth/logout')
+    login_as(client, admin_user, 'adminpass123')
+    resp = client.post(f'/admin/recetas/{recipe_id}/eliminar', data={}, follow_redirects=True)
+    assert resp.status_code == 200
+    assert 'eliminada'.encode('utf-8') in resp.data
+
+    with app.app_context():
+        assert Recipe.query.get(recipe_id) is None
+
+
+def test_recipe_delete_removes_image_file(app, client, regular_user, admin_user, login_as, tmp_path):
+    app.config['UPLOAD_FOLDER'] = str(tmp_path)
+    recipe_id = _seed_and_propose(app, client, regular_user, login_as, nombre='Gachas con foto a borrar')
+
+    client.get('/auth/logout')
+    login_as(client, admin_user, 'adminpass123')
+    data = {'imagen': (io.BytesIO(b'fake-png-bytes'), 'receta.png')}
+    client.post(f'/admin/recetas/{recipe_id}/aprobar', data=data,
+                content_type='multipart/form-data', follow_redirects=True)
+
+    with app.app_context():
+        image_path = Recipe.query.get(recipe_id).image_path
+    saved_file = tmp_path / image_path
+    assert saved_file.is_file()
+
+    resp = client.post(f'/admin/recetas/{recipe_id}/eliminar', data={}, follow_redirects=True)
+    assert resp.status_code == 200
+    assert not saved_file.exists()
+    with app.app_context():
+        assert Recipe.query.get(recipe_id) is None
