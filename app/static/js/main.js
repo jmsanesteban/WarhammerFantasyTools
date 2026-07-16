@@ -1,6 +1,25 @@
 // Warhammer Fantasy Tools — main.js
 
 document.addEventListener('DOMContentLoaded', () => {
+  // Theme toggle (Modo oscuro / Modo claro): the actual data-theme attribute
+  // is already set as early as possible by an inline script in base.html's
+  // <head> (before first paint, to avoid a flash of the wrong theme) - this
+  // just wires the two menu buttons and keeps their checkmark in sync.
+  function whApplyTheme(theme) {
+    document.documentElement.setAttribute('data-theme', theme);
+    document.querySelectorAll('.wh-theme-option').forEach(btn => {
+      btn.classList.toggle('wh-theme-active', btn.dataset.whTheme === theme);
+    });
+  }
+  document.querySelectorAll('.wh-theme-option').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const theme = btn.dataset.whTheme;
+      localStorage.setItem('wh-theme', theme);
+      whApplyTheme(theme);
+    });
+  });
+  whApplyTheme(localStorage.getItem('wh-theme') || 'dark');
+
   // Auto-dismiss flash alerts after 5 seconds
   document.querySelectorAll('.alert.alert-dismissible').forEach(alert => {
     setTimeout(() => {

@@ -29,6 +29,36 @@
   --wh-parchment:   #f5e6c8;
 }
 
+/* =============================================
+   Modo claro — mismas variables, releídas cuando <html data-theme="light">.
+   El modo oscuro de arriba sigue siendo el valor por defecto (sin atributo)
+   - así los usuarios existentes no ven ningún cambio hasta que elijan "Modo
+   claro" desde el menú de usuario (ver base.html + main.js).
+
+   La barra de navegación, sus desplegables y el pie de página se quedan
+   siempre oscuros (marca fija, ver más abajo `.wh-navbar`/`.wh-footer`/
+   `.dropdown-menu-dark`) - decidido así sobre todo porque el aviso teal de
+   "entorno de preproducción" (`.wh-navbar-prepro`) solo funciona si el texto
+   de la barra es siempre claro; si la barra cambiase de color con el tema,
+   ese aviso se volvería ilegible en modo claro. */
+[data-theme="light"] {
+  --wh-bg:          #f7f2e4;
+  --wh-bg-card:     #fffdf8;
+  --wh-bg-card-alt: #ede0c0;
+
+  --wh-gold:        #7a4d00;
+  --wh-gold-dark:   #b8935a;
+  --wh-gold-light:  #5c3d00;
+
+  --wh-text:        #2b2013;
+  --wh-text-muted:  #6b5028;
+
+  --wh-border:      #e0d5b8;
+  --wh-border-gold: #c9ac70;
+
+  --wh-parchment:   #fffdf8;
+}
+
 /* ---- Base ---- */
 body {
   background-color: var(--wh-bg);
@@ -50,16 +80,19 @@ a { color: var(--wh-gold); }
 a:hover { color: var(--wh-gold-light); }
 
 /* ---- Navbar ---- */
+/* Fixed dark chrome, deliberately NOT theme-variable-driven (see the
+   comment on [data-theme="light"] above) - same literal colors the shared
+   vars resolve to in dark mode today, just pinned so they never flip. */
 .wh-navbar {
   background: linear-gradient(180deg, #080604 0%, #151008 100%);
-  border-bottom: 2px solid var(--wh-gold-dark);
+  border-bottom: 2px solid #9a7422;
   padding: 0.4rem 1rem;
 }
 
 .wh-brand {
   font-family: 'Cinzel', serif;
   font-size: 1.2rem;
-  color: var(--wh-gold-light) !important;
+  color: #f2cc50 !important;
   font-weight: 700;
   letter-spacing: 1px;
 }
@@ -85,7 +118,7 @@ a:hover { color: var(--wh-gold-light); }
 }
 
 .navbar-nav .nav-link {
-  color: var(--wh-text) !important;
+  color: #ede0c4 !important;
   font-family: 'Cinzel', serif;
   font-size: 0.85rem;
   letter-spacing: 0.5px;
@@ -95,7 +128,7 @@ a:hover { color: var(--wh-gold-light); }
 
 .navbar-nav .nav-link:hover,
 .navbar-nav .nav-link.active {
-  color: var(--wh-gold-light) !important;
+  color: #f2cc50 !important;
 }
 
 /* ---- Cards ---- */
@@ -116,7 +149,7 @@ a:hover { color: var(--wh-gold-light); }
 .wh-card-sm:hover { border-color: var(--wh-gold-dark); }
 
 .wh-card-header {
-  background: linear-gradient(90deg, #2a1e0a 0%, #1a1510 100%);
+  background: linear-gradient(90deg, #2a1e0a 0%, var(--wh-bg-card) 100%);
   border-bottom: 1px solid var(--wh-border-gold);
   color: var(--wh-gold-light);
   font-family: 'Cinzel', serif;
@@ -368,13 +401,17 @@ a:hover { color: var(--wh-gold-light); }
 .wh-breadcrumb .breadcrumb-item + .breadcrumb-item::before { color: var(--wh-text-muted); }
 .wh-breadcrumb .breadcrumb-item.active { color: var(--wh-text-muted); }
 
-.wh-alert { background: #1a1510; border-color: var(--wh-gold-dark); color: var(--wh-text); }
+.wh-alert { background: var(--wh-bg-card); border-color: var(--wh-gold-dark); color: var(--wh-text); }
 
+/* Fixed dark chrome, same reasoning as .wh-navbar above - includes its own
+   .text-muted override since the generic rule below is theme-variable-driven
+   and would otherwise turn the copyright line unreadable on this dark bar. */
 .wh-footer {
   background: #0a0806;
-  border-top: 1px solid var(--wh-border-gold);
+  border-top: 1px solid #5e4418;
   margin-top: auto;
 }
+.wh-footer .text-muted { color: #c0964a !important; }
 
 /* ---- Profession images ---- */
 .wh-card-img {
@@ -385,7 +422,7 @@ a:hover { color: var(--wh-gold-light); }
 
 .wh-card-img-placeholder {
   height: 180px;
-  background: #1a1510;
+  background: var(--wh-bg-card);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -452,7 +489,7 @@ a:hover { color: var(--wh-gold-light); }
 .wh-card-img-left-placeholder {
   height: 100%;
   min-height: 220px;
-  background: #1a1510;
+  background: var(--wh-bg-card);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -514,7 +551,7 @@ a:hover { color: var(--wh-gold-light); }
 
 .wh-prof-image-placeholder {
   height: 220px;
-  background: #1a1510;
+  background: var(--wh-bg-card);
   border: 1px solid var(--wh-border-gold);
   display: flex;
   align-items: center;
@@ -533,7 +570,7 @@ a:hover { color: var(--wh-gold-light); }
 
 .wh-prof-thumb-placeholder {
   height: 70px;
-  background: #1a1510;
+  background: var(--wh-bg-card);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -871,3 +908,109 @@ mark { background: rgba(212, 168, 48, .28); color: var(--wh-gold-light); padding
   .wh-stat-number { font-size: 1.8rem; }
   .wh-stat-table th, .wh-stat-table td { padding: 2px 3px; font-size: 0.7rem; min-width: 28px; }
 }
+
+/* =============================================
+   MODO CLARO — overrides puntuales
+   ============================================= */
+/* La mayoría del sitio ya se retinta solo al cambiar las variables --wh-*
+   de arriba (130+ usos de var() en este fichero). Lo que queda aquí es lo
+   que NO pasaba por una variable: fondos de superficie con un valor propio
+   (inputs, cabeceras de tabla/acordeón...) y los "tripletes" de color con
+   identidad de matiz propia (insignias por tipo, alertas, niveles de
+   carga...) que no se pueden resolver invirtiendo una única variable
+   compartida sin perder esa identidad. Cada regla de aquí tiene mayor
+   especificidad que su equivalente en modo oscuro (por el selector de
+   atributo `[data-theme="light"]`), así que gana sin tocar nada de arriba. */
+
+/* Dropdowns colgados de la barra de navegación (siempre oscura, ver arriba)
+   se quedan fijos en oscuro independientemente del tema - los dos
+   desplegables que SÍ viven en el contenido (Habilidades/Talentos) no
+   llevan la clase `dropdown-menu-dark` y por tanto sí seleccionan tema con
+   las reglas normales de `.dropdown-menu`/`.dropdown-item` de más arriba. */
+.dropdown-menu-dark {
+  background-color: #1a1510;
+  border-color: #5e4418;
+}
+.dropdown-menu-dark .dropdown-item { color: #ede0c4; }
+.dropdown-menu-dark .dropdown-item:hover,
+.dropdown-menu-dark .dropdown-item:focus { background-color: #252018; color: #f2cc50; }
+.dropdown-menu-dark .dropdown-divider { border-color: #5e4418; }
+.dropdown-menu-dark .dropdown-header { color: #c0964a; }
+
+/* Selector de tema en el menú de usuario: el check solo se muestra en la
+   opción activa (clase alternada por JS, ver main.js). */
+.wh-theme-check { visibility: hidden; }
+.wh-theme-option.wh-theme-active .wh-theme-check { visibility: visible; }
+
+/* Superficies con fondo propio (no cubiertas por las variables) */
+[data-theme="light"] .wh-card-header { background: linear-gradient(90deg, #f0e6c0 0%, var(--wh-bg-card) 100%); }
+[data-theme="light"] .wh-input,
+[data-theme="light"] .wh-input.form-control,
+[data-theme="light"] .wh-input.form-select { background: #ffffff; }
+[data-theme="light"] .wh-input:focus { background: #fffdf5; }
+[data-theme="light"] .wh-table thead th { background: #ecdfb8; }
+[data-theme="light"] .wh-stat-table th { background: #ecdfb8; }
+[data-theme="light"] .wh-accordion-btn { background: #f0e6c0; }
+[data-theme="light"] .wh-accordion-btn:not(.collapsed) { background: #e3d0a0; }
+[data-theme="light"] .form-check-input { background-color: #ffffff; }
+
+/* Iconos pensados para fondo oscuro (invertidos con filter) - en claro basta
+   con el color por defecto de Bootstrap, ya oscuro y legible de por sí. */
+[data-theme="light"] .btn-close { filter: none; }
+[data-theme="light"] .wh-accordion-btn::after { filter: none; }
+
+/* Insignias de habilidades/talentos/enseres/profesión por tipo - cada una
+   mantiene su matiz (verde/azul/ámbar/magenta/oliva/morado) pero invertida
+   en luminancia para leerse sobre fondo claro. */
+[data-theme="light"] .wh-badge-skill        { background: #e3f5e6; border-color: #4a9a55; color: #1f5c28; }
+[data-theme="light"] .wh-badge-skill-opt    { background: #e0eef7; border-color: #3a72a0; color: #1a4a6e; }
+[data-theme="light"] .wh-badge-talent       { background: #f7ecd8; border-color: #a07830; color: #6b4c10; }
+[data-theme="light"] .wh-badge-talent-opt   { background: #f7e0ec; border-color: #a03068; color: #7a1a48; }
+[data-theme="light"] .wh-badge-trapping     { background: #f0eed0; border-color: #8a8440; color: #5c5820; }
+[data-theme="light"] .wh-badge-prof         { background: #ece0f7; border-color: #7a3ca0; color: #4a1a70; }
+
+/* Niveles de carga (Fuerza+Resistencia) - mismo criterio: invierte
+   luminancia manteniendo la progresión verde→amarillo→naranja→rojo. Las
+   versiones "badge" (chip sólido) y el desbordamiento de Mochila/Saco se
+   dejan igual en ambos temas a propósito - son chips saturados que ya
+   aportan su propio contraste, sea cual sea el fondo de la página. */
+[data-theme="light"] .wh-carga-sin_carga { background: #dff2df !important; color: #1e4620 !important; border-color: #4a9050 !important; }
+[data-theme="light"] .wh-carga-ligera    { background: #fdf3cd !important; color: #6b5b0e !important; border-color: #c0a020 !important; }
+[data-theme="light"] .wh-carga-media     { background: #fdead0 !important; color: #7a4a12 !important; border-color: #c98a30 !important; }
+[data-theme="light"] .wh-carga-pesada    { background: #f9d8d8 !important; color: #7a1f1f !important; border-color: #c04040 !important; }
+
+[data-theme="light"] .badge-wh-basic    { background: #e0f5e2; border-color: #3a8548; color: #155020; }
+[data-theme="light"] .badge-wh-advanced { background: #f5ecd0; border-color: #8a6010; color: #5c3f00; }
+[data-theme="light"] .wh-badge-prefix   { background: #e0f2e2; border-color: #3a8848; color: #155822; }
+
+/* Insignias Bootstrap (bg-secondary/info/success/warning/danger) */
+[data-theme="light"] .badge.bg-secondary { background-color: #ece0c0 !important; }
+[data-theme="light"] .badge.bg-info      { background-color: #e0f2e2 !important; color: #1a5828 !important; border-color: #4a9858 !important; }
+[data-theme="light"] .badge.bg-success   { background-color: #dcf0dc !important; color: #1a5c28 !important; border-color: #3a8a48 !important; }
+[data-theme="light"] .badge.bg-warning   { background-color: #f7ecd0 !important; color: #7a5010 !important; border-color: #a07830 !important; }
+[data-theme="light"] .badge.bg-danger    { background-color: #f7dcdc !important; color: #8a2020 !important; border-color: #a04040 !important; }
+[data-theme="light"] .badge.bg-warning.text-dark { color: #5c3f00 !important; }
+
+/* Alertas */
+[data-theme="light"] .alert-warning { color: #6b4a00; background-color: #fdf3d0; border-color: #c0a030; }
+[data-theme="light"] .alert-danger  { color: #8a2020; background-color: #fce0e0; border-color: #c05050; }
+[data-theme="light"] .alert-info    { color: #1a5a5a; background-color: #e0f5f5; border-color: #3a8a8a; }
+[data-theme="light"] .alert-success { color: #1a5c1a; background-color: #e0f5e0; border-color: #3a8a3a; }
+
+/* Botones outline warning/danger - visibles sobre fondo claro */
+[data-theme="light"] .btn-outline-warning { color: #8a5c10 !important; border-color: #c0982a !important; }
+[data-theme="light"] .btn-outline-warning:hover {
+  background-color: #f5ecd0 !important;
+  color: var(--wh-gold-light) !important;
+  border-color: var(--wh-gold) !important;
+}
+[data-theme="light"] .btn-outline-danger { color: #a03030 !important; border-color: #c07070 !important; }
+[data-theme="light"] .btn-outline-danger:hover {
+  background-color: #fce8e8 !important;
+  color: #8a2020 !important;
+  border-color: #c05050 !important;
+}
+
+/* Modificador de característica positivo - verde brillante ilegible sobre
+   fondo claro, se oscurece manteniendo el matiz. */
+[data-theme="light"] .wh-stat-positive { color: #1e8a30 !important; }
