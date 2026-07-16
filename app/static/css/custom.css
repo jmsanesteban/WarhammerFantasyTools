@@ -541,6 +541,17 @@ a:hover { color: var(--wh-gold-light); }
   color: var(--wh-border-gold);
 }
 
+/* Small round avatar, e.g. next to a character's name in a list card -
+   unlike .wh-prof-thumb (full-width card-top image), this stays inline. */
+.wh-char-avatar {
+  width: 48px;
+  height: 48px;
+  object-fit: cover;
+  border-radius: 50%;
+  border: 1px solid var(--wh-border-gold);
+  flex-shrink: 0;
+}
+
 /* ---- Stat number ---- */
 .wh-stat-number {
   font-family: 'Cinzel', serif;

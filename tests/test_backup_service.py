@@ -617,7 +617,7 @@ def test_recipes_import_warns_on_missing_ingredient(app, db):
         assert restored.ingrediente_1_id is None
 
 
-# ── Imágenes (Profesiones/Equipamiento/Recetas/Contactos) ──────────────────────
+# ── Imágenes (Profesiones/Equipamiento/Recetas/Contactos/Personajes) ───────────
 # El JSON de backup solo llevaba `image_path`; sin los bytes en base64, una
 # instancia nueva (o cualquiera sin acceso al `uploads/` original) se quedaba
 # sin fotos aunque el JSON se reimportase perfectamente. Cada test escribe un
@@ -712,6 +712,27 @@ def test_contact_image_round_trips_through_backup(app, db, make_contact, tmp_pat
         bkp.import_contacts_full(data)
         restored_path = tmp_path / 'contactos' / 'zz.jpg'
         assert restored_path.read_bytes() == b'contact-bytes'
+
+
+def test_character_image_round_trips_through_backup(app, db, make_user, make_character, tmp_path):
+    app.config['UPLOAD_FOLDER'] = str(tmp_path)
+    with app.app_context():
+        from app.models.character import Character
+        user = make_user(username='zz_char_photo_owner')
+        make_character(user, name='Zz Personaje Foto', image_path='personajes/zz.jpg')
+        _write_fake_image(app, 'personajes/zz.jpg', b'character-bytes')
+
+        data = bkp.export_characters()
+        row = next(r for r in data if r['name'] == 'Zz Personaje Foto')
+        assert base64.b64decode(row['image_data_b64']) == b'character-bytes'
+
+        Character.query.filter_by(name='Zz Personaje Foto').delete()
+        db.session.commit()
+        (tmp_path / 'personajes' / 'zz.jpg').unlink()
+
+        bkp.import_characters(data)
+        restored_path = tmp_path / 'personajes' / 'zz.jpg'
+        assert restored_path.read_bytes() == b'character-bytes'
 
 
 def test_image_backup_is_noop_without_b64_data(app, db, make_profession, tmp_path):

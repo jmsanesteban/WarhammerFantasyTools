@@ -305,6 +305,13 @@ def _register_cli_commands(app):
                     conn.execute(text('ALTER TABLE characters ADD COLUMN grados_untersuchung JSON NULL'))
                     click.echo('  Added characters.grados_untersuchung')
 
+            # Incremental column: characters.image_path (retrato del personaje)
+            char_cols = {c['name'] for c in inspector.get_columns('characters')}
+            if 'image_path' not in char_cols:
+                with db.engine.begin() as conn:
+                    conn.execute(text('ALTER TABLE characters ADD COLUMN image_path VARCHAR(300) NULL'))
+                click.echo('  Added characters.image_path')
+
             # Incremental columns: character_professions salary (tabla de sueldos,
             # aplica también a la carrera del propio personaje, no solo a Contactos)
             cp_cols = {c['name'] for c in inspector.get_columns('character_professions')}

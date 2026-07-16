@@ -1,4 +1,7 @@
 """Tests for WFRP characters: ownership isolation, CRUD, and profession history."""
+import io
+import os
+
 from app.models.character import Character, CharacterProfession
 
 
@@ -49,6 +52,32 @@ def test_detail_allows_admin_to_view_any_character(client, admin_user, regular_u
     assert resp.status_code == 200
 
 
+def test_detail_shows_photo_when_present(db, client, regular_user, make_character, login_as):
+    char = make_character(regular_user, name='Con Foto', image_path='personajes/x.jpg')
+    login_as(client, regular_user, 'userpass123')
+    resp = client.get(f'/personajes/{char.id}')
+    assert resp.status_code == 200
+    assert b'personajes/x.jpg' in resp.data
+
+
+def test_detail_shows_placeholder_when_no_photo(client, regular_user, make_character, login_as):
+    char = make_character(regular_user, name='Sin Foto')
+    login_as(client, regular_user, 'userpass123')
+    resp = client.get(f'/personajes/{char.id}')
+    assert resp.status_code == 200
+    assert 'wh-prof-image-placeholder'.encode('utf-8') in resp.data
+
+
+def test_list_shows_thumbnail_only_when_photo_present(client, regular_user, make_character, login_as):
+    make_character(regular_user, name='Con Foto', image_path='personajes/x.jpg')
+    make_character(regular_user, name='Sin Foto')
+    login_as(client, regular_user, 'userpass123')
+    resp = client.get('/personajes/')
+    assert resp.status_code == 200
+    assert b'wh-char-avatar' in resp.data
+    assert resp.data.count(b'wh-char-avatar') == 1
+
+
 def test_create_character(db, client, regular_user, login_as):
     login_as(client, regular_user, 'userpass123')
     resp = client.post('/personajes/nuevo', data={
@@ -60,6 +89,21 @@ def test_create_character(db, client, regular_user, login_as):
     assert char is not None
     assert char.user_id == regular_user.id
     assert char.race == 'Enano'
+
+
+def test_create_character_with_image_upload(app, db, client, regular_user, login_as, tmp_path):
+    app.config['UPLOAD_FOLDER'] = str(tmp_path)
+    login_as(client, regular_user, 'userpass123')
+
+    resp = client.post('/personajes/nuevo', data={
+        'name': 'Con Retrato', 'image': (io.BytesIO(b'fake-png-bytes'), 'retrato.png'),
+    }, content_type='multipart/form-data', follow_redirects=True)
+    assert resp.status_code == 200
+
+    char = Character.query.filter_by(name='Con Retrato').first()
+    assert char is not None
+    assert char.image_path == os.path.join('personajes', 'retrato.png')
+    assert (tmp_path / 'personajes' / 'retrato.png').read_bytes() == b'fake-png-bytes'
 
 
 def test_create_character_requires_name(client, regular_user, login_as):
@@ -146,6 +190,32 @@ def test_edit_updates_character(db, client, regular_user, login_as, make_charact
     db.session.refresh(char)
     assert char.name == 'Renombrado'
     assert char.race == 'Humano'
+
+
+def test_edit_character_uploads_image(app, db, client, regular_user, login_as, make_character, tmp_path):
+    app.config['UPLOAD_FOLDER'] = str(tmp_path)
+    char = make_character(regular_user, name='Sin Retrato Todavia')
+    login_as(client, regular_user, 'userpass123')
+
+    resp = client.post(f'/personajes/{char.id}/editar', data={
+        'name': char.name, 'image': (io.BytesIO(b'edited-bytes'), 'nuevo.png'),
+    }, content_type='multipart/form-data', follow_redirects=True)
+    assert resp.status_code == 200
+
+    db.session.refresh(char)
+    assert char.image_path == os.path.join('personajes', 'nuevo.png')
+    assert (tmp_path / 'personajes' / 'nuevo.png').read_bytes() == b'edited-bytes'
+
+
+def test_edit_character_without_new_image_keeps_existing(db, client, regular_user, login_as, make_character):
+    char = make_character(regular_user, name='Con Retrato Ya', image_path='personajes/viejo.png')
+    login_as(client, regular_user, 'userpass123')
+
+    resp = client.post(f'/personajes/{char.id}/editar', data={'name': char.name}, follow_redirects=True)
+    assert resp.status_code == 200
+
+    db.session.refresh(char)
+    assert char.image_path == 'personajes/viejo.png'
 
 
 def test_edit_replaces_profession_history(db, client, regular_user, login_as, make_character, make_profession):

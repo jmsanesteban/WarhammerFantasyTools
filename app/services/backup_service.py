@@ -3,8 +3,8 @@ Personajes (incluido su inventario, historial de compras y dinero concedido),
 Contactos+Vínculos (incluidas sus notas privadas por personaje), Recetas
 propuestas, Equipamiento, Plantillas de permisos y Sinónimos.
 
-Las cuatro secciones con foto propia (Profesiones, Equipamiento, Recetas,
-Contactos) incrustan también los bytes de la imagen en base64
+Las cinco secciones con foto propia (Profesiones, Equipamiento, Recetas,
+Contactos, Personajes) incrustan también los bytes de la imagen en base64
 (`image_data_b64`, ver `_encode_image_b64`/`_write_image_b64`) junto a
 `image_path` - sin esto, el JSON solo llevaba la ruta y una instancia nueva
 se quedaba sin las fotos porque `uploads/` no viaja con el backup ni con
@@ -476,7 +476,7 @@ def import_equipment(data, mode='skip'):
 # ---------------------------------------------------------------------------
 
 _CHARACTER_SCALAR_FIELDS = (
-    'race', 'gender', 'notes',
+    'race', 'gender', 'image_path', 'notes',
     'ws', 'bs', 's_char', 't_char', 'ag', 'int_char', 'wp', 'fel',
     'attacks', 'wounds', 'strength_bonus', 'toughness_bonus', 'movement', 'magic',
     'insanity_points', 'fate_points',
@@ -493,6 +493,7 @@ def export_characters():
         row = {field: getattr(c, field) for field in _CHARACTER_SCALAR_FIELDS}
         row['owner_username'] = c.owner.username
         row['name'] = c.name
+        row['image_data_b64'] = _encode_image_b64(c.image_path)
         row['professions'] = [
             {
                 'profession_name': cp.profession.name if cp.profession else None,
@@ -590,6 +591,7 @@ def import_characters(data, mode='skip'):
         for field in _CHARACTER_SCALAR_FIELDS:
             if field in row:
                 setattr(char, field, row[field])
+        _write_image_b64(char.image_path, row.get('image_data_b64'))
 
         for cp in row.get('professions', []):
             profession = None

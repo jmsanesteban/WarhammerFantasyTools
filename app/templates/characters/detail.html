@@ -15,6 +15,12 @@
       <div class="card wh-card">
         <div class="card-header wh-card-header">{{ char.name }}</div>
         <div class="card-body">
+          {% if char.image_path %}
+          <img src="{{ url_for('main.uploaded_file', filename=char.image_path) }}"
+               class="img-fluid wh-prof-image rounded mb-3" alt="{{ char.name }}">
+          {% else %}
+          <div class="wh-prof-image-placeholder mb-3"><i class="bi bi-person-bounding-box"></i></div>
+          {% endif %}
           {% if char.race %}<p><strong class="wh-label">Raza:</strong> {{ char.race }}</p>{% endif %}
           {% if char.gender %}<p><strong class="wh-label">Género:</strong> {{ char.gender }}</p>{% endif %}
           {% if char.edad %}<p><strong class="wh-label">Edad:</strong> {{ char.edad }} años{% if char.edad_grado %} (grado {{ char.edad_grado }}){% endif %}</p>{% endif %}

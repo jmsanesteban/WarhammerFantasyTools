@@ -1,8 +1,10 @@
 import json
+import os
 import re
 
-from flask import Blueprint, render_template, redirect, url_for, flash, request, abort, jsonify
+from flask import Blueprint, render_template, redirect, url_for, flash, request, abort, jsonify, current_app
 from flask_login import login_required, current_user
+from werkzeug.utils import secure_filename
 from app.extensions import db
 from app.models.character import (
     Character, CharacterProfession, CharacterSkill, CharacterTalent,
@@ -27,6 +29,25 @@ from app.utils import admin_required
 characters_bp = Blueprint('characters', __name__, template_folder='../templates')
 
 _TIENDA_CATEGORIES = ('arma', 'armadura', 'municion', 'ropa')
+_ALLOWED_IMAGE_EXTENSIONS = {'png', 'jpg', 'jpeg', 'webp', 'gif'}
+
+
+def _save_character_image(char):
+    """Same pattern as contacts._save_image_from_form: optional upload, folder
+    'personajes' under UPLOAD_FOLDER, no-op (existing photo untouched) if no
+    file was posted."""
+    file = request.files.get('image')
+    if not file or not file.filename:
+        return
+    ext = file.filename.rsplit('.', 1)[-1].lower() if '.' in file.filename else ''
+    if ext not in _ALLOWED_IMAGE_EXTENSIONS:
+        flash('La imagen debe ser PNG, JPG, WEBP o GIF.', 'danger')
+        return
+    filename = secure_filename(file.filename)
+    save_path = os.path.join(current_app.config['UPLOAD_FOLDER'], 'personajes', filename)
+    os.makedirs(os.path.dirname(save_path), exist_ok=True)
+    file.save(save_path)
+    char.image_path = os.path.join('personajes', filename)
 
 _RAZAS = ['Humano', 'Halfling', 'Enano', 'Elfo Silvano', 'Alto Elfo']
 
@@ -151,6 +172,7 @@ def create():
         db.session.flush()
 
         _rebuild_professions(char.id)
+        _save_character_image(char)
 
         db.session.commit()
         flash(f'Personaje "{char.name}" creado.', 'success')
@@ -180,6 +202,7 @@ def edit(char_id):
         char.es_untersuchung = request.form.get('es_untersuchung') == 'on' or has_marca(char.grados_untersuchung)
         char.nivel_social = _form_int('nivel_social', char.nivel_social or 1)
         char.dinero_coronas = _form_int('dinero_coronas', char.dinero_coronas or 0)
+        _save_character_image(char)
 
         # Rebuild profession list
         CharacterProfession.query.filter_by(character_id=char.id).delete()

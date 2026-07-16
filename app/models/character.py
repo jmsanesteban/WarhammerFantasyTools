@@ -113,6 +113,7 @@ class Character(db.Model):
     name = db.Column(db.String(150), nullable=False)
     race = db.Column(db.String(50), nullable=True)
     gender = db.Column(db.String(20), nullable=True)
+    image_path = db.Column(db.String(300), nullable=True)
     notes = db.Column(db.Text, nullable=True)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)

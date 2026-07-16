@@ -4,7 +4,7 @@
 {% block content %}
 <div class="container mt-4">
   <h2 class="wh-heading mb-4">{% if char %}Editar: {{ char.name }}{% else %}Nuevo Personaje{% endif %}</h2>
-  <form method="POST" id="charForm">
+  <form method="POST" id="charForm" enctype="multipart/form-data">
     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
 
     <div class="card wh-card mb-4">
@@ -28,6 +28,15 @@
               <option value="Femenino" {% if char and char.gender=='Femenino' %}selected{% endif %}>Femenino</option>
               <option value="Otro" {% if char and char.gender=='Otro' %}selected{% endif %}>Otro</option>
             </select>
+          </div>
+          <div class="col-md-4">
+            <label class="form-label wh-label">Foto/retrato</label>
+            {% if char and char.image_path %}
+            <div class="mb-2">
+              <img src="{{ url_for('main.uploaded_file', filename=char.image_path) }}" style="max-height:120px" class="rounded">
+            </div>
+            {% endif %}
+            <input type="file" name="image" class="form-control wh-input" accept="image/*">
           </div>
           <div class="col-md-4 d-flex align-items-end">
             <label class="d-flex align-items-center gap-2" style="cursor:pointer">
