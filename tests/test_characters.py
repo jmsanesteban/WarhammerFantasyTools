@@ -76,6 +76,9 @@ def test_list_shows_thumbnail_only_when_photo_present(client, regular_user, make
     assert resp.status_code == 200
     assert b'wh-char-avatar' in resp.data
     assert resp.data.count(b'wh-char-avatar') == 1
+    # Same hover-zoom + click-to-lightbox system as recipe/equipment photos
+    # (main.js wires any .wh-lightbox-trigger element generically).
+    assert b'wh-lightbox-trigger' in resp.data
 
 
 def test_create_character(db, client, regular_user, login_as):

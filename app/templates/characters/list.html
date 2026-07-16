@@ -32,7 +32,7 @@
           <div class="d-flex align-items-center gap-2 mb-1">
             {% if char.image_path %}
             <img src="{{ url_for('main.uploaded_file', filename=char.image_path) }}"
-                 class="wh-char-avatar" alt="{{ char.name }}">
+                 class="wh-char-avatar wh-lightbox-trigger" alt="{{ char.name }}">
             {% endif %}
             <h5 class="wh-name mb-0">{{ char.name }}</h5>
           </div>

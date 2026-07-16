@@ -542,7 +542,10 @@ a:hover { color: var(--wh-gold-light); }
 }
 
 /* Small round avatar, e.g. next to a character's name in a list card -
-   unlike .wh-prof-thumb (full-width card-top image), this stays inline. */
+   unlike .wh-prof-thumb (full-width card-top image), this stays inline.
+   Same hover-zoom + click-to-lightbox as .wh-card-img-left (see main.js and
+   the "Hover-to-inspect"/"Click-to-enlarge lightbox" rules above) - scales
+   more on hover since the avatar itself is much smaller. */
 .wh-char-avatar {
   width: 48px;
   height: 48px;
@@ -550,6 +553,15 @@ a:hover { color: var(--wh-gold-light); }
   border-radius: 50%;
   border: 1px solid var(--wh-border-gold);
   flex-shrink: 0;
+  transform: scale(1);
+  transition: transform 0.25s ease-out;
+  cursor: zoom-in;
+}
+.wh-char-avatar:hover {
+  transform: scale(2.5);
+  transition: transform 0.25s ease-out 1s;
+  position: relative;
+  z-index: 20;
 }
 
 /* ---- Stat number ---- */
