@@ -563,6 +563,87 @@ def test_backup_import_restores_everything(db, app, client, admin_user, regular_
     assert 'Equipamiento' in body
 
 
+def test_backup_restore_requires_admin(client, regular_user, login_as):
+    login_as(client, regular_user, 'userpass123')
+    resp = client.post('/admin/backup/archivos/anything.json/restaurar', data={'mode': 'skip'})
+    assert resp.status_code == 403
+
+
+def test_backup_restore_rejects_path_traversal(app, client, admin_user, login_as, tmp_path):
+    app.config['BACKUP_FOLDER'] = str(tmp_path)
+    login_as(client, admin_user, 'adminpass123')
+    resp = client.post('/admin/backup/archivos/..%2F..%2Fapp/restaurar', data={'mode': 'skip'})
+    assert resp.status_code == 404
+
+
+def test_backup_restore_from_saved_file_without_reupload(db, app, client, admin_user, regular_user,
+                                                           make_character, make_profession, make_equipment_item,
+                                                           login_as, tmp_path):
+    """The whole point: restore a backup already sitting in BACKUP_FOLDER
+    directly, with no file upload involved."""
+    app.config['BACKUP_FOLDER'] = str(tmp_path)
+    make_profession(name='Soldado restaurable')
+    make_equipment_item(name='Daga restaurable', category='arma')
+    make_character(regular_user, name='Grimm restaurable')
+    login_as(client, admin_user, 'adminpass123')
+
+    client.post('/admin/backup/exportar')
+
+    import os
+    filename = os.listdir(str(tmp_path))[0]
+
+    Character.query.delete()
+    Profession.query.delete()
+    EquipmentItem.query.delete()
+    db.session.commit()
+
+    resp = client.post(f'/admin/backup/archivos/{filename}/restaurar', data={'mode': 'skip'}, follow_redirects=True)
+    assert resp.status_code == 200
+    assert Profession.query.filter_by(name='Soldado restaurable').first() is not None
+    assert EquipmentItem.query.filter_by(name='Daga restaurable').first() is not None
+    assert Character.query.filter_by(name='Grimm restaurable').first() is not None
+
+
+def test_backup_restore_works_on_compressed_file(app, client, admin_user, make_profession, login_as, tmp_path):
+    app.config['BACKUP_FOLDER'] = str(tmp_path)
+    make_profession(name='Soldado comprimido')
+    login_as(client, admin_user, 'adminpass123')
+
+    client.post('/admin/backup/exportar', data={'secciones': ['professions']})
+    import os
+    filename = os.listdir(str(tmp_path))[0]
+    client.post(f'/admin/backup/archivos/{filename}/comprimir')
+    compressed_filename = filename + '.gz'
+
+    Profession.query.filter_by(name='Soldado comprimido').delete()
+    from app.extensions import db as _db
+    _db.session.commit()
+
+    resp = client.post(f'/admin/backup/archivos/{compressed_filename}/restaurar',
+                        data={'mode': 'skip'}, follow_redirects=True)
+    assert resp.status_code == 200
+    assert Profession.query.filter_by(name='Soldado comprimido').first() is not None
+
+
+def test_backup_restore_update_mode_overwrites_existing(app, client, admin_user, make_profession, login_as, tmp_path):
+    app.config['BACKUP_FOLDER'] = str(tmp_path)
+    prof = make_profession(name='Soldado actualizable', ws=10)
+    login_as(client, admin_user, 'adminpass123')
+
+    client.post('/admin/backup/exportar', data={'secciones': ['professions']})
+    import os
+    filename = os.listdir(str(tmp_path))[0]
+
+    prof.ws = 99
+    from app.extensions import db as _db
+    _db.session.commit()
+
+    resp = client.post(f'/admin/backup/archivos/{filename}/restaurar', data={'mode': 'update'}, follow_redirects=True)
+    assert resp.status_code == 200
+    _db.session.refresh(prof)
+    assert prof.ws == 10
+
+
 def test_dashboard_food_card_has_direct_import_export_links(client, admin_user, login_as):
     login_as(client, admin_user, 'adminpass123')
     resp = client.get('/admin/')

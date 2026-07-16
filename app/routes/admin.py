@@ -2065,6 +2065,22 @@ def backup_note(filename):
     return redirect(url_for('admin.backup_home'))
 
 
+def _flash_backup_import_summaries(summaries):
+    from app.services.backup_service import BACKUP_SECTIONS
+    for key, label, _ in BACKUP_SECTIONS:
+        s = summaries[key]
+        flash(f"{label}: {s['created']} creados, {s['updated']} actualizados, {s['skipped']} omitidos.", 'success')
+        warnings = s.get('warnings') or []
+        if warnings:
+            shown = warnings[:10]
+            more = '' if len(warnings) <= 10 else f' (+{len(warnings) - 10} más)'
+            flash(Markup('<strong>{} — avisos:</strong> {}{}').format(label, '; '.join(shown), more), 'warning')
+        passwords = s.get('generated_passwords') or {}
+        if passwords:
+            detail = '; '.join(f'{u}: {p}' for u, p in passwords.items())
+            flash(Markup('<strong>Contraseñas temporales asignadas:</strong> {}').format(detail), 'warning')
+
+
 @admin_bp.route('/backup/importar', methods=['POST'])
 @login_required
 @admin_required
@@ -2080,23 +2096,32 @@ def backup_import():
         flash(f'Error al leer el fichero: {e}', 'danger')
         return redirect(url_for('admin.backup_home'))
 
-    from app.services.backup_service import import_full_backup, BACKUP_SECTIONS
+    from app.services.backup_service import import_full_backup
     mode = request.form.get('mode', 'skip')
     summaries = import_full_backup(data, mode=mode)
+    _flash_backup_import_summaries(summaries)
+    return redirect(url_for('admin.backup_home'))
 
-    for key, label, _ in BACKUP_SECTIONS:
-        s = summaries[key]
-        flash(f"{label}: {s['created']} creados, {s['updated']} actualizados, {s['skipped']} omitidos.", 'success')
-        warnings = s.get('warnings') or []
-        if warnings:
-            shown = warnings[:10]
-            more = '' if len(warnings) <= 10 else f' (+{len(warnings) - 10} más)'
-            flash(Markup('<strong>{} — avisos:</strong> {}{}').format(label, '; '.join(shown), more), 'warning')
-        passwords = s.get('generated_passwords') or {}
-        if passwords:
-            detail = '; '.join(f'{u}: {p}' for u, p in passwords.items())
-            flash(Markup('<strong>Contraseñas temporales asignadas:</strong> {}').format(detail), 'warning')
 
+@admin_bp.route('/backup/archivos/<path:filename>/restaurar', methods=['POST'])
+@login_required
+@admin_required
+def backup_restore(filename):
+    """Same as backup_import, but reads a backup already saved on the server
+    (BACKUP_FOLDER) instead of requiring a re-upload from the admin's device
+    - restoring "in place" from the list below, transparently gunzipping if
+    the file was compressed."""
+    path = _safe_backup_path(filename)
+    try:
+        data = _read_backup_json(path)
+    except Exception as e:
+        flash(f'Error al leer «{filename}»: {e}', 'danger')
+        return redirect(url_for('admin.backup_home'))
+
+    from app.services.backup_service import import_full_backup
+    mode = request.form.get('mode', 'skip')
+    summaries = import_full_backup(data, mode=mode)
+    _flash_backup_import_summaries(summaries)
     return redirect(url_for('admin.backup_home'))
 
 

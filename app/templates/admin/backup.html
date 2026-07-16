@@ -158,6 +158,34 @@
             <table class="table table-sm wh-stat-table mb-3">
               <tbody id="wh-detail-rows"></tbody>
             </table>
+
+            <div class="card wh-card border-danger mb-3">
+              <div class="card-body">
+                <h6>Restaurar este backup</h6>
+                <p class="text-muted small mb-2">
+                  Importa este fichero directamente desde el servidor, sin tener que descargarlo y volver a
+                  subirlo. Restaura solo las secciones que el propio fichero incluye.
+                </p>
+                <form id="wh-action-restore-form" method="POST"
+                      onsubmit="return confirm('¿Restaurar «' + (window.whSelectedFilename || '') + '»? Revisa el modo elegido antes de confirmar.')">
+                  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                  <div class="d-flex gap-3 mb-2">
+                    <div class="form-check">
+                      <input class="form-check-input" type="radio" name="mode" value="skip" id="wh-restore-mode-skip" checked>
+                      <label class="form-check-label wh-label" for="wh-restore-mode-skip">Omitir (no modificar lo existente)</label>
+                    </div>
+                    <div class="form-check">
+                      <input class="form-check-input" type="radio" name="mode" value="update" id="wh-restore-mode-update">
+                      <label class="form-check-label wh-label" for="wh-restore-mode-update">Actualizar datos</label>
+                    </div>
+                  </div>
+                  <button type="submit" class="btn btn-outline-danger btn-sm">
+                    <i class="bi bi-arrow-counterclockwise me-1"></i>Restaurar
+                  </button>
+                </form>
+              </div>
+            </div>
+
             <form id="wh-action-note-form" method="POST">
               <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
               <label class="form-label wh-label small mb-1" for="wh-detail-nota">Nota</label>
@@ -201,6 +229,7 @@ var whUrls = {
   decompress: "{{ url_for('admin.backup_decompress', filename='__FN__') }}",
   delete: "{{ url_for('admin.backup_delete', filename='__FN__') }}",
   note: "{{ url_for('admin.backup_note', filename='__FN__') }}",
+  restore: "{{ url_for('admin.backup_restore', filename='__FN__') }}",
 };
 window.whSelectedFilename = null;
 
@@ -242,6 +271,10 @@ function whSelectBackup(idx) {
   document.getElementById('wh-detail-nota').value = b.notas || '';
   document.getElementById('wh-action-note-form').action =
     whUrls.note.replace('__FN__', encodeURIComponent(b.filename));
+
+  document.getElementById('wh-action-restore-form').action =
+    whUrls.restore.replace('__FN__', encodeURIComponent(b.filename));
+  document.getElementById('wh-restore-mode-skip').checked = true;
 }
 
 document.querySelectorAll('.wh-backup-item').forEach(function (el) {
