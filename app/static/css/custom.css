@@ -35,12 +35,13 @@
    - así los usuarios existentes no ven ningún cambio hasta que elijan "Modo
    claro" desde el menú de usuario (ver base.html + main.js).
 
-   La barra de navegación, sus desplegables y el pie de página se quedan
-   siempre oscuros (marca fija, ver más abajo `.wh-navbar`/`.wh-footer`/
-   `.dropdown-menu-dark`) - decidido así sobre todo porque el aviso teal de
-   "entorno de preproducción" (`.wh-navbar-prepro`) solo funciona si el texto
-   de la barra es siempre claro; si la barra cambiase de color con el tema,
-   ese aviso se volvería ilegible en modo claro. */
+   La barra de navegación, sus desplegables y el pie de página SÍ cambian
+   con el tema (siguen las mismas variables). La única excepción es la
+   banda de "entorno de preproducción" (`.wh-navbar-prepro`): se queda fija
+   en su teal oscuro con texto claro en los dos temas a propósito - todo su
+   sentido es ser inconfundible, así que no debe camuflarse solo porque
+   alguien eligió "Modo claro" (ver el bloque `.wh-navbar-prepro` más abajo,
+   con selectores sobre-cualificados para ganar siempre a la regla general). */
 [data-theme="light"] {
   --wh-bg:          #f7f2e4;
   --wh-bg-card:     #fffdf8;
@@ -80,19 +81,16 @@ a { color: var(--wh-gold); }
 a:hover { color: var(--wh-gold-light); }
 
 /* ---- Navbar ---- */
-/* Fixed dark chrome, deliberately NOT theme-variable-driven (see the
-   comment on [data-theme="light"] above) - same literal colors the shared
-   vars resolve to in dark mode today, just pinned so they never flip. */
 .wh-navbar {
   background: linear-gradient(180deg, #080604 0%, #151008 100%);
-  border-bottom: 2px solid #9a7422;
+  border-bottom: 2px solid var(--wh-gold-dark);
   padding: 0.4rem 1rem;
 }
 
 .wh-brand {
   font-family: 'Cinzel', serif;
   font-size: 1.2rem;
-  color: #f2cc50 !important;
+  color: var(--wh-gold-light) !important;
   font-weight: 700;
   letter-spacing: 1px;
 }
@@ -104,6 +102,17 @@ a:hover { color: var(--wh-gold-light); }
   background: linear-gradient(180deg, #041a1f 0%, #0a2b33 100%) !important;
   border-bottom: 2px solid #2ab0c9 !important;
 }
+/* Its text stays fixed light-on-teal in BOTH app themes (unlike the rest of
+   the navbar below, which now follows the light/dark toggle) - the whole
+   point of this banner is to be unmistakable, so it doesn't get to look
+   different just because someone picked "Modo claro". Selectors are
+   over-qualified (chained classes) on purpose so this wins regardless of
+   source order against the general `.navbar-nav .nav-link` rule and its
+   `[data-theme="light"]` override below, both equally `!important`. */
+.wh-navbar.wh-navbar-prepro .navbar-nav .nav-link { color: #ede0c4 !important; }
+.wh-navbar.wh-navbar-prepro .wh-brand { color: #f2cc50 !important; }
+.wh-navbar.wh-navbar-prepro .navbar-nav .nav-link:hover,
+.wh-navbar.wh-navbar-prepro .navbar-nav .nav-link.active { color: #f2cc50 !important; }
 .wh-env-banner {
   background: #ffb020;
   color: #1a1200;
@@ -118,7 +127,7 @@ a:hover { color: var(--wh-gold-light); }
 }
 
 .navbar-nav .nav-link {
-  color: #ede0c4 !important;
+  color: var(--wh-text) !important;
   font-family: 'Cinzel', serif;
   font-size: 0.85rem;
   letter-spacing: 0.5px;
@@ -128,7 +137,7 @@ a:hover { color: var(--wh-gold-light); }
 
 .navbar-nav .nav-link:hover,
 .navbar-nav .nav-link.active {
-  color: #f2cc50 !important;
+  color: var(--wh-gold-light) !important;
 }
 
 /* ---- Cards ---- */
@@ -403,15 +412,11 @@ a:hover { color: var(--wh-gold-light); }
 
 .wh-alert { background: var(--wh-bg-card); border-color: var(--wh-gold-dark); color: var(--wh-text); }
 
-/* Fixed dark chrome, same reasoning as .wh-navbar above - includes its own
-   .text-muted override since the generic rule below is theme-variable-driven
-   and would otherwise turn the copyright line unreadable on this dark bar. */
 .wh-footer {
-  background: #0a0806;
-  border-top: 1px solid #5e4418;
+  background: var(--wh-bg);
+  border-top: 1px solid var(--wh-border-gold);
   margin-top: auto;
 }
-.wh-footer .text-muted { color: #c0964a !important; }
 
 /* ---- Profession images ---- */
 .wh-card-img {
@@ -922,27 +927,13 @@ mark { background: rgba(212, 168, 48, .28); color: var(--wh-gold-light); padding
    especificidad que su equivalente en modo oscuro (por el selector de
    atributo `[data-theme="light"]`), así que gana sin tocar nada de arriba. */
 
-/* Dropdowns colgados de la barra de navegación (siempre oscura, ver arriba)
-   se quedan fijos en oscuro independientemente del tema - los dos
-   desplegables que SÍ viven en el contenido (Habilidades/Talentos) no
-   llevan la clase `dropdown-menu-dark` y por tanto sí seleccionan tema con
-   las reglas normales de `.dropdown-menu`/`.dropdown-item` de más arriba. */
-.dropdown-menu-dark {
-  background-color: #1a1510;
-  border-color: #5e4418;
-}
-.dropdown-menu-dark .dropdown-item { color: #ede0c4; }
-.dropdown-menu-dark .dropdown-item:hover,
-.dropdown-menu-dark .dropdown-item:focus { background-color: #252018; color: #f2cc50; }
-.dropdown-menu-dark .dropdown-divider { border-color: #5e4418; }
-.dropdown-menu-dark .dropdown-header { color: #c0964a; }
-
 /* Selector de tema en el menú de usuario: el check solo se muestra en la
    opción activa (clase alternada por JS, ver main.js). */
 .wh-theme-check { visibility: hidden; }
 .wh-theme-option.wh-theme-active .wh-theme-check { visibility: visible; }
 
 /* Superficies con fondo propio (no cubiertas por las variables) */
+[data-theme="light"] .wh-navbar { background: linear-gradient(180deg, #fffaf0 0%, #f0e2b8 100%); }
 [data-theme="light"] .wh-card-header { background: linear-gradient(90deg, #f0e6c0 0%, var(--wh-bg-card) 100%); }
 [data-theme="light"] .wh-input,
 [data-theme="light"] .wh-input.form-control,
@@ -961,56 +952,62 @@ mark { background: rgba(212, 168, 48, .28); color: var(--wh-gold-light); padding
 
 /* Insignias de habilidades/talentos/enseres/profesión por tipo - cada una
    mantiene su matiz (verde/azul/ámbar/magenta/oliva/morado) pero invertida
-   en luminancia para leerse sobre fondo claro. */
-[data-theme="light"] .wh-badge-skill        { background: #e3f5e6; border-color: #4a9a55; color: #1f5c28; }
-[data-theme="light"] .wh-badge-skill-opt    { background: #e0eef7; border-color: #3a72a0; color: #1a4a6e; }
-[data-theme="light"] .wh-badge-talent       { background: #f7ecd8; border-color: #a07830; color: #6b4c10; }
-[data-theme="light"] .wh-badge-talent-opt   { background: #f7e0ec; border-color: #a03068; color: #7a1a48; }
-[data-theme="light"] .wh-badge-trapping     { background: #f0eed0; border-color: #8a8440; color: #5c5820; }
-[data-theme="light"] .wh-badge-prof         { background: #ece0f7; border-color: #7a3ca0; color: #4a1a70; }
+   en luminancia para leerse sobre fondo claro. El BORDE es lo que más
+   trabajo hace para que la insignia "salte a la vista" igual que en modo
+   oscuro, así que va bastante más saturado que el típico tono pastel
+   apagado - un borde demasiado suave es justo lo que se veía apagado en
+   la primera versión de este tema. */
+[data-theme="light"] .wh-badge-skill        { background: #d9f5db; border-color: #2fae48; color: #146428; }
+[data-theme="light"] .wh-badge-skill-opt    { background: #d6ecfa; border-color: #2f8fc0; color: #0f4c6e; }
+[data-theme="light"] .wh-badge-talent       { background: #faecc8; border-color: #c08a1a; color: #6b4a00; }
+[data-theme="light"] .wh-badge-talent-opt   { background: #fadcec; border-color: #c0308a; color: #7a1050; }
+[data-theme="light"] .wh-badge-trapping     { background: #f5f0c0; border-color: #a89b1a; color: #5c5410; }
+[data-theme="light"] .wh-badge-prof         { background: #ecdafa; border-color: #8a30c0; color: #4a1080; }
 
-/* Niveles de carga (Fuerza+Resistencia) - mismo criterio: invierte
-   luminancia manteniendo la progresión verde→amarillo→naranja→rojo. Las
-   versiones "badge" (chip sólido) y el desbordamiento de Mochila/Saco se
-   dejan igual en ambos temas a propósito - son chips saturados que ya
-   aportan su propio contraste, sea cual sea el fondo de la página. */
-[data-theme="light"] .wh-carga-sin_carga { background: #dff2df !important; color: #1e4620 !important; border-color: #4a9050 !important; }
-[data-theme="light"] .wh-carga-ligera    { background: #fdf3cd !important; color: #6b5b0e !important; border-color: #c0a020 !important; }
-[data-theme="light"] .wh-carga-media     { background: #fdead0 !important; color: #7a4a12 !important; border-color: #c98a30 !important; }
-[data-theme="light"] .wh-carga-pesada    { background: #f9d8d8 !important; color: #7a1f1f !important; border-color: #c04040 !important; }
+/* Niveles de carga (Fuerza+Resistencia) - misma progresión verde→amarillo→
+   naranja→rojo, con el borde bien saturado (sobre todo "pesada", el nivel
+   de alerta real). Las versiones "badge" (chip sólido) y el desbordamiento
+   de Mochila/Saco se dejan igual en ambos temas a propósito - son chips
+   saturados que ya aportan su propio contraste, sea cual sea el fondo. */
+[data-theme="light"] .wh-carga-sin_carga { background: #d9f2da !important; color: #146428 !important; border-color: #2fae48 !important; }
+[data-theme="light"] .wh-carga-ligera    { background: #fff3c0 !important; color: #6b5b0e !important; border-color: #d9b300 !important; }
+[data-theme="light"] .wh-carga-media     { background: #ffe0b3 !important; color: #7a4a12 !important; border-color: #e08a20 !important; }
+[data-theme="light"] .wh-carga-pesada    { background: #f8d7da !important; color: #842029 !important; border-color: #dc3545 !important; }
 
-[data-theme="light"] .badge-wh-basic    { background: #e0f5e2; border-color: #3a8548; color: #155020; }
-[data-theme="light"] .badge-wh-advanced { background: #f5ecd0; border-color: #8a6010; color: #5c3f00; }
-[data-theme="light"] .wh-badge-prefix   { background: #e0f2e2; border-color: #3a8848; color: #155822; }
+[data-theme="light"] .badge-wh-basic    { background: #d9f5db; border-color: #2fae48; color: #0f5820; }
+[data-theme="light"] .badge-wh-advanced { background: #faecc8; border-color: #c08a1a; color: #5c3f00; }
+[data-theme="light"] .wh-badge-prefix   { background: #d9f5db; border-color: #2fae48; color: #125822; }
 
 /* Insignias Bootstrap (bg-secondary/info/success/warning/danger) */
 [data-theme="light"] .badge.bg-secondary { background-color: #ece0c0 !important; }
-[data-theme="light"] .badge.bg-info      { background-color: #e0f2e2 !important; color: #1a5828 !important; border-color: #4a9858 !important; }
-[data-theme="light"] .badge.bg-success   { background-color: #dcf0dc !important; color: #1a5c28 !important; border-color: #3a8a48 !important; }
-[data-theme="light"] .badge.bg-warning   { background-color: #f7ecd0 !important; color: #7a5010 !important; border-color: #a07830 !important; }
-[data-theme="light"] .badge.bg-danger    { background-color: #f7dcdc !important; color: #8a2020 !important; border-color: #a04040 !important; }
-[data-theme="light"] .badge.bg-warning.text-dark { color: #5c3f00 !important; }
+[data-theme="light"] .badge.bg-info      { background-color: #d9f5db !important; color: #146428 !important; border-color: #2fae48 !important; }
+[data-theme="light"] .badge.bg-success   { background-color: #d1f0d1 !important; color: #146428 !important; border-color: #2fae48 !important; }
+[data-theme="light"] .badge.bg-warning   { background-color: #ffe9b3 !important; color: #6b4400 !important; border-color: #e0a020 !important; }
+[data-theme="light"] .badge.bg-danger    { background-color: #f8d7da !important; color: #842029 !important; border-color: #dc3545 !important; }
+[data-theme="light"] .badge.bg-warning.text-dark { color: #4a3000 !important; }
 
 /* Alertas */
-[data-theme="light"] .alert-warning { color: #6b4a00; background-color: #fdf3d0; border-color: #c0a030; }
-[data-theme="light"] .alert-danger  { color: #8a2020; background-color: #fce0e0; border-color: #c05050; }
-[data-theme="light"] .alert-info    { color: #1a5a5a; background-color: #e0f5f5; border-color: #3a8a8a; }
-[data-theme="light"] .alert-success { color: #1a5c1a; background-color: #e0f5e0; border-color: #3a8a3a; }
+[data-theme="light"] .alert-warning { color: #6b4400; background-color: #ffe9b3; border-color: #e0a020; }
+[data-theme="light"] .alert-danger  { color: #842029; background-color: #f8d7da; border-color: #dc3545; }
+[data-theme="light"] .alert-info    { color: #0f5c5c; background-color: #d0f0f0; border-color: #2f9898; }
+[data-theme="light"] .alert-success { color: #146428; background-color: #d1f0d1; border-color: #2fae48; }
 
-/* Botones outline warning/danger - visibles sobre fondo claro */
-[data-theme="light"] .btn-outline-warning { color: #8a5c10 !important; border-color: #c0982a !important; }
+/* Botones outline warning/danger - el de "Eliminar" en concreto necesita
+   saltar a la vista tanto como en modo oscuro (donde un rojo intenso avisa
+   del riesgo), no un tono lavado apenas perceptible. */
+[data-theme="light"] .btn-outline-warning { color: #8a5c10 !important; border-color: #e0a020 !important; }
 [data-theme="light"] .btn-outline-warning:hover {
-  background-color: #f5ecd0 !important;
+  background-color: #fdf1d0 !important;
   color: var(--wh-gold-light) !important;
   border-color: var(--wh-gold) !important;
 }
-[data-theme="light"] .btn-outline-danger { color: #a03030 !important; border-color: #c07070 !important; }
+[data-theme="light"] .btn-outline-danger { color: #b02a37 !important; border-color: #dc3545 !important; }
 [data-theme="light"] .btn-outline-danger:hover {
-  background-color: #fce8e8 !important;
-  color: #8a2020 !important;
-  border-color: #c05050 !important;
+  background-color: #fbe0e2 !important;
+  color: #842029 !important;
+  border-color: #b02a37 !important;
 }
 
 /* Modificador de característica positivo - verde brillante ilegible sobre
-   fondo claro, se oscurece manteniendo el matiz. */
-[data-theme="light"] .wh-stat-positive { color: #1e8a30 !important; }
+   fondo claro, se oscurece manteniendo el matiz pero sin apagarlo. */
+[data-theme="light"] .wh-stat-positive { color: #158a28 !important; }
