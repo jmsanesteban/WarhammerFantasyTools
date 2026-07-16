@@ -1,11 +1,17 @@
 {% extends 'base.html' %}
 {% from 'equipment/_macros.html' import equipment_card with context %}
-{% block title %}Equipamiento{% if locked_category %} — {{ category_labels[category] }}{% endif %} — Warhammer Fantasy Tools{% endblock %}
+{% block title %}Equipamiento{% if locked_category %} — {{ category_nav_labels.get(category, category_labels[category]) }}{% endif %} — Warhammer Fantasy Tools{% endblock %}
 
 {% block content %}
 <div class="container mt-4">
   <div class="d-flex justify-content-between align-items-center mb-3">
-    <h2 class="wh-heading"><i class="bi bi-shield-shaded me-2"></i>Equipamiento{% if locked_category %} — {{ category_labels[category] }}{% endif %}</h2>
+    <h2 class="wh-heading">
+      {% if locked_category %}
+      <i class="bi {{ category_nav_icons.get(category, 'bi-shield-shaded') }} me-2"></i>Equipamiento — {{ category_nav_labels.get(category, category_labels[category]) }}
+      {% else %}
+      <i class="bi bi-list-ul me-2"></i>Equipamiento
+      {% endif %}
+    </h2>
     {% if current_user.is_authenticated and current_user.has_perm('equipment.edit') %}
     <div class="d-flex gap-2">
       {% if current_user.has_perm('equipment.import') %}

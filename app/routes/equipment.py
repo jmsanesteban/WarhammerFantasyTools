@@ -73,6 +73,8 @@ def _render_catalog(category, locked_category):
         items=items, category=category, subcategory=subcategory, quality=quality,
         search=search, subcategories=subcategories, quality_labels=quality_labels,
         category_labels=EquipmentItem.CATEGORY_LABELS,
+        category_nav_icons=EquipmentItem.CATEGORY_NAV_ICONS,
+        category_nav_labels=EquipmentItem.CATEGORY_NAV_LABELS,
         subcategory_labels=EquipmentItem.SUBCATEGORY_LABELS,
         locked_category=locked_category,
     )

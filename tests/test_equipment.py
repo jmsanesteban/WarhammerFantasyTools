@@ -68,7 +68,35 @@ def test_category_route_shows_only_that_category(client, make_equipment_item):
 
 def test_category_route_header_shows_category_context(client):
     resp = client.get('/equipamiento/armas')
-    assert 'Equipamiento — Arma'.encode('utf-8') in resp.data
+    assert 'Equipamiento — Armas'.encode('utf-8') in resp.data
+
+
+def test_category_route_header_icon_matches_navbar_dropdown(client):
+    """The category page header used to always show a shield icon
+    regardless of category (only coincidentally correct for Armaduras) -
+    each category route must show the same icon as its navbar entry. Checks
+    the icon fused directly onto the header text, not just icon-anywhere-on-
+    page, since the navbar's own category dropdown always renders every
+    icon regardless of which page you're on."""
+    cases = {
+        'armas': ('bi-lightning-fill', 'Armas'), 'armaduras': ('bi-shield-shaded', 'Armaduras'),
+        'municion': ('bi-bullseye', 'Munición'), 'ropa': ('bi-person-badge', 'Ropa'),
+        'libros': ('bi-book', 'Libros'), 'especiales': ('bi-stars', 'Objetos especiales'),
+        'otros': ('bi-box-seam', 'Otros objetos'),
+    }
+    for path, (icon, label) in cases.items():
+        resp = client.get(f'/equipamiento/{path}')
+        header = f'bi {icon} me-2"></i>Equipamiento — {label}'
+        assert header.encode('utf-8') in resp.data, f'{path} should show {header!r}'
+
+
+def test_full_catalog_header_shows_list_icon(client):
+    """Checks the icon fused onto the header text specifically - the navbar's
+    own "Ver todo el catálogo" entry also uses bi-list-ul on every page, so a
+    bare "icon present anywhere" check wouldn't actually prove the header
+    itself uses it."""
+    resp = client.get('/equipamiento/')
+    assert b'bi bi-list-ul me-2"></i>Equipamiento' in resp.data
 
 
 def test_category_route_hides_category_dropdown(client):

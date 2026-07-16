@@ -206,6 +206,18 @@ class EquipmentItem(db.Model):
         'arma': 'Arma', 'armadura': 'Armadura', 'municion': 'Munición', 'ropa': 'Ropa',
         'especial': 'Especial', 'libro': 'Libro', 'otros': 'Otros objetos',
     }
+    # Icon + plural label exactly as they appear in the navbar's Equipamiento
+    # dropdown (base.html) - kept separate from CATEGORY_LABELS (singular,
+    # used by filter dropdowns) so a category's own catalog page can match
+    # what the user just clicked instead of always showing a shield icon.
+    CATEGORY_NAV_ICONS = {
+        'arma': 'bi-lightning-fill', 'armadura': 'bi-shield-shaded', 'municion': 'bi-bullseye',
+        'ropa': 'bi-person-badge', 'libro': 'bi-book', 'especial': 'bi-stars', 'otros': 'bi-box-seam',
+    }
+    CATEGORY_NAV_LABELS = {
+        'arma': 'Armas', 'armadura': 'Armaduras', 'municion': 'Munición', 'ropa': 'Ropa',
+        'libro': 'Libros', 'especial': 'Objetos especiales', 'otros': 'Otros objetos',
+    }
     QUALITY_LABELS = {'mala': 'Mala', 'normal': 'Normal', 'buena': 'Buena', 'excelente': 'Excelente'}
     # Clothing tiers are the same quality scale under the hood, but players
     # refer to them by their book names, not by "mala/buena/...".
