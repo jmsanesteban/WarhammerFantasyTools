@@ -191,3 +191,39 @@ def test_recipe_delete_removes_image_file(app, client, regular_user, admin_user,
     assert not saved_file.exists()
     with app.app_context():
         assert Recipe.query.get(recipe_id) is None
+
+
+def test_recipe_delete_works_on_rejected_recipe(app, client, regular_user, admin_user, login_as):
+    """A rejected recipe drops out of /admin/recetas (pendientes-only), so
+    deletion must not depend on that list - this reproduces the real case
+    the user hit: reject first, then try to delete the same recipe."""
+    recipe_id = _seed_and_propose(app, client, regular_user, login_as, nombre='234etsertdy')
+
+    client.get('/auth/logout')
+    login_as(client, admin_user, 'adminpass123')
+    client.post(f'/admin/recetas/{recipe_id}/rechazar', data={'motivo': ''}, follow_redirects=True)
+    with app.app_context():
+        assert Recipe.query.get(recipe_id).status == 'rechazada'
+
+    resp = client.post(f'/admin/recetas/{recipe_id}/eliminar', data={}, follow_redirects=True)
+    assert resp.status_code == 200
+    with app.app_context():
+        assert Recipe.query.get(recipe_id) is None
+
+
+def test_recipe_detail_shows_delete_button_only_to_admin(app, client, regular_user, admin_user, login_as):
+    recipe_id = _seed_and_propose(app, client, regular_user, login_as, nombre='Gachas ficha borrable')
+
+    client.get('/auth/logout')
+    login_as(client, admin_user, 'adminpass123')
+    client.post(f'/admin/recetas/{recipe_id}/rechazar', data={'motivo': ''}, follow_redirects=True)
+
+    resp = client.get(f'/comida/recetas/{recipe_id}')
+    assert resp.status_code == 200
+    assert f'/admin/recetas/{recipe_id}/eliminar'.encode('utf-8') in resp.data
+
+    client.get('/auth/logout')
+    login_as(client, regular_user, 'userpass123')
+    resp = client.get(f'/comida/recetas/{recipe_id}')
+    assert resp.status_code == 200
+    assert f'/admin/recetas/{recipe_id}/eliminar'.encode('utf-8') not in resp.data

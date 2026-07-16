@@ -86,6 +86,20 @@
   </div>
   {% endif %}
 
+  {% if current_user.is_admin %}
+  <div class="card wh-card mb-3 border-danger">
+    <div class="card-body">
+      <h6>Eliminar receta</h6>
+      <p class="text-muted small mb-2">Borra la receta y su imagen (si tiene) de forma permanente. No se puede deshacer.</p>
+      <form method="POST" action="{{ url_for('admin.recipe_delete', recipe_id=recipe.id) }}"
+            onsubmit="return confirm('¿Eliminar la receta «{{ recipe.nombre }}»? Esta acción no se puede deshacer.')">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <button class="btn btn-outline-danger btn-sm"><i class="bi bi-trash me-1"></i>Eliminar</button>
+      </form>
+    </div>
+  </div>
+  {% endif %}
+
   {% if recipe.precio_compra_peniques is not none %}
   <div class="card wh-card">
     <div class="card-header wh-card-header">
