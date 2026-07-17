@@ -832,15 +832,20 @@ mark { background: rgba(212, 168, 48, .28); color: var(--wh-gold-light); padding
 .alert-info     { color: #80c8c8; background-color: #081818; border-color: #104040; }
 .alert-success  { color: #80cc80; background-color: #081408; border-color: #204020; }
 
-/* Form checks - el color "checked" anterior (--wh-gold-dark, un marrón
-   apagado) apenas se distinguía del cuadro vacío a simple vista, sobre todo
-   en modo claro o dentro de paneles con su propio tinte (p.ej. el panel teal
-   de vínculos) - se cambia a un dorado saturado + el propio tick en trazo
-   oscuro (en vez de depender del SVG por defecto de Bootstrap) para que el
-   cambio de estado sea inequívoco en los dos temas. */
+/* Form checks - "checked" necesita un relleno que se vea inequívoco en los
+   dos temas. --wh-gold NO sirve para esto: es la variable de texto/enlaces,
+   deliberadamente oscura en modo claro para leerse bien sobre fondo claro -
+   como relleno sólido de fondo eso la deja apagada justo en el tema donde
+   más hacía falta contraste (bug real: un intento anterior de arreglar este
+   mismo problema usó --wh-gold y solo mejoró el modo oscuro). --wh-gold-dark
+   sí funciona en los dos: es la misma variable que ya usa con éxito
+   .wh-filter-btn.active (profesiones/form.html) en ambos modos, precisamente
+   porque es un tono medio pensado para funcionar como relleno, no como texto.
+   El tick va en trazo oscuro explícito (no el SVG por defecto de Bootstrap)
+   para no depender de que el relleno sea claro u oscuro. */
 .form-check-input { background-color: #120f08; border-color: var(--wh-border-gold); }
 .form-check-input:checked {
-  background-color: var(--wh-gold);
+  background-color: var(--wh-gold-dark);
   border-color: var(--wh-gold-light);
   background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20' fill='none' stroke='%23120f08' stroke-linecap='round' stroke-linejoin='round' stroke-width='3'%3e%3cpath d='M6 10l3 3l6-6'/%3e%3c/svg%3e");
 }
