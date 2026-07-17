@@ -565,6 +565,115 @@ def test_contacts_full_import_warns_on_missing_character(app, db):
 
 # ── Backup completo ──────────────────────────────────────────────────────────
 
+# ── Ingredientes ─────────────────────────────────────────────────────────────
+
+def test_ingredients_round_trip_with_compatibility(app, db):
+    with app.app_context():
+        from app.models.food import CookingMethod, Ingredient, IngredientCookingMethod
+
+        method = CookingMethod(nombre='Guisado zzb', duracion_dias=1, complejidad_base=1,
+                               ingredientes_permitidos=2, condimentos_permitidos=1)
+        ing = Ingredient(nombre='Zanahoria zzb', vigor=2, moral=1, coste_docena=5, descripcion='Fresca')
+        db.session.add_all([method, ing])
+        db.session.commit()
+        db.session.add(IngredientCookingMethod(ingredient_id=ing.id, cooking_method_id=method.id, estado='si'))
+        db.session.commit()
+
+        data = bkp.export_ingredients()
+        row = next(r for r in data if r['nombre'] == 'Zanahoria zzb')
+        assert row['vigor'] == 2
+        assert row['moral'] == 1
+        assert row['coste_docena'] == 5
+        assert row['descripcion'] == 'Fresca'
+        assert row['compatibilidad'] == [{'metodo': 'Guisado zzb', 'estado': 'si'}]
+
+        Ingredient.query.filter_by(nombre='Zanahoria zzb').delete()
+        db.session.commit()
+
+        summary = bkp.import_ingredients(data)
+        assert summary['created'] >= 1
+        restored = Ingredient.query.filter_by(nombre='Zanahoria zzb').first()
+        assert restored.vigor == 2
+        assert restored.descripcion == 'Fresca'
+        compat = IngredientCookingMethod.query.filter_by(ingredient_id=restored.id).first()
+        assert compat.estado == 'si'
+        assert compat.cooking_method.nombre == 'Guisado zzb'
+
+
+def test_ingredients_update_mode_overwrites_compatibility(app, db):
+    with app.app_context():
+        from app.models.food import CookingMethod, Ingredient, IngredientCookingMethod
+
+        method = CookingMethod(nombre='Asar zzb', duracion_dias=1, complejidad_base=1,
+                               ingredientes_permitidos=1, condimentos_permitidos=0)
+        ing = Ingredient(nombre='Sal zzb', vigor=0, coste_docena=1)
+        db.session.add_all([method, ing])
+        db.session.commit()
+        db.session.add(IngredientCookingMethod(ingredient_id=ing.id, cooking_method_id=method.id, estado='no'))
+        db.session.commit()
+
+        data = [{
+            'nombre': 'Sal zzb', 'vigor': 0, 'moral': 0, 'coste_docena': 3, 'descripcion': None,
+            'compatibilidad': [{'metodo': 'Asar zzb', 'estado': 'condimento'}],
+        }]
+        summary = bkp.import_ingredients(data, mode='update')
+        assert summary['updated'] == 1
+        restored = Ingredient.query.filter_by(nombre='Sal zzb').first()
+        assert restored.coste_docena == 3
+        compat = IngredientCookingMethod.query.filter_by(ingredient_id=restored.id).first()
+        assert compat.estado == 'condimento'
+
+
+def test_ingredients_import_warns_on_missing_cooking_method(app, db):
+    with app.app_context():
+        from app.models.food import Ingredient
+        data = [{'nombre': 'Ingrediente huerfano zzb', 'vigor': 0, 'moral': 0, 'coste_docena': 0,
+                 'descripcion': None, 'compatibilidad': [{'metodo': 'No existe', 'estado': 'si'}]}]
+        summary = bkp.import_ingredients(data)
+        assert summary['created'] == 1
+        assert any('No existe' in w for w in summary['warnings'])
+        assert Ingredient.query.filter_by(nombre='Ingrediente huerfano zzb').first() is not None
+
+
+# ── Bebidas ──────────────────────────────────────────────────────────────────
+
+def test_drinks_round_trip(app, db):
+    with app.app_context():
+        from app.models.food import Drink
+
+        db.session.add(Drink(nombre='Cerveza zzb', origen='Imperio', calidad='Normal',
+                             precio_taberna_peniques=4, notas='Barata'))
+        db.session.commit()
+
+        data = bkp.export_drinks()
+        row = next(r for r in data if r['nombre'] == 'Cerveza zzb')
+        assert row['origen'] == 'Imperio'
+        assert row['calidad'] == 'Normal'
+        assert row['precio_taberna_peniques'] == 4
+        assert row['notas'] == 'Barata'
+
+        Drink.query.filter_by(nombre='Cerveza zzb').delete()
+        db.session.commit()
+
+        summary = bkp.import_drinks(data)
+        assert summary['created'] >= 1
+        restored = Drink.query.filter_by(nombre='Cerveza zzb').first()
+        assert restored.origen == 'Imperio'
+        assert restored.precio_taberna_peniques == 4
+
+
+def test_drinks_import_skip_mode_does_not_duplicate(app, db):
+    with app.app_context():
+        from app.models.food import Drink
+        db.session.add(Drink(nombre='Vino zzb', origen='Bretonia'))
+        db.session.commit()
+
+        data = bkp.export_drinks()
+        summary = bkp.import_drinks(data)
+        assert summary['skipped'] >= 1
+        assert Drink.query.filter_by(nombre='Vino zzb', origen='Bretonia').count() == 1
+
+
 # ── Recetas ──────────────────────────────────────────────────────────────────
 
 def test_recipes_round_trip(app, db, make_user):
@@ -766,6 +875,8 @@ def test_full_backup_round_trip(app, db, make_user, make_character, make_profess
         assert data['version'] == bkp.BACKUP_VERSION
         assert 'exported_at' in data
         assert 'recipes' in data
+        assert 'ingredients' in data
+        assert 'drinks' in data
         assert any(u['username'] == 'zz_full_backup_user' for u in data['users'])
         assert any(p['name'] == 'Soldado' for p in data['professions'])
         assert any(c['name'] == 'Grimm' for c in data['characters'])
@@ -777,6 +888,8 @@ def test_full_backup_round_trip(app, db, make_user, make_character, make_profess
 
         summary = bkp.import_full_backup(data)
         assert 'recipes' in summary
+        assert 'ingredients' in summary
+        assert 'drinks' in summary
         assert summary['users']['created'] >= 1
         assert summary['professions']['created'] >= 1
         assert summary['characters']['created'] >= 1

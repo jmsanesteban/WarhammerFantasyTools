@@ -39,13 +39,18 @@ is purely informational) - the financial/ownership facts themselves are
 preserved regardless.
 
 Dependency order for a full restore: permission_templates -> users ->
-professions -> equipment -> recipes -> characters -> contacts. Habilidades/
-Talentos are NOT part of this module (they already have their own import at
-app/services/import_service.py) and must be restored first if starting from
-an empty database, since professions/characters reference them by name.
-Comida y bebida's catalog (métodos de cocina, ingredientes, bebidas) is
-seeded idempotently at container startup (`food_seed_service`), not part of
-this module - only user-facing Recetas are backed up here.
+professions -> equipment -> ingredients -> drinks -> recipes -> characters ->
+contacts. Habilidades/Talentos are NOT part of this module (they already
+have their own import at app/services/import_service.py) and must be
+restored first if starting from an empty database, since professions/
+characters reference them by name.
+Comida y bebida: ingredientes (+ su matriz de compatibilidad por método de
+cocina), bebidas y recetas se respaldan aquí porque los ingredientes ya se
+editan en caliente desde el admin (ver app/routes/admin.py, CRUD de
+ingredientes). Los métodos de cocina siguen siendo un catálogo fijo sin CRUD
+propio - se siembran idempotentemente al arrancar el contenedor
+(`food_seed_service`) y solo se referencian aquí por nombre, nunca se
+exportan/importan como sección propia.
 """
 import base64
 import os
@@ -69,7 +74,7 @@ from app.models.equipment import EquipmentItem, CharacterInventoryItem, Characte
 from app.models.contact import Contact, ContactProfession
 from app.models.contact_character_link import ContactCharacterLink
 from app.models.contact_note import ContactNote
-from app.models.food import Recipe, CookingMethod, Ingredient, Drink
+from app.models.food import Recipe, CookingMethod, Ingredient, IngredientCookingMethod, Drink
 
 BACKUP_VERSION = 1
 
@@ -821,13 +826,113 @@ def import_contacts_full(data, mode='skip'):
 
 
 # ---------------------------------------------------------------------------
-# Comida y bebida: solo Recetas (Fase 2, propuestas de usuarios). El resto
-# del catálogo (métodos de cocina, ingredientes, bebidas) se siembra solo,
-# de forma idempotente, en el arranque de la app (food_seed_service) - no
-# hace falta respaldarlo. Las recetas del libro también se resiembran, pero
-# se incluyen aquí de todos modos para no perder ediciones manuales sobre
-# ellas ni depender implícitamente de que la siembra ya haya corrido.
+# Comida y bebida: Ingredientes (con su matriz de compatibilidad por método
+# de cocina), Bebidas y Recetas. Los métodos de cocina no tienen CRUD propio
+# y siguen sembrándose solo, de forma idempotente, en el arranque de la app
+# (food_seed_service) - no hace falta respaldarlos, solo se referencian por
+# nombre desde aquí.
 # ---------------------------------------------------------------------------
+
+def export_ingredients():
+    result = []
+    for ing in Ingredient.query.order_by(Ingredient.nombre).all():
+        result.append({
+            'nombre': ing.nombre, 'vigor': ing.vigor, 'moral': ing.moral,
+            'coste_docena': ing.coste_docena, 'descripcion': ing.descripcion,
+            'compatibilidad': [
+                {'metodo': c.cooking_method.nombre, 'estado': c.estado} for c in ing.compatibilidades
+            ],
+        })
+    return result
+
+
+def import_ingredients(data, mode='skip'):
+    summary = _new_summary()
+    for row in data:
+        existing = Ingredient.query.filter_by(nombre=row['nombre']).first()
+        if existing and mode != 'update':
+            summary['skipped'] += 1
+            continue
+
+        if existing:
+            ingredient = existing
+            summary['updated'] += 1
+        else:
+            ingredient = Ingredient(nombre=row['nombre'])
+            db.session.add(ingredient)
+            summary['created'] += 1
+
+        ingredient.vigor = row.get('vigor', 0)
+        ingredient.moral = row.get('moral', 0)
+        ingredient.coste_docena = row.get('coste_docena', 0)
+        ingredient.descripcion = row.get('descripcion')
+        db.session.flush()
+
+        existing_compat = {c.cooking_method_id: c for c in
+                            IngredientCookingMethod.query.filter_by(ingredient_id=ingredient.id).all()}
+        for c in row.get('compatibilidad', []):
+            method = CookingMethod.query.filter_by(nombre=c['metodo']).first()
+            if method is None:
+                summary['warnings'].append(
+                    f"Ingrediente '{row['nombre']}': método de cocina '{c['metodo']}' no existe, omitido."
+                )
+                continue
+            compat_row = existing_compat.get(method.id)
+            if compat_row:
+                compat_row.estado = c['estado']
+            else:
+                db.session.add(IngredientCookingMethod(
+                    ingredient_id=ingredient.id, cooking_method_id=method.id, estado=c['estado'],
+                ))
+
+    db.session.commit()
+    return summary
+
+
+# ---------------------------------------------------------------------------
+# Comida y bebida: Bebidas (catálogo cerrado, sin CRUD propio en el admin,
+# pero incluido aquí igualmente para que una restauración desde cero no
+# dependa únicamente de que food_seed_service ya haya corrido).
+# ---------------------------------------------------------------------------
+
+_DRINK_SCALAR_FIELDS = (
+    'origen', 'disponibilidad', 'calidad', 'sabor', 'sabor_variante',
+    'ui_texto', 'recipiente', 'precio_taberna_peniques', 'por_mayor_pct', 'notas',
+)
+
+
+def export_drinks():
+    result = []
+    for d in Drink.query.order_by(Drink.origen, Drink.nombre).all():
+        row = {field: getattr(d, field) for field in _DRINK_SCALAR_FIELDS}
+        row['nombre'] = d.nombre
+        result.append(row)
+    return result
+
+
+def import_drinks(data, mode='skip'):
+    summary = _new_summary()
+    for row in data:
+        existing = Drink.query.filter_by(nombre=row['nombre'], origen=row.get('origen')).first()
+        if existing and mode != 'update':
+            summary['skipped'] += 1
+            continue
+
+        if existing:
+            drink = existing
+            summary['updated'] += 1
+        else:
+            drink = Drink(nombre=row['nombre'])
+            db.session.add(drink)
+            summary['created'] += 1
+
+        for field in _DRINK_SCALAR_FIELDS:
+            if field in row:
+                setattr(drink, field, row[field])
+
+    db.session.commit()
+    return summary
+
 
 _RECIPE_SCALAR_FIELDS = (
     'vigor', 'moral', 'calidad', 'duracion_dias', 'recalentar',
@@ -982,6 +1087,8 @@ BACKUP_SECTIONS = [
     ('users', 'Usuarios', export_users),
     ('professions', 'Profesiones', export_professions),
     ('equipment', 'Equipamiento', export_equipment),
+    ('ingredients', 'Ingredientes', export_ingredients),
+    ('drinks', 'Bebidas', export_drinks),
     ('recipes', 'Recetas', export_recipes),
     ('shop_markup', 'Recargo de precios', export_shop_markup),
     ('characters', 'Personajes', export_characters),
@@ -990,7 +1097,7 @@ BACKUP_SECTIONS = [
 
 
 def export_full_backup(sections=None):
-    """`sections=None` (o todas) exporta las nueve secciones - el "backup
+    """`sections=None` (o todas) exporta las once secciones - el "backup
     total" de siempre. Si se pide un subconjunto, las claves no incluidas
     no aparecen en absoluto en el resultado (no listas vacías) - el nuevo
     campo `secciones` deja sin ambigüedad qué trae el fichero, tanto para un
@@ -1014,6 +1121,8 @@ def import_full_backup(data, mode='skip'):
         'users': import_users(data.get('users', []), mode),
         'professions': import_professions(data.get('professions', []), mode),
         'equipment': import_equipment(data.get('equipment', []), mode),
+        'ingredients': import_ingredients(data.get('ingredients', []), mode),
+        'drinks': import_drinks(data.get('drinks', []), mode),
         'recipes': import_recipes(data.get('recipes', []), mode),
         'shop_markup': import_shop_markup(data.get('shop_markup'), mode),
         'characters': import_characters(data.get('characters', []), mode),
