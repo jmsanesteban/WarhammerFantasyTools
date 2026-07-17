@@ -966,7 +966,12 @@ mark { background: rgba(212, 168, 48, .28); color: var(--wh-gold-light); padding
 [data-theme="light"] .wh-stat-table th { background: #ecdfb8; }
 [data-theme="light"] .wh-accordion-btn { background: #f0e6c0; }
 [data-theme="light"] .wh-accordion-btn:not(.collapsed) { background: #e3d0a0; }
-[data-theme="light"] .form-check-input { background-color: #ffffff; }
+/* :not(:checked) - sin esto, esta regla empata en especificidad con
+   .form-check-input:checked y gana por ir después en el fichero, anulando
+   silenciosamente el relleno "checked" en modo claro (bug real, detectado
+   por el usuario con capturas: el relleno seguía sin verse pese al fix
+   anterior). */
+[data-theme="light"] .form-check-input:not(:checked) { background-color: #ffffff; }
 
 /* .btn-wh (botón "primario": Ver, Generador de personaje, Nueva...) - la
    versión oscura es un bronce apagado con texto casi negro; sin retocarlo,
