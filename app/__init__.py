@@ -380,15 +380,17 @@ def _register_cli_commands(app):
                     click.echo('  Dropped legacy-shape contact_notes (recreating with character_id)')
                 db.create_all()
 
-            # Incremental columns: contacts.estado/paradero/grados_untersuchung/image_path
-            # ("vivo" boolean replaced by "estado" (vivo/muerto/corrompido) +
-            # "paradero" (encarcelado/exiliado/secuestrado/desaparecido/
-            # paradero_desconocido) - a plain alive/dead flag couldn't express
-            # e.g. "vivo pero desaparecido", which is a real, distinct case.
+            # Incremental columns: contacts.estado/grados_untersuchung/image_path
+            # ("vivo" boolean replaced by "estado", originally vivo/muerto/
+            # corrompido + a "paradero" side column - paradero is NOT listed
+            # here on purpose (2026-07-17): it was folded into estado's 3
+            # values by the migrate-contacts-rework cleanup and then DROPped;
+            # re-adding it here on every boot would silently resurrect a
+            # column the cleanup deliberately removed, exactly the bug this
+            # comment is warning against re-introducing.
             contact_cols_2 = {c['name'] for c in inspector.get_columns('contacts')}
             contact_new_columns = [
                 ('estado', "VARCHAR(20) NOT NULL DEFAULT 'vivo'"),
-                ('paradero', 'VARCHAR(30) NULL'),
                 ('grados_untersuchung', 'JSON NULL'),
                 ('image_path', 'VARCHAR(300) NULL'),
             ]
