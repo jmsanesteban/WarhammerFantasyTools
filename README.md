@@ -30,7 +30,7 @@ Aplicación web para gestionar profesiones, habilidades, talentos y personajes d
 | **Buscador de caminos** | Encuentra hasta 5 rutas entre dos profesiones mostrando características acumuladas, habilidades y enseres necesarios en cada paso; todos los pasos de una ruta pueden verse simultáneamente. Admite **puntos intermedios** obligatorios (p. ej. Sicario → Asesino → Tirador): cada tramo se busca reutilizando las salidas de **cualquier** profesión ya visitada en la ruta, no solo la parada inmediatamente anterior, y la interfaz marca cuándo un tramo continúa desde una parada anterior en vez de la última. Cada profesión del camino enlaza directamente a su ficha |
 | **Habilidades y Talentos** | Catálogo completo con buscador avanzado (nombre / todos los campos); importación y exportación en texto, CSV y Excel; filtros por tipo (Básica / Avanzada) y por característica asociada; cada entrada muestra qué profesiones la otorgan. **Buscador con autocompletado** (menú Profesiones → Buscar por habilidad/talento) para saltar directo a esa ficha |
 | **Personajes** | Creación rápida (manual) o mediante el **Generador de Personaje**: asistente con tiradas guiadas (raza, profesión, características, trasfondo completo) siguiendo las reglas caseras de creación de personajes jugadores. Carrera profesional con múltiples profesiones en orden |
-| **Contactos** | Agenda de NPCs con datos globales (nombre, profesiones del catálogo, Untersuchung + grado, estado — vivo/muerto/corrompido — y paradero, foto) y datos por personaje (apodos, nivel de relación, salario, notas privadas), visibilidad por contacto/personaje, e importación/exportación Excel. Módulo integrado a partir del proyecto independiente [ContactosWH](https://github.com/jmsanesteban/ContactosWH) (ahora archivado, ver nota histórica en su README) |
+| **Contactos** | Agenda de NPCs (crear/editar es admin-only) con datos globales (nombre, raza —desplegable guiado—, profesiones del catálogo, Untersuchung + grado con tiers Agente/Adjunto, estado, foto, visibilidad total/oculto) y datos por personaje (apodos, nivel de relación con etiqueta, tipo de relación, salario, notas privadas) sobre el **personaje activo** de cada usuario; importación/exportación Excel. Módulo integrado a partir del proyecto independiente [ContactosWH](https://github.com/jmsanesteban/ContactosWH) (ahora archivado, ver nota histórica en su README) |
 | **Sistema de permisos** | Control granular por función: plantillas de permisos reutilizables + asignaciones directas por usuario; los administradores tienen acceso total |
 | **Backup y recuperación** | Exportar/importar en JSON Profesiones, Usuarios, Equipamiento, Recetas propuestas, Recargo de precios, Personajes (incluido su inventario —equipo y comida/bebida—, historial de compras y dinero concedido) y Contactos+Vínculos (incluidas sus notas privadas), Plantillas de permisos y Sinónimos (además del "Backup completo" que hace las nueve a la vez); pensado para poder levantar una instancia nueva desde cero sin perder ningún dato real (salvo las contraseñas, que se regeneran forzando el cambio en el primer login) |
 | **Comida y bebida** | Catálogo de bebidas por nación y de recetas (vigor/moral/coste/duración/complejidad), con **compra directa** vinculada a un personaje desde el propio menú (descuenta el dinero del banco y lo manda a su inventario, igual que el equipo); tablas de referencia de ingredientes y métodos de cocina; página de normas de intoxicación y de vigor/moral diario; cualquier usuario puede proponer una receta nueva (cálculo automático de sus valores), que queda pendiente hasta que un administrador la revisa y aprueba; un administrador puede activar un **recargo global (%)** sobre estas compras |
@@ -583,12 +583,9 @@ pytest --cov=app --cov-report=term-missing
 
 Inicia sesión con las credenciales de administrador y accede desde el menú **Admin → Panel**. El menú desplegable "Admin" del navbar tiene los accesos directos más habituales; el **Panel** en sí es el punto central que reúne *todo* lo administrable de la aplicación (estadísticas + una tarjeta por área: habilidades, talentos, importar PDF, profesiones, usuarios, contactos, vínculos, personajes, plantillas de permisos, diccionario de sinónimos, comida y bebida), para no depender de recordar en qué desplegable vive cada cosa. **Cada tarjeta incluye Exportar e Importar cuando esa sección los tiene** (aunque también vivan en el menú propio de esa sección) — nada obliga a salir del Panel para hacer un backup puntual de algo.
 
-#### Vínculos (`/admin/vinculos`)
+#### Vínculos (`/contactos/vinculos`)
 
-Directorio de solo lectura con **todas** las relaciones contacto↔personaje: contacto, personaje, **usuario propietario del personaje**, nivel de visibilidad concedido (Total/Parcial/Sin concesión), nivel de relación y número de notas. Busca por nombre de contacto, de personaje o de usuario. Desde cada fila puedes:
-- **Ver contacto** — abre la ficha del contacto ya filtrada como ese personaje concreto (ahí están el vínculo completo, el salario y las notas).
-- **Editar personaje** — va directo a la edición rápida de ese personaje.
-- **Notas** — el número ya no es un simple contador: al pulsarlo se despliega el contenido real de las notas personales de ese personaje sobre el contacto, con un formulario para añadir una nueva sin salir de la tabla.
+Ya no es admin-only (ver [Gestionar Contactos](#gestionar-contactos)) — para un administrador muestra siempre **todas** las relaciones contacto↔personaje: contacto, personaje, tipo de relación, nivel de relación y número de notas (recuento, no contenido). Busca por nombre de contacto o de personaje. Desde cada fila: **Ver ficha** abre la ficha del contacto ya filtrada como ese personaje concreto (ahí están el vínculo completo, el salario y las notas).
 
 #### Comida y bebida (`/admin/comida`)
 
@@ -1016,20 +1013,20 @@ Desde la ficha del personaje puedes ver las estadísticas de cada profesión en 
 
 ### Gestionar Contactos
 
-Ve a **Contactos** en el menú principal. Un contacto (NPC) tiene datos **globales** (nombre, foto, profesiones del catálogo, si pertenece a la Untersuchung y su(s) grado(s), estado y paradero) y datos **por personaje** — cada personaje ve y edita solo su propio vínculo, nunca el de otro personaje, aunque sean del mismo usuario.
+Ve a **Contactos** en el menú principal. Un contacto (NPC) tiene datos **globales** (nombre, raza, foto, profesiones del catálogo, si pertenece a la Untersuchung y su(s) grado(s), estado, lugares de descanso/trabajo/ocio, notas del director — solo admin) y datos **por personaje** (nivel de relación, tipo de relación, apodos, salario, notas privadas) sobre el vínculo con el **personaje activo** del usuario — cada personaje ve y edita solo su propio vínculo, nunca el de otro, aunque sean del mismo usuario.
 
-- **Estado y Paradero**: son dos preguntas distintas. **Estado** — Vivo / Muerto / Corrompido — es si el personaje sigue con vida o no ("Asesinado" no es un estado aparte, es la causa de "Muerto" y se anota en las notas si importa para una trama). **Paradero** — Encarcelado / Exiliado / Secuestrado / Desaparecido / Paradero desconocido — solo tiene sentido mientras el contacto sigue Vivo (un personaje puede estar vivo pero desaparecido, que no es lo mismo que "paradero desconocido" sin más); se guarda `null` automáticamente si el estado deja de ser Vivo. Se muestran como insignias de color en el listado y en la ficha.
-- **Visibilidad por personaje**: un personaje solo ve los contactos para los que tiene un permiso concedido — **Total** (ve todos los campos globales, incluidas las profesiones) o **Parcial** (ve la ficha, pero sin las profesiones). Sin permiso, el contacto no aparece ni en el listado ni en la ficha, aunque exista. El personaje que **crea** un contacto obtiene automáticamente permiso Total sobre él; para el resto, un administrador concede el nivel que corresponda desde la ficha del contacto ("Visibilidad por personaje", solo-admin) — la tabla admite cambiar el nivel de varios personajes a la vez y guardarlo todo con un único botón "Guardar cambios". Para ver de un vistazo qué personajes tienen acceso a cada contacto sin entrar en cada ficha, **Admin → Vínculos** incluye una columna "Personajes con acceso" con todos los que tienen algún permiso concedido (no solo el que lo registró).
-- El interruptor **Visible** (solo-admin, en Editar contacto) sigue existiendo como apagado general: si está desmarcado, oculta el contacto a todos los no-admin sin importar los permisos concedidos.
-- **Cualquier personaje puede registrar un contacto nuevo** desde **+ Nuevo contacto**: rellena los datos globales y, en el mismo formulario, su propio vínculo (apodo(s), nivel de relación de -5 a 5, organización/secta si no es la Untersuchung, lugar de residencia, lugar de contacto, GM y misión en la que se conoció, y si viene de la creación del personaje). Un administrador puede además crear un contacto **sin** vincularlo a ningún personaje todavía, para repartir la visibilidad después.
-- Si el usuario tiene varios personajes, un selector **"Ver como"** en el listado y en la ficha cambia qué vínculo se muestra/edita.
-- **Untersuchung**: si el contacto pertenece a esta organización secreta, ese dato (y su(s) **grado(s)**, hasta 3 a la vez — Escudo/Estilete/Gato/Brújula/Pluma/Corona/Carro/Paloma para agentes "con marca", Bazas/Contactos para colaboradores externos "sin marca") **solo se muestra si el personaje activo también es miembro** (marcado en su ficha) — un personaje no-miembro no lo ve, aunque el admin sí lo ve siempre. Es un eje de visibilidad independiente del permiso Total/Parcial. El selector de grado(s) está siempre disponible (no hace falta marcar "Untersuchung" primero, ya que Bazas/Contactos aplican precisamente a quien no es miembro); elegir cualquiera de los 8 grados "con marca" marca automáticamente al contacto como miembro y muestra la imagen de esa marca junto al selector y en la ficha. Son 3 desplegables independientes (Marca 1/2/3), no una lista múltiple — se puede repetir el mismo grado en dos marcas (representa veteranía: "Gato x2" en vez de "Gato, Gato", con la imagen de la marca mostrada dos veces). Los **Personajes** tienen el mismo selector de grado(s) en su ficha de edición, con el mismo automatismo — un personaje jugador puede ser él mismo agente de la Untersuchung.
-- **Salario**: si el contacto tiene una profesión, puedes elegir manualmente un tipo de sueldo (Obreros/Sirvientes/Artesanos/Profesionales/Especialistas/Artistas o ilegal 1-3) y un estado de habilidad (Mala/Normal/Buena/Excelente) de la tabla de referencia — no se calcula a partir de ninguna habilidad real. La misma tabla está disponible al asignar profesiones a tus propios personajes. Solo visible con permiso Total (implica ver las profesiones).
-- **Notas**: privadas de cada personaje — una nota de tu personaje A nunca aparece al ver el contacto como tu personaje B.
-- **Editar datos globales** (nombre, profesiones, estado/paradero, grado(s), foto): además de un administrador, puede hacerlo **quien registró originalmente el contacto** — el interruptor Visible sigue siendo exclusivo de administradores aunque el creador acceda a la misma pantalla.
-- Los administradores gestionan desde **Admin → Contactos**: listado completo de **todos** los contactos del sistema (mostrar/ocultar, eliminar, editar datos globales), e importación/exportación Excel con columnas fijas (`nombre`, `es_untersuchung`, `profesiones` separadas por comas — deben existir ya en el catálogo de Profesiones; no incluye estado/paradero/grado/foto, que solo viajan en el "Backup completo" JSON). Cada fila tiene un botón **"Permisos"** que despliega, sin salir de la lista, la tabla de visibilidad por personaje de ese contacto (mismo panel bulk-save que en su ficha) — no hace falta entrar a cada contacto para ver o cambiar quién tiene acceso. Un admin puede además editar el vínculo de cualquier personaje y conceder/revocar su visibilidad desde la ficha del contacto.
-- En **Admin → Vínculos**, la columna **Notas** ya no es solo un número: el botón despliega el contenido real de las notas personales de ese personaje sobre el contacto, con un formulario para añadir una nueva sin salir de la tabla.
-- **Contactos** en el menú principal es un desplegable para administradores (Contactos + **Vínculos**); para el resto de usuarios es un enlace simple a Contactos, ya que Vínculos es una vista admin-only.
+- **Crear y editar contactos es exclusivo de administrador**, desde **+ Nuevo contacto** o desde **Editar** en la propia ficha. El resto de usuarios solo consulta y gestiona su propio vínculo.
+- **Personaje activo**: cada usuario tiene un personaje "activo" persistido (sustituye al antiguo selector "Ver como" por página). Se fija al hacer login si hace falta (con un único personaje se marca solo; con varios y ninguno marcado, se te lleva una vez al listado de Personajes a elegir), desde **Mi perfil** (menú de usuario, arriba a la derecha), o con el botón "Marcar activo" en cada tarjeta del listado de Personajes. Un administrador conserva además, solo en la ficha del contacto, un selector para editar el vínculo de cualquier otro personaje puntualmente.
+- **Raza**: desplegable guiado (Humano, Enano, Alto elfo, Elfo Silvano, Halfling, Ogro, Hombre bestia, Piel verde, No muerto, Slam, Criatura, Monstruo, Demonio) con una opción **"Nueva raza…"** que revela un campo de texto libre para cualquier otra.
+- **Estado**: Vivo / Muerto / Desconocido, como insignia en el listado y la ficha.
+- **Visibilidad**: un único interruptor admin, **Visible** (en Editar contacto) — si está desmarcado, el contacto queda oculto para todos los no-admin. Sin concesiones por personaje.
+- **Nivel y tipo de relación**: el nivel es un desplegable de -5 a 5 con etiqueta descriptiva (Enemigo mortal…Amigo incondicional). El tipo de relación es una selección múltiple (Baza, Unter/Untersuchung, Súbdito, Señor, Otra) — sustituye al antiguo grado "sin marca" de la Untersuchung.
+- **Untersuchung**: si el contacto pertenece a esta organización secreta, ese dato (y su(s) **grado(s)**) **solo se muestra si el personaje activo también es miembro** (o eres admin, que siempre lo ve). Los grados tienen dos tiers: **Agente** (Escudo/Estilete/Gato/Brújula/Pluma/Corona, hasta 3 marcas, repetible = veteranía) y **Adjunto** (Carro/Paloma, exactamente 1 marca — solo se ofrece en la primera de las 3, y elegirlo ahí deshabilita las otras dos). Los **Personajes** tienen el mismo selector en su ficha de edición — un jugador puede ser él mismo agente de la Untersuchung.
+- **Salario**: si el contacto tiene una profesión, puedes elegir manualmente un tipo de sueldo y un estado de habilidad de la tabla de referencia (misma tabla que al asignar profesiones a tus propios personajes).
+- **Notas**: privadas de cada personaje — una nota de tu personaje A nunca aparece al ver el contacto como tu personaje B. Fuera de la propia ficha, solo se muestra su **número**, nunca el contenido.
+- El listado de Contactos es global (visible para cualquier usuario, ya no hay filtrado por personaje): miniatura con zoom al pasar el ratón/lightbox al hacer clic (mismo sistema que Personajes), Raza, Unter, Estado, y un botón con el nº de personajes vinculados que despliega su nivel y tipo. La ficha añade al final una tabla **"Personajes con relación"**, visible a cualquiera que pueda ver el contacto.
+- **Vínculos** (`/contactos/vinculos`, menú **Contactos → Vínculos**) ya no es admin-only: cualquier usuario lo ve, por defecto filtrado a los vínculos de su propio personaje activo (columnas: Contacto, Tipo de relación, Nivel, nº de notas, Ver ficha); un botón **"Ver todos"** amplía a los vínculos de todos los personajes de todos los usuarios (añade la columna Personaje). Un administrador ve siempre todos.
+- Los administradores gestionan además desde **Admin → Contactos**: listado completo de **todos** los contactos del sistema (mostrar/ocultar, eliminar, editar), e importación/exportación Excel con columnas fijas (`nombre`, `es_untersuchung`, `profesiones` separadas por comas — deben existir ya en el catálogo de Profesiones; el resto de campos solo viaja en el "Backup completo" JSON).
 
 ---
 
@@ -1071,6 +1068,8 @@ users
   ├─ user_permissions (M2M)               (permisos directos adicionales)
   ├─ must_change_password                 (heredado de ContactosWH, no aplicado aún en el login)
   ├─ created_by_id → users.id             (lineage: quién creó la cuenta, opcional)
+  ├─ active_character_id → characters.id  (personaje activo del usuario, ON DELETE SET NULL;
+  │                                         sustituye al selector "Ver como" por página en Contactos)
   └─ characters                   (perfil completo: características WFRP2, trasfondo del
        │                           generador — raza, signo astral, altura/peso/edad,
        │                           procedencia, situación familiar, nivel social,
@@ -1083,42 +1082,35 @@ users
        │                           del generador — texto libre, independiente de contact_*)
        ├─ character_possessions   (objetos de inventario iniciales)
        ├─ character_magic_items   (objetos mágicos rolados con Puntos de Historial)
-       ├─ contact_character_links (su propia visión de cada Contacto, ver más abajo)
-       └─ contact_visibilities → contact_character_visibilities (qué contactos puede ver este personaje)
+       └─ contact_character_links (su propia visión de cada Contacto, ver más abajo)
 
 permissions                               (12 códigos de permiso disponibles)
 permission_templates                      (conjuntos reutilizables de permisos)
 template_permissions (M2M)                (permisos que incluye cada plantilla)
 
 contacts                           (hechos GLOBALES de un NPC — iguales para todo el mundo)
-  ├─ nombre
-  ├─ es_untersuchung               (solo se muestra a personajes que también sean miembros)
-  ├─ grados_untersuchung           (JSON, lista de 0+ de UNTERSUCHUNG_GRADOS — Escudo/Estilete/
-  │                                 Gato/Brújula/Pluma/Corona/Carro/Paloma "con marca",
-  │                                 Bazas/Contactos "sin marca"; solo aplica si es_untersuchung)
-  ├─ estado                        ('vivo' | 'muerto' | 'corrompido', default 'vivo')
-  ├─ paradero                      ('encarcelado'|'exiliado'|'secuestrado'|'desaparecido'|
-  │                                 'paradero_desconocido' | NULL — se fuerza a NULL si estado != 'vivo')
+  ├─ nombre, raza                  (raza es texto libre; el desplegable RAZA_CHOICES solo guía el form)
+  ├─ es_untersuchung               (solo se muestra a personajes que también sean miembros, o admin)
+  ├─ grados_untersuchung           (JSON, lista de 0-3 de UNTERSUCHUNG_GRADOS, dos tiers excluyentes:
+  │                                 Agente —Escudo/Estilete/Gato/Brújula/Pluma/Corona, repetible—
+  │                                 y Adjunto —Carro/Paloma, máx. 1—; solo aplica si es_untersuchung)
+  ├─ estado                        ('vivo' | 'muerto' | 'desconocido', default 'vivo')
+  ├─ lugar_descanso, lugar_trabajo, lugar_ocio  (texto libre, hechos globales del contacto)
+  ├─ notas_director                (texto libre, solo visible/editable por admin)
   ├─ image_path
-  ├─ is_visible                    (apagado general del admin: oculto para todo no-admin
-  │                                 pase lo que pase en contact_character_visibilities)
-  ├─ created_by_id → users.id      (también determina quién más allá de un admin puede editar)
+  ├─ is_visible                    (único interruptor de visibilidad: oculto para todo no-admin
+  │                                 si está apagado, visible para cualquiera si está encendido)
+  ├─ created_by_id → users.id      (quién lo registró; ya no determina permisos de edición)
   ├─ contact_professions           (M2M contacts ↔ professions, reutiliza el catálogo)
   ├─ character_links → contact_character_links
-  ├─ character_visibilities → contact_character_visibilities
   └─ notes → contact_notes
 
-contact_character_visibilities      (permiso de UN personaje para ver un Contacto — sin fila,
-  ├─ character_id, contact_id       no lo ve en absoluto, ni en listado ni en ficha)
-  └─ nivel                         ('total' ve todo; 'parcial' oculta las profesiones.
-                                     El personaje creador recibe 'total' automáticamente;
-                                     para el resto lo concede un admin.)
-
 contact_character_links            (la visión de UN personaje sobre un Contacto —
-  ├─ character_id, contact_id      nunca visible para otro personaje, ni del mismo usuario)
-  ├─ nivel                         (-5 a 5, relación con ese personaje)
+  ├─ character_id, contact_id      nunca visible para otro personaje, ni del mismo usuario, salvo
+  │                                 nivel/tipo en la tabla "Personajes con relación" de la ficha)
+  ├─ nivel                         (-5 a 5, con etiqueta descriptiva por NIVEL_LABELS)
+  ├─ tipo_relacion                 (JSON, lista de 0+ de Baza/Unter-Untersuchung/Súbdito/Señor/Otra)
   ├─ organizacion_secta            (si no es la Untersuchung; libre, "No/N/A" si vacío)
-  ├─ lugar_residencia, lugar_contacto  (texto libre: "Conocido"/"Desconocido"/dirección/horario)
   ├─ creacion                      (viene de la creación del personaje)
   ├─ gm, mision                    (con qué GM y en qué misión se conoció)
   ├─ apodos → contact_apodos       (uno o varios, propios de este vínculo)
@@ -1373,7 +1365,6 @@ WarhammerFantasyTools/
     │   │   ├── contacts.html             # Listado/administración de contactos
     │   │   ├── contacts_import.html
     │   │   ├── contacts_export.html
-    │   │   ├── contact_links.html         # Directorio Vínculos: contacto↔personaje + usuario propietario
     │   │   ├── recipes_pending.html        # Cola de recetas propuestas pendientes de revisión
     │   │   └── recipe_review.html          # Ficha de revisión: valores calculados + subir imagen + aprobar/rechazar/eliminar
     │   ├── food/
@@ -1381,9 +1372,11 @@ WarhammerFantasyTools/
     │   │   ├── recipe_detail.html  # Ficha de receta: botón Eliminar visible solo para administradores
     │   │   └── my_recipes.html     # Estado (pendiente/aprobada/rechazada) de las propias propuestas
     │   ├── contacts/
-    │   │   ├── index.html         # Listado de contactos (respeta visibilidad, selector "ver como")
-    │   │   ├── detail.html        # Ficha: datos globales, vínculo del personaje activo, salario, notas
-    │   │   └── new.html           # Alta de contacto + vínculo del personaje que lo registra
+    │   │   ├── index.html         # Listado global (miniatura, raza, Unter, estado, nº vínculos)
+    │   │   ├── detail.html        # Ficha: datos globales, vínculo del personaje activo, "Personajes con relación"
+    │   │   ├── new.html           # Alta de contacto (admin-only)
+    │   │   ├── edit.html          # Edición de contacto (admin-only)
+    │   │   └── vinculos.html      # Directorio de vínculos (propio por defecto, "Ver todos" amplía)
     │   ├── equipment/
     │   │   ├── list.html          # Catálogo (menú por categoría + completo), filtros, cabecera de contexto
     │   │   ├── detail.html        # Ficha de un objeto
