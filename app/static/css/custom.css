@@ -832,12 +832,19 @@ mark { background: rgba(212, 168, 48, .28); color: var(--wh-gold-light); padding
 .alert-info     { color: #80c8c8; background-color: #081818; border-color: #104040; }
 .alert-success  { color: #80cc80; background-color: #081408; border-color: #204020; }
 
-/* Form checks */
+/* Form checks - el color "checked" anterior (--wh-gold-dark, un marrón
+   apagado) apenas se distinguía del cuadro vacío a simple vista, sobre todo
+   en modo claro o dentro de paneles con su propio tinte (p.ej. el panel teal
+   de vínculos) - se cambia a un dorado saturado + el propio tick en trazo
+   oscuro (en vez de depender del SVG por defecto de Bootstrap) para que el
+   cambio de estado sea inequívoco en los dos temas. */
 .form-check-input { background-color: #120f08; border-color: var(--wh-border-gold); }
 .form-check-input:checked {
-  background-color: var(--wh-gold-dark);
-  border-color: var(--wh-gold);
+  background-color: var(--wh-gold);
+  border-color: var(--wh-gold-light);
+  background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20' fill='none' stroke='%23120f08' stroke-linecap='round' stroke-linejoin='round' stroke-width='3'%3e%3cpath d='M6 10l3 3l6-6'/%3e%3c/svg%3e");
 }
+.form-check-input:focus { box-shadow: 0 0 0 2px rgba(212, 168, 48, 0.4); }
 .form-check-label { color: var(--wh-text); }
 
 /* Modal */

@@ -265,6 +265,39 @@ def test_link_save_ignores_unknown_tipo_relacion(db, client, regular_user, make_
     assert link.tipo_relacion == ['Baza']
 
 
+def test_detail_own_row_shows_create_form_when_no_link_yet(db, client, regular_user, make_character,
+                                                             make_contact, login_as, set_active_character):
+    """2026-07-17: 'Vínculo de X'/'Notas de X' are no longer fixed cards - the
+    create form for the active character's row (when it has no link yet)
+    lives inside the "Personajes con relación" table instead."""
+    char = make_character(regular_user, name='Sin vínculo aún')
+    contact = make_contact()
+    set_active_character(regular_user, char)
+    login_as(client, regular_user, 'userpass123')
+
+    resp = client.get(f'/contactos/{contact.id}')
+    assert resp.status_code == 200
+    assert 'Crear vínculo'.encode() in resp.data
+    assert 'name="tipo_relacion" value="Súbdito"'.encode() in resp.data
+    assert b'own-link-panel' in resp.data
+
+
+def test_detail_own_row_shows_edit_form_when_link_exists(db, client, regular_user, make_character,
+                                                           make_contact, make_contact_link, login_as,
+                                                           set_active_character):
+    char = make_character(regular_user, name='Con vínculo')
+    contact = make_contact()
+    make_contact_link(char, contact, nivel=2)
+    set_active_character(regular_user, char)
+    login_as(client, regular_user, 'userpass123')
+
+    resp = client.get(f'/contactos/{contact.id}')
+    assert resp.status_code == 200
+    assert 'Actualizar vínculo'.encode() in resp.data
+    assert 'nota'.encode() in resp.data
+    assert b'own-link-panel' in resp.data
+
+
 def test_link_save_blocks_other_users_character(client, make_user, make_character, make_contact, login_as):
     owner = make_user(username='owner1', password='ownerpass123')
     other = make_user(username='other1', password='otherpass123')
