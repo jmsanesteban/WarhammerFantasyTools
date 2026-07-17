@@ -204,6 +204,17 @@ a:hover { color: var(--wh-gold-light); }
 
 .wh-input::placeholder { color: var(--wh-text-muted); opacity: 0.7; }
 
+/* Deshabilitado - .wh-input fija su propio fondo/color siempre, así que sin
+   esto el estado disabled nativo del navegador queda invisible (mismo
+   aspecto que uno activo, solo deja de responder al clic). */
+.wh-input:disabled, .wh-input.form-select:disabled {
+  background: var(--wh-border);
+  color: var(--wh-text-muted);
+  border-color: var(--wh-border);
+  opacity: 0.65;
+  cursor: not-allowed;
+}
+
 .wh-label {
   color: var(--wh-gold-light);
   font-family: 'Cinzel', serif;

@@ -138,7 +138,10 @@ def _global_fields_from_form(contact):
     contact.estado = _estado_from_form()
     grados = _grados_from_form()
     contact.grados_untersuchung = grados
-    contact.es_untersuchung = request.form.get('es_untersuchung') == 'on' or has_marca(grados)
+    # Sin checkbox manual (2026-07-17) - es_untersuchung se deriva solo de si
+    # tiene marca(s) asignada(s); no hay forma de marcarlo "miembro sin
+    # marca" desde este formulario a día de hoy.
+    contact.es_untersuchung = has_marca(grados)
     contact.lugar_descanso = request.form.get('lugar_descanso', '').strip() or None
     contact.lugar_trabajo = request.form.get('lugar_trabajo', '').strip() or None
     contact.lugar_ocio = request.form.get('lugar_ocio', '').strip() or None

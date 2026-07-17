@@ -126,13 +126,19 @@
   <div class="alert wh-alert" style="max-width:760px">
     Necesitas al menos un personaje para registrar tu propia visión de este contacto.
   </div>
-  {% else %}
+  {% endif %}
 
-  {# ── Vínculo del personaje activo ─────────────────────────────────────── #}
-  <div class="card wh-card mb-4" style="max-width:760px">
-    <div class="card-header wh-card-header">
-      <h3 class="wh-heading mb-0" style="font-size:1.1rem">Vínculo de {{ active_character.name }}</h3>
-      <small class="text-muted">Solo tu personaje ve estos datos — otro personaje puede tener una visión distinta del mismo contacto.</small>
+  {# ── Vínculo + notas del personaje activo (2026-07-17): ya no son tarjetas
+       fijas siempre visibles - viven dentro de la fila que le corresponde en
+       "Personajes con relación", para no duplicar el mismo dato dos veces en
+       la misma ficha. ─ #}
+  {% macro own_link_panel(my_link) %}
+  <div class="card wh-links-panel my-2" style="max-width:900px">
+    <div class="card-header wh-links-panel-header">
+      <i class="bi bi-link-45deg me-2"></i>Tu vínculo con {{ contact.nombre }}
+      <small class="d-block text-muted" style="font-family:inherit;font-size:.75rem">
+        Solo tu personaje ve estos datos — otro personaje puede tener una visión distinta del mismo contacto.
+      </small>
     </div>
     <div class="card-body">
       <form method="POST" action="{{ url_for('contacts.link_save', contact_id=contact.id) }}">
@@ -171,53 +177,45 @@
           {% endif %}
         </div>
       </form>
-    </div>
-  </div>
 
-  {# ── Notas (propias del personaje activo) ─────────────────────────────── #}
-  <div class="card wh-card mb-4" style="max-width:760px">
-    <div class="card-header wh-card-header">
-      <h3 class="wh-heading mb-0" style="font-size:1.1rem">Notas de {{ active_character.name }}</h3>
-    </div>
-
-    {% if notes %}
-    <div class="card-body pb-0">
-      {% for note in notes %}
-      <div class="pb-3 mb-3 {% if not loop.last %}border-bottom{% endif %}" style="border-color: var(--wh-border) !important">
-        <div class="d-flex justify-content-between align-items-start gap-2">
-          <div class="flex-grow-1 min-w-0">
-            <div class="small text-muted mb-1">{{ note.created_at.strftime('%d/%m/%Y %H:%M') }}</div>
-            <div id="note-view-{{ note.id }}">
-              <p class="mb-0" style="white-space:pre-wrap;line-height:1.55">{{ note.content }}</p>
+      <hr class="wh-divider-sm">
+      <h4 class="wh-heading" style="font-size:1rem">Notas de {{ active_character.name }}</h4>
+      {% if notes %}
+      <div class="mb-3">
+        {% for note in notes %}
+        <div class="pb-2 mb-2 {% if not loop.last %}border-bottom{% endif %}" style="border-color:#1c3444 !important">
+          <div class="d-flex justify-content-between align-items-start gap-2">
+            <div class="flex-grow-1 min-w-0">
+              <div class="small text-muted mb-1">{{ note.created_at.strftime('%d/%m/%Y %H:%M') }}</div>
+              <div id="note-view-{{ note.id }}">
+                <p class="mb-0" style="white-space:pre-wrap;line-height:1.55">{{ note.content }}</p>
+              </div>
+              <div id="note-edit-{{ note.id }}" style="display:none">
+                <form method="POST" action="{{ url_for('contacts.note_edit', contact_id=contact.id, note_id=note.id) }}">
+                  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                  <textarea name="content" class="form-control wh-input mb-2" rows="3">{{ note.content }}</textarea>
+                  <div class="d-flex gap-2">
+                    <button type="submit" class="btn btn-wh btn-sm">Guardar</button>
+                    <button type="button" class="btn btn-outline-secondary btn-sm"
+                            onclick="toggleNoteEdit({{ note.id }})">Cancelar</button>
+                  </div>
+                </form>
+              </div>
             </div>
-            <div id="note-edit-{{ note.id }}" style="display:none">
-              <form method="POST" action="{{ url_for('contacts.note_edit', contact_id=contact.id, note_id=note.id) }}">
+            <div class="d-flex gap-1 flex-shrink-0">
+              <button type="button" class="btn btn-outline-secondary btn-sm" title="Editar"
+                      onclick="toggleNoteEdit({{ note.id }})"><i class="bi bi-pencil"></i></button>
+              <form method="POST" action="{{ url_for('contacts.note_delete', contact_id=contact.id, note_id=note.id) }}"
+                    onsubmit="return confirm('¿Eliminar esta nota?')">
                 <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                <textarea name="content" class="form-control wh-input mb-2" rows="3">{{ note.content }}</textarea>
-                <div class="d-flex gap-2">
-                  <button type="submit" class="btn btn-wh btn-sm">Guardar</button>
-                  <button type="button" class="btn btn-outline-secondary btn-sm"
-                          onclick="toggleNoteEdit({{ note.id }})">Cancelar</button>
-                </div>
+                <button type="submit" class="btn btn-outline-danger btn-sm" title="Eliminar"><i class="bi bi-trash"></i></button>
               </form>
             </div>
           </div>
-          <div class="d-flex gap-1 flex-shrink-0">
-            <button type="button" class="btn btn-outline-secondary btn-sm" title="Editar"
-                    onclick="toggleNoteEdit({{ note.id }})"><i class="bi bi-pencil"></i></button>
-            <form method="POST" action="{{ url_for('contacts.note_delete', contact_id=contact.id, note_id=note.id) }}"
-                  onsubmit="return confirm('¿Eliminar esta nota?')">
-              <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-              <button type="submit" class="btn btn-outline-danger btn-sm" title="Eliminar"><i class="bi bi-trash"></i></button>
-            </form>
-          </div>
         </div>
+        {% endfor %}
       </div>
-      {% endfor %}
-    </div>
-    {% endif %}
-
-    <div class="card-body {% if notes %}border-top{% endif %}">
+      {% endif %}
       <form method="POST" action="{{ url_for('contacts.note_create', contact_id=contact.id) }}">
         <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
         <input type="hidden" name="personaje_id" value="{{ active_character.id }}">
@@ -230,13 +228,16 @@
       </form>
     </div>
   </div>
-  {% endif %}
+  {% endmacro %}
 
   {# ── Personajes con relación (2026-07-17): visible a cualquiera que pueda
        ver el contacto, no solo admin - nivel y tipo de cada personaje; el
-       contenido de las notas sigue siendo privado, solo se ve el número. ─ #}
-  {% if links %}
-  <div class="card wh-card mb-4" style="max-width:760px">
+       contenido de las notas sigue siendo privado, solo se ve el número. La
+       fila del personaje activo incluye además el desplegable con su propio
+       vínculo/notas editables (mismos colores que el panel del catálogo). ─ #}
+  {% set own_link = (links|selectattr('character_id', 'equalto', active_character.id)|first) if active_character else none %}
+  {% if links or active_character %}
+  <div class="card wh-card mb-4" style="max-width:900px">
     <div class="card-header wh-card-header">
       <h3 class="wh-heading mb-0" style="font-size:1.1rem">Personajes con relación</h3>
     </div>
@@ -253,13 +254,41 @@
           </tr>
         </thead>
         <tbody>
-          {% for link in links %}
+          {% if active_character and not own_link %}
           <tr>
-            <td>{{ link.character.name }}</td>
+            <td>{{ active_character.name }} <span class="badge bg-secondary" style="font-size:.65rem">tú</span></td>
+            <td class="text-muted small">{{ current_user.username }}</td>
+            <td>—</td>
+            <td>—</td>
+            <td>
+              <button type="button" class="btn btn-link btn-sm p-0 wh-links-toggle" data-bs-toggle="collapse"
+                      data-bs-target="#own-link-panel" aria-expanded="false">Crear vínculo</button>
+            </td>
+            {% if current_user.is_admin %}<td></td>{% endif %}
+          </tr>
+          <tr>
+            <td colspan="{{ 6 if current_user.is_admin else 5 }}" class="p-0 border-0">
+              <div class="collapse" id="own-link-panel">{{ own_link_panel(none) }}</div>
+            </td>
+          </tr>
+          {% endif %}
+          {% for link in links %}
+          {% set is_own = active_character and link.character_id == active_character.id %}
+          <tr>
+            <td>{{ link.character.name }}{% if is_own %} <span class="badge bg-secondary" style="font-size:.65rem">tú</span>{% endif %}</td>
             <td class="text-muted small">{{ link.character.owner.username }}</td>
             <td>{% if link.nivel is not none %}{{ link.nivel }} — {{ nivel_labels.get(link.nivel, '') }}{% else %}—{% endif %}</td>
             <td>{{ link.tipo_relacion|join(', ') if link.tipo_relacion else '—' }}</td>
-            <td>{{ note_counts.get(link.character_id, 0) }}</td>
+            <td>
+              {% if is_own %}
+              <button type="button" class="btn btn-link btn-sm p-0 wh-links-toggle" data-bs-toggle="collapse"
+                      data-bs-target="#own-link-panel" aria-expanded="false">
+                {{ note_counts.get(link.character_id, 0) }} nota{{ 's' if note_counts.get(link.character_id, 0) != 1 }}
+              </button>
+              {% else %}
+              {{ note_counts.get(link.character_id, 0) }}
+              {% endif %}
+            </td>
             {% if current_user.is_admin %}
             <td>
               <a href="{{ url_for('contacts.detail', contact_id=contact.id, personaje_id=link.character_id) }}"
@@ -267,6 +296,13 @@
             </td>
             {% endif %}
           </tr>
+          {% if is_own %}
+          <tr>
+            <td colspan="{{ 6 if current_user.is_admin else 5 }}" class="p-0 border-0">
+              <div class="collapse" id="own-link-panel">{{ own_link_panel(link) }}</div>
+            </td>
+          </tr>
+          {% endif %}
           {% endfor %}
         </tbody>
       </table>

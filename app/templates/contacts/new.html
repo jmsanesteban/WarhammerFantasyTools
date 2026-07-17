@@ -33,19 +33,13 @@
             <input type="text" name="raza_custom" id="raza-custom" class="form-control wh-input mt-2"
                    style="display:none" placeholder="Escribe la nueva raza">
           </div>
-          <div class="col-md-3">
+          <div class="col-md-4">
             <label class="form-label wh-label">Estado</label>
             <select name="estado" class="form-select wh-input">
               {% for key in estado_choices %}
               <option value="{{ key }}" {% if key == 'vivo' %}selected{% endif %}>{{ estado_labels[key] }}</option>
               {% endfor %}
             </select>
-          </div>
-          <div class="col-md-3 d-flex align-items-end">
-            <label class="d-flex align-items-center gap-2" style="cursor:pointer">
-              <input type="checkbox" name="es_untersuchung" class="form-check-input" id="chk-untersuchung">
-              Untersuchung
-            </label>
           </div>
           <div class="col-12">
             <label class="form-label wh-label">Grado(s) en la Untersuchung (hasta 3 marcas)</label>
