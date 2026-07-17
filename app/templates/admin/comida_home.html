@@ -11,8 +11,19 @@
   </div>
 
   <div class="alert alert-info wh-alert">
-    Solo cubre <strong>Recetas</strong> — el catálogo de bebidas/métodos de cocina/ingredientes es cerrado y se
-    siembra solo desde el fichero de datos del proyecto al arrancar, no hace falta gestionarlo aquí.
+    El catálogo de bebidas y métodos de cocina sigue siendo cerrado — se siembra solo desde el fichero de
+    datos del proyecto al arrancar. Los <strong>ingredientes</strong> ya se gestionan desde aquí.
+  </div>
+
+  <div class="card wh-card mb-3">
+    <div class="card-header wh-card-header">Ingredientes</div>
+    <div class="card-body">
+      <p class="text-muted small">Añade, edita o elimina ingredientes: vigor, moral, coste por docena y
+        compatibilidad (Sí/No/Condimento) con cada método de cocina.</p>
+      <a href="{{ url_for('admin.food_ingredients') }}" class="btn btn-wh">
+        <i class="bi bi-basket me-1"></i>Gestionar ingredientes
+      </a>
+    </div>
   </div>
 
   <div class="card wh-card mb-3">

@@ -10,7 +10,7 @@ import fitz
 from PIL import Image
 
 from app.extensions import db
-from app.models.food import CookingMethod, Ingredient, Recipe
+from app.models.food import CookingMethod, Ingredient, IngredientCookingMethod, Recipe
 from app.services.food_pdf_service import parse_recetas_pdf, sync_recipe_images_from_folder
 
 
@@ -287,3 +287,119 @@ def test_food_home_requires_admin(client, regular_user, login_as):
     login_as(client, regular_user, 'userpass123')
     resp = client.get('/admin/comida')
     assert resp.status_code == 403
+
+
+# ---------------------------------------------------------------------------
+# Ingredient CRUD (admin)
+# ---------------------------------------------------------------------------
+
+def _seed_method(app, nombre='Crudo'):
+    with app.app_context():
+        method = CookingMethod(nombre=nombre, duracion_dias=1, complejidad_base=0,
+                                ingredientes_permitidos=1, condimentos_permitidos=0)
+        db.session.add(method)
+        db.session.commit()
+        return method.id
+
+
+def test_food_ingredients_list_requires_admin(client, regular_user, login_as):
+    login_as(client, regular_user, 'userpass123')
+    resp = client.get('/admin/comida/ingredientes')
+    assert resp.status_code == 403
+
+
+def test_food_ingredient_create_requires_admin(client, regular_user, login_as):
+    login_as(client, regular_user, 'userpass123')
+    resp = client.post('/admin/comida/ingredientes/nuevo', data={'nombre': 'Sal'})
+    assert resp.status_code == 403
+
+
+def test_food_ingredient_create_sets_fields_and_compat(app, db, client, admin_user, login_as):
+    method_id = _seed_method(app)
+    login_as(client, admin_user, 'adminpass123')
+
+    resp = client.post('/admin/comida/ingredientes/nuevo', data={
+        'nombre': 'Setas', 'vigor': '3', 'moral': '1', 'coste_docena': '10',
+        'descripcion': 'Setas silvestres', f'estado_{method_id}': 'condimento',
+    }, follow_redirects=True)
+    assert resp.status_code == 200
+
+    with app.app_context():
+        ing = Ingredient.query.filter_by(nombre='Setas').first()
+        assert ing is not None
+        assert ing.vigor == 3
+        assert ing.moral == 1
+        assert ing.coste_docena == 10
+        assert ing.descripcion == 'Setas silvestres'
+        compat = IngredientCookingMethod.query.filter_by(ingredient_id=ing.id).first()
+        assert compat.estado == 'condimento'
+
+
+def test_food_ingredient_create_rejects_duplicate_name(app, db, client, admin_user, login_as):
+    with app.app_context():
+        db.session.add(Ingredient(nombre='Sal', coste_docena=1))
+        db.session.commit()
+    login_as(client, admin_user, 'adminpass123')
+
+    resp = client.post('/admin/comida/ingredientes/nuevo', data={'nombre': 'Sal'}, follow_redirects=True)
+    assert resp.status_code == 200
+    with app.app_context():
+        assert Ingredient.query.filter_by(nombre='Sal').count() == 1
+
+
+def test_food_ingredient_edit_updates_fields_and_compat(app, db, client, admin_user, login_as):
+    method_id = _seed_method(app)
+    with app.app_context():
+        ing = Ingredient(nombre='Carne', vigor=1, moral=0, coste_docena=5)
+        db.session.add(ing)
+        db.session.commit()
+        ing_id = ing.id
+        db.session.add(IngredientCookingMethod(ingredient_id=ing_id, cooking_method_id=method_id, estado='no'))
+        db.session.commit()
+
+    login_as(client, admin_user, 'adminpass123')
+    resp = client.post(f'/admin/comida/ingredientes/{ing_id}/editar', data={
+        'nombre': 'Carne superior', 'vigor': '5', 'moral': '2', 'coste_docena': '20',
+        'descripcion': '', f'estado_{method_id}': 'si',
+    }, follow_redirects=True)
+    assert resp.status_code == 200
+
+    with app.app_context():
+        ing = db.session.get(Ingredient, ing_id)
+        assert ing.nombre == 'Carne superior'
+        assert ing.vigor == 5
+        assert ing.coste_docena == 20
+        compat = IngredientCookingMethod.query.filter_by(ingredient_id=ing_id, cooking_method_id=method_id).one()
+        assert compat.estado == 'si'
+
+
+def test_food_ingredient_delete_blocked_when_used_in_recipe(app, db, client, admin_user, login_as):
+    with app.app_context():
+        ing = Ingredient(nombre='Miel', coste_docena=5)
+        db.session.add(ing)
+        db.session.commit()
+        ing_id = ing.id
+        db.session.add(Recipe(nombre='Tarta de miel', vigor=1, moral=1, condimento_1_id=ing_id))
+        db.session.commit()
+
+    login_as(client, admin_user, 'adminpass123')
+    resp = client.post(f'/admin/comida/ingredientes/{ing_id}/eliminar', follow_redirects=True)
+    assert resp.status_code == 200
+
+    with app.app_context():
+        assert db.session.get(Ingredient, ing_id) is not None
+
+
+def test_food_ingredient_delete_removes_unused_ingredient(app, db, client, admin_user, login_as):
+    with app.app_context():
+        ing = Ingredient(nombre='Perejil', coste_docena=1)
+        db.session.add(ing)
+        db.session.commit()
+        ing_id = ing.id
+
+    login_as(client, admin_user, 'adminpass123')
+    resp = client.post(f'/admin/comida/ingredientes/{ing_id}/eliminar', follow_redirects=True)
+    assert resp.status_code == 200
+
+    with app.app_context():
+        assert db.session.get(Ingredient, ing_id) is None

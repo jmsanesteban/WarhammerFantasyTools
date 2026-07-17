@@ -590,6 +590,14 @@ Ya no es admin-only (ver [Gestionar Contactos](#gestionar-contactos)) — para u
 
 #### Comida y bebida (`/admin/comida`)
 
+- **Ingredientes** (`/admin/comida/ingredientes`) — CRUD completo del catálogo de ingredientes: nombre, vigor,
+  moral, coste por docena de raciones, descripción, y la compatibilidad (Sí/No/Condimento) con cada uno de los
+  métodos de cocina, editable desde un formulario con una fila por método. Eliminar un ingrediente que esté en
+  uso en alguna receta (como ingrediente o condimento) está bloqueado — hay que quitarlo de la receta primero.
+  A diferencia de bebidas y métodos de cocina (que siguen siendo un catálogo cerrado, sembrado solo desde
+  `app/data/food/*.json` al arrancar), los ingredientes ya se gestionan en caliente desde aquí; el fichero de
+  semilla solo se usa para el arranque inicial de una base de datos vacía, y nunca sobrescribe ediciones
+  posteriores.
 - **Exportar/Importar Recetas** — igual que el resto de catálogos (también viaja dentro del Backup completo).
 - **Importar PDF de recetas hechas** — sube un PDF con el mismo formato que "Recetas hechas" del libro (una
   receta por bloque: Vigor/Moral/Método/Duración/Calidad/Ingredientes/Condimentos/Costes, con una foto
@@ -859,7 +867,7 @@ Además de la copia de seguridad completa por `mysqldump` (ver [Copias de seguri
 | **Profesiones** | Profesiones → Exportar/Importar (requiere permiso `professions.edit`) | Todos los campos propios + habilidades/talentos/enseres/salidas de carrera + **su foto** (bytes en base64, no solo la ruta) |
 | **Usuarios** | Admin → Usuarios → Exportar/Importar | Todos los campos **salvo la contraseña** (ver más abajo) |
 | **Equipamiento** | Equipamiento → Exportar/Importar (requiere permiso `equipment.import`), o Admin → Panel | Todos los objetos del catálogo (armas, armaduras, ropa, libros, otros, especiales), con sus estadísticas, campos adicionales, el enlace al objeto base para objetos especiales y **su foto** (bytes en base64). Empareja por (nombre, categoría, subcategoría, calidad) — no por id — porque el catálogo tiene bastantes objetos que comparten nombre dentro de una categoría (p.ej. cada tier de calidad de ropa) |
-| **Recetas** | Admin → Comida y bebida → Exportar/Importar | Recetas propuestas por jugadores (pendiente/aprobada/rechazada) y las del libro, con método/ingredientes/condimentos por nombre y **su foto** (bytes en base64). El resto del catálogo de Comida y bebida (métodos de cocina, ingredientes, bebidas) se siembra solo al arrancar el contenedor, no hace falta respaldarlo |
+| **Recetas** | Admin → Comida y bebida → Exportar/Importar | Recetas propuestas por jugadores (pendiente/aprobada/rechazada) y las del libro, con método/ingredientes/condimentos por nombre y **su foto** (bytes en base64). Bebidas y métodos de cocina se siembran solo al arrancar el contenedor, no hace falta respaldarlos. Los **ingredientes** sí se editan en caliente (Admin → Comida y bebida → Ingredientes) pero de momento **no** viajan en este export ni en el Backup completo — cualquier edición hecha ahí solo vive en la base de datos de esa instancia |
 | **Recargo de precios** | Solo dentro del Backup completo (sin página propia) | El % global de recargo activo sobre las compras de comida/bebida y quién lo estableció por última vez |
 | **Personajes** | Personajes → Exportar/Importar (solo visible para admin) | Ficha completa: características, trasfondo, carrera, habilidades, talentos, rasgos, contactos generados en creación, posesiones, objetos mágicos, grado(s) y mochila/saco de la Untersuchung, **su foto** (bytes en base64), **inventario** (qué tiene y en qué ubicación, incluida comida/bebida comprada), **historial de compras** y **dinero concedido a mano** |
 | **Plantillas de permisos** | Admin → Usuarios → Plantillas de permisos → Exportar/Importar | Nombre, descripción y permisos incluidos |

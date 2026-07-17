@@ -22,7 +22,7 @@ from app.models.synonym import Synonym, DEFAULT_SYNONYMS
 from app.models.permission import Permission, PermissionTemplate, ALL_PERMISSIONS
 from app.models.contact import Contact, ContactProfession
 from app.models.character import Character
-from app.models.food import Recipe
+from app.models.food import CookingMethod, Ingredient, IngredientCookingMethod, Recipe
 from app.models.equipment import EquipmentItem
 from app.models.shop import current_markup_pct, set_markup_pct
 from app.utils import (
@@ -2187,6 +2187,123 @@ def comida_sync_fotos():
     if summary['unmatched_files']:
         flash(f"Sin receta correspondiente: {', '.join(summary['unmatched_files'])}.", 'warning')
     return redirect(url_for('admin.food_home'))
+
+
+# ---------------------------------------------------------------------------
+# Comida y bebida: gestión del catálogo de ingredientes
+# ---------------------------------------------------------------------------
+
+def _ingredient_from_form(ingredient):
+    ingredient.nombre = request.form.get('nombre', '').strip()
+    ingredient.vigor = request.form.get('vigor', 0, type=int) or 0
+    ingredient.moral = request.form.get('moral', 0, type=int) or 0
+    ingredient.coste_docena = request.form.get('coste_docena', 0, type=int) or 0
+    ingredient.descripcion = request.form.get('descripcion', '').strip() or None
+
+
+def _sync_ingredient_compat(ingredient, methods):
+    existing = {r.cooking_method_id: r for r in
+                IngredientCookingMethod.query.filter_by(ingredient_id=ingredient.id).all()}
+    for method in methods:
+        estado = request.form.get(f'estado_{method.id}', 'no')
+        if estado not in ('si', 'no', 'condimento'):
+            estado = 'no'
+        row = existing.get(method.id)
+        if row:
+            row.estado = estado
+        else:
+            db.session.add(IngredientCookingMethod(
+                ingredient_id=ingredient.id, cooking_method_id=method.id, estado=estado,
+            ))
+
+
+@admin_bp.route('/comida/ingredientes')
+@login_required
+@admin_required
+def food_ingredients():
+    items = Ingredient.query.order_by(Ingredient.nombre).all()
+    methods = CookingMethod.query.order_by(CookingMethod.id).all()
+    compat = {}
+    for row in IngredientCookingMethod.query.all():
+        compat.setdefault(row.ingredient_id, {})[row.cooking_method_id] = row.estado
+    return render_template('admin/food_ingredients.html', ingredients=items, methods=methods, compat=compat)
+
+
+@admin_bp.route('/comida/ingredientes/nuevo', methods=['GET', 'POST'])
+@login_required
+@admin_required
+def food_ingredient_create():
+    methods = CookingMethod.query.order_by(CookingMethod.id).all()
+    if request.method == 'POST':
+        nombre = request.form.get('nombre', '').strip()
+        if not nombre:
+            flash('El nombre es obligatorio.', 'danger')
+            return redirect(url_for('admin.food_ingredient_create'))
+        if Ingredient.query.filter_by(nombre=nombre).first():
+            flash(f'Ya existe un ingrediente llamado «{nombre}».', 'danger')
+            return redirect(url_for('admin.food_ingredient_create'))
+
+        ingredient = Ingredient()
+        _ingredient_from_form(ingredient)
+        db.session.add(ingredient)
+        db.session.flush()
+        _sync_ingredient_compat(ingredient, methods)
+        db.session.commit()
+        flash(f'Ingrediente «{ingredient.nombre}» creado.', 'success')
+        return redirect(url_for('admin.food_ingredients'))
+
+    return render_template('admin/food_ingredient_form.html', ingredient=None, methods=methods, compat={})
+
+
+@admin_bp.route('/comida/ingredientes/<int:ingredient_id>/editar', methods=['GET', 'POST'])
+@login_required
+@admin_required
+def food_ingredient_edit(ingredient_id):
+    ingredient = db.get_or_404(Ingredient, ingredient_id)
+    methods = CookingMethod.query.order_by(CookingMethod.id).all()
+
+    if request.method == 'POST':
+        nombre = request.form.get('nombre', '').strip()
+        if not nombre:
+            flash('El nombre es obligatorio.', 'danger')
+            return redirect(url_for('admin.food_ingredient_edit', ingredient_id=ingredient.id))
+        duplicate = Ingredient.query.filter(
+            Ingredient.nombre == nombre, Ingredient.id != ingredient.id
+        ).first()
+        if duplicate:
+            flash(f'Ya existe un ingrediente llamado «{nombre}».', 'danger')
+            return redirect(url_for('admin.food_ingredient_edit', ingredient_id=ingredient.id))
+
+        _ingredient_from_form(ingredient)
+        _sync_ingredient_compat(ingredient, methods)
+        db.session.commit()
+        flash(f'Ingrediente «{ingredient.nombre}» actualizado.', 'success')
+        return redirect(url_for('admin.food_ingredients'))
+
+    compat = {r.cooking_method_id: r.estado for r in
+              IngredientCookingMethod.query.filter_by(ingredient_id=ingredient.id).all()}
+    return render_template('admin/food_ingredient_form.html', ingredient=ingredient, methods=methods, compat=compat)
+
+
+@admin_bp.route('/comida/ingredientes/<int:ingredient_id>/eliminar', methods=['POST'])
+@login_required
+@admin_required
+def food_ingredient_delete(ingredient_id):
+    ingredient = db.get_or_404(Ingredient, ingredient_id)
+    en_uso = Recipe.query.filter(db.or_(
+        Recipe.ingrediente_1_id == ingredient.id, Recipe.ingrediente_2_id == ingredient.id,
+        Recipe.ingrediente_3_id == ingredient.id, Recipe.ingrediente_4_id == ingredient.id,
+        Recipe.condimento_1_id == ingredient.id, Recipe.condimento_2_id == ingredient.id,
+    )).first()
+    if en_uso:
+        flash(f'No se puede eliminar «{ingredient.nombre}»: lo usa la receta «{en_uso.nombre}».', 'danger')
+        return redirect(url_for('admin.food_ingredients'))
+
+    nombre = ingredient.nombre
+    db.session.delete(ingredient)
+    db.session.commit()
+    flash(f'Ingrediente «{nombre}» eliminado.', 'success')
+    return redirect(url_for('admin.food_ingredients'))
 
 
 # ---------------------------------------------------------------------------
