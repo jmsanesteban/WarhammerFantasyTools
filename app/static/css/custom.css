@@ -559,12 +559,17 @@ a:hover { color: var(--wh-gold-light); }
 }
 
 .wh-prof-image {
-  max-height: 280px;
-  object-fit: cover;
+  max-height: 360px;
+  /* contain, not cover - a tall full-body portrait (common for Personajes)
+     was getting its head/feet cropped off by cover+fixed-height. This scales
+     to fit the box instead, at the cost of empty margin next to non-portrait
+     aspect ratios (background fills that gap so it doesn't look like a hole). */
+  object-fit: contain;
+  background: var(--wh-bg-card);
   width: 100%;
   filter: sepia(15%) brightness(0.9);
   /* Same hover-zoom + click-to-lightbox as .wh-detail-img (see main.js and
-     the block above) - this is the standard "portrait crop" size used by
+     the block above) - this is the standard portrait size used by
      Contactos/Personajes/Profesiones ficha images (2026-07-17). */
   transform: scale(1);
   transition: transform 0.25s ease-out;
