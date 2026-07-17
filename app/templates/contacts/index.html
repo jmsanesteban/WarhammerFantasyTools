@@ -81,8 +81,8 @@
           </td>
           <td>
             {% if links %}
-            <button type="button" class="btn btn-link btn-sm p-0" data-bs-toggle="collapse"
-                    data-bs-target="#links-{{ contact.id }}">
+            <button type="button" class="btn btn-link btn-sm p-0 wh-links-toggle" data-bs-toggle="collapse"
+                    data-bs-target="#links-{{ contact.id }}" aria-expanded="false">
               {{ links|length }} personaje{{ 's' if links|length != 1 }}
             </button>
             {% else %}—{% endif %}
@@ -96,9 +96,12 @@
         <tr>
           <td colspan="7" class="p-0 border-0">
             <div class="collapse" id="links-{{ contact.id }}">
-              <div class="card wh-card my-2">
+              <div class="card wh-links-panel my-2">
+                <div class="card-header wh-links-panel-header">
+                  <i class="bi bi-people-fill me-2"></i>Personajes con relación con {{ contact.nombre }}
+                </div>
                 <div class="table-responsive">
-                  <table class="table wh-table table-sm align-middle mb-0">
+                  <table class="table wh-links-table table-sm align-middle mb-0">
                     <thead>
                       <tr><th>Personaje</th><th>Nivel</th><th>Tipo de relación</th></tr>
                     </thead>

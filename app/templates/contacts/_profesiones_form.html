@@ -1,0 +1,75 @@
+{# Carrera profesional del contacto (2026-07-17) - mismo sistema de picker +
+   tipo/calidad que la carrera de un Personaje, con una columna extra de
+   sueldo calculado (el contacto no tiene % de habilidad que ajustarlo, a
+   diferencia de un Personaje). Incluido tanto por new.html como por
+   edit.html; `contact` solo existe en edit.html. #}
+<div class="card wh-card mb-4" style="max-width:900px">
+  <div class="card-header wh-card-header d-flex justify-content-between">
+    <span><i class="bi bi-person-badge me-2"></i>Carrera Profesional</span>
+    <button type="button" class="btn btn-wh btn-sm" id="addProfBtn">
+      <i class="bi bi-plus-circle me-1"></i>Añadir profesión
+    </button>
+  </div>
+  <div class="card-body" id="profList">
+    {% macro prof_picker(cp=none) %}
+    <div class="prof-picker" style="min-width:220px; max-width:260px; flex:1 1 260px;">
+      <input type="hidden" name="profession_ids" class="prof-picker-hidden"
+             value="{{ cp.profession.id if cp and cp.profession else '' }}">
+      <input type="text" class="form-control wh-input prof-picker-input" autocomplete="off"
+             placeholder="Buscar profesión…"
+             value="{{ cp.profession.name if cp and cp.profession else '' }}">
+      <div class="prof-picker-dropdown"></div>
+    </div>
+    {% endmacro %}
+    {% macro salary_selects(cp=none) %}
+    <select name="tipo_sueldo_list" class="form-select form-select-sm wh-input contact-tipo-sueldo" style="max-width:210px">
+      <option value="">— Tipo de trabajador —</option>
+      {% for t in salary_table.tipos %}
+      <option value="{{ t.tipo }}" {% if cp and cp.tipo_sueldo == t.tipo %}selected{% endif %}>{{ t.tipo }}</option>
+      {% endfor %}
+    </select>
+    <select name="estado_habilidad_list" class="form-select form-select-sm wh-input contact-estado-habilidad" style="max-width:180px">
+      <option value="">— Calidad —</option>
+      {% for e in salary_table.estados_habilidad %}
+      <option value="{{ e.estado }}" {% if cp and cp.estado_habilidad == e.estado %}selected{% endif %}>{{ e.estado }}</option>
+      {% endfor %}
+    </select>
+    <span class="contact-sueldo-display small text-muted" style="min-width:130px;">—</span>
+    {% endmacro %}
+
+    <div class="d-flex gap-2 mb-2 text-muted small fw-bold flex-wrap d-none d-md-flex" style="padding-left:1.6rem">
+      <span style="min-width:220px; max-width:260px; flex:1 1 260px;">Profesión</span>
+      <span style="max-width:210px; flex:1 1 210px;">Tipo de trabajador</span>
+      <span style="max-width:180px; flex:1 1 180px;">Calidad del trabajador</span>
+      <span style="min-width:130px; flex:1 1 130px;">Sueldo del trabajador</span>
+    </div>
+
+    {% if contact is defined and contact and contact.professions %}
+      {% for cp in contact.professions %}
+      <div class="d-flex align-items-center gap-2 mb-2 prof-row flex-wrap">
+        <span class="text-muted">{{ loop.index }}.</span>
+        {{ prof_picker(cp) }}
+        {{ salary_selects(cp) }}
+        <button type="button" class="btn btn-outline-danger btn-sm remove-prof"><i class="bi bi-x-lg"></i></button>
+      </div>
+      {% endfor %}
+    {% else %}
+    <div class="d-flex align-items-center gap-2 mb-2 prof-row flex-wrap">
+      <span class="text-muted">1.</span>
+      {{ prof_picker() }}
+      {{ salary_selects() }}
+      <button type="button" class="btn btn-outline-danger btn-sm remove-prof"><i class="bi bi-x-lg"></i></button>
+    </div>
+    {% endif %}
+  </div>
+</div>
+
+<!-- Template for new profession row -->
+<template id="profRowTemplate">
+  <div class="d-flex align-items-center gap-2 mb-2 prof-row flex-wrap">
+    <span class="prof-index text-muted"></span>
+    {{ prof_picker() }}
+    {{ salary_selects() }}
+    <button type="button" class="btn btn-outline-danger btn-sm remove-prof"><i class="bi bi-x-lg"></i></button>
+  </div>
+</template>

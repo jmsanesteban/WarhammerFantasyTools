@@ -8,9 +8,9 @@
   <div class="alert alert-info wh-alert">
     Formato JSON, el mismo que genera <a href="{{ url_for('admin.contacts_full_export') }}" class="wh-link">Exportar</a>
     desde esta misma página. A diferencia de la exportación Excel de Contactos (que solo cubre nombre/Untersuchung/
-    profesiones), este backup incluye también los vínculos por personaje (nivel, tipo de relación, salario) y las
-    concesiones de visibilidad. Cada vínculo se resuelve por <strong>usuario + nombre de personaje</strong> — deben
-    existir ya (importa Usuarios y Personajes primero si estás restaurando desde cero).
+    profesiones), este backup incluye también el sueldo (tipo/calidad) de cada profesión del contacto y los vínculos
+    por personaje (nivel, tipo de relación). Cada vínculo se resuelve por <strong>usuario + nombre de
+    personaje</strong> — deben existir ya (importa Usuarios y Personajes primero si estás restaurando desde cero).
   </div>
 
   <div class="card wh-card">

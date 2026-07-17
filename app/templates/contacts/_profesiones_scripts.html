@@ -1,0 +1,53 @@
+<script src="{{ static_url('js/profession_picker.js') }}"></script>
+<script>
+(function () {
+  const profList = document.getElementById('profList');
+  const addBtn = document.getElementById('addProfBtn');
+  const tmpl = document.getElementById('profRowTemplate');
+  const PROF_PICKER_OPTIONS = {{ professions_picker_list | tojson }};
+  const PROF_EXITS_MAP = {{ professions_exits_map | tojson }};
+  const SUELDO_LOOKUP = {{ sueldo_lookup | tojson }};
+
+  function wireProfPickers(root) {
+    initProfessionPickers(root, { options: PROF_PICKER_OPTIONS, exitsMap: PROF_EXITS_MAP });
+  }
+
+  function reindex() {
+    profList.querySelectorAll('.prof-row').forEach((row, i) => {
+      const idx = row.querySelector('.prof-index');
+      if (idx) idx.textContent = (i + 1) + '.';
+    });
+  }
+
+  function updateSueldo(row) {
+    const tipo = row.querySelector('.contact-tipo-sueldo').value;
+    const estado = row.querySelector('.contact-estado-habilidad').value;
+    const display = row.querySelector('.contact-sueldo-display');
+    const sueldo = (SUELDO_LOOKUP[tipo] || {})[estado];
+    display.textContent = sueldo ? (sueldo + ' / semana') : '—';
+  }
+
+  addBtn.addEventListener('click', () => {
+    const clone = tmpl.content.cloneNode(true);
+    profList.appendChild(clone);
+    reindex();
+    wireProfPickers(profList);
+  });
+
+  profList.addEventListener('click', (e) => {
+    if (e.target.closest('.remove-prof')) {
+      e.target.closest('.prof-row').remove();
+      reindex();
+    }
+  });
+
+  profList.addEventListener('change', (e) => {
+    if (e.target.classList.contains('contact-tipo-sueldo') || e.target.classList.contains('contact-estado-habilidad')) {
+      updateSueldo(e.target.closest('.prof-row'));
+    }
+  });
+
+  wireProfPickers(profList);
+  profList.querySelectorAll('.prof-row').forEach(updateSueldo);
+})();
+</script>

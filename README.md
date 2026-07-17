@@ -585,7 +585,7 @@ Inicia sesión con las credenciales de administrador y accede desde el menú **A
 
 #### Vínculos (`/contactos/vinculos`)
 
-Ya no es admin-only (ver [Gestionar Contactos](#gestionar-contactos)) — para un administrador muestra siempre **todas** las relaciones contacto↔personaje: contacto, personaje, tipo de relación, nivel de relación y número de notas (recuento, no contenido). Busca por nombre de contacto o de personaje. Desde cada fila: **Ver ficha** abre la ficha del contacto ya filtrada como ese personaje concreto (ahí están el vínculo completo, el salario y las notas).
+Ya no es admin-only (ver [Gestionar Contactos](#gestionar-contactos)) — para un administrador muestra siempre **todas** las relaciones contacto↔personaje: contacto, personaje, tipo de relación, nivel de relación y número de notas (recuento, no contenido). Busca por nombre de contacto o de personaje. Desde cada fila: **Ver ficha** abre la ficha del contacto ya filtrada como ese personaje concreto (ahí están el vínculo completo y las notas).
 
 #### Comida y bebida (`/admin/comida`)
 
@@ -827,7 +827,7 @@ Puedes crear, editar y eliminar plantillas desde esa pantalla. Al eliminar una p
 | `characters.view` | Consultar personajes propios |
 | `characters.edit` | Crear y editar personajes propios |
 | `contacts.view` | Consultar listado y ficha de contactos |
-| `contacts.edit` | Crear contactos y editar el propio vínculo (nivel, notas, salario...) de un personaje |
+| `contacts.edit` | Crear contactos y editar el propio vínculo (nivel, notas...) de un personaje |
 | `contacts.import` | Importar/exportar contactos desde Excel |
 | `equipment.view` | Consultar catálogo de armas, armaduras, ropas y objetos especiales |
 | `equipment.edit` | Crear, editar y eliminar objetos del catálogo de equipamiento (incluida la edición en bloque) |
@@ -863,7 +863,7 @@ Además de la copia de seguridad completa por `mysqldump` (ver [Copias de seguri
 | **Personajes** | Personajes → Exportar/Importar (solo visible para admin) | Ficha completa: características, trasfondo, carrera, habilidades, talentos, rasgos, contactos generados en creación, posesiones, objetos mágicos, grado(s) y mochila/saco de la Untersuchung, **su foto** (bytes en base64), **inventario** (qué tiene y en qué ubicación, incluida comida/bebida comprada), **historial de compras** y **dinero concedido a mano** |
 | **Plantillas de permisos** | Admin → Usuarios → Plantillas de permisos → Exportar/Importar | Nombre, descripción y permisos incluidos |
 | **Diccionario de sinónimos** | Admin → Diccionario de sinónimos → Exportar/Importar | Todas las entradas (término original/correcto, prefijo, notas) |
-| **Contactos + Vínculos** | Admin → Vínculos → Exportar/Importar | Cada contacto con **todos** sus vínculos por personaje (nivel, tipo de relación, salario), quién lo registró, sus **notas privadas** por personaje y **su foto** (bytes en base64) — más completo que la exportación Excel de Contactos (que solo cubre nombre/Untersuchung/profesiones y se mantiene aparte, sin cambios) |
+| **Contactos + Vínculos** | Admin → Vínculos → Exportar/Importar | Cada contacto con su carrera profesional (sueldo objetivo incluido), **todos** sus vínculos por personaje (nivel, tipo de relación), quién lo registró, sus **notas privadas** por personaje y **su foto** (bytes en base64) — más completo que la exportación Excel de Contactos (que solo cubre nombre/Untersuchung/profesiones y se mantiene aparte, sin cambios) |
 | **Backup completo** | Admin → Backup completo (o el indicador del panel) | Exporta/importa las nueve secciones anteriores de golpe, en el orden correcto de dependencias — **selectivo**: se puede desmarcar cualquier sección antes de exportar (todas marcadas por defecto = backup total); el propio fichero guarda qué secciones incluye (`secciones`). Cada exportación queda guardada en el servidor: una lista de solo nombres a la izquierda (el propio nombre ya lleva la fecha) y, al elegir uno, un panel de detalle a la derecha con sus secciones y nº de registros por sección, tamaño, etc. — los botones (Descargar/Comprimir·Descomprimir/Eliminar) van encima de ambos y actúan sobre el fichero seleccionado. **Comprimir** (gzip, reduce el tamaño en disco) tiene su reverso **Descomprimir**; un backup comprimido sigue siendo descargable/importable/**restaurable** con normalidad (se descomprime al vuelo). También se puede marcar cualquier combinación de ficheros y pulsar **Comprimir seleccionados** o **Descomprimir seleccionados** — cada acción solo afecta a los seleccionados que le correspondan (comprimir ignora los ya comprimidos y viceversa, cada uno en su propio fichero). El panel de detalle también tiene un campo de **nota** libre por backup (p.ej. "antes de actualizar profesiones") — se guarda dentro del propio fichero (no en un índice aparte), así que sobrevive a comprimir/descomprimir/descargar sin esfuerzo extra, y un icono en la lista avisa de qué backups tienen nota (con el texto en el tooltip). Pensado para poder levantar una instancia nueva desde cero (p. ej. tras un fallo de disco) sin perder ningún dato real — el único hueco intencionado es `CharacterCartItem` (un carrito de compra a medio hacer, sin valor de recuperación) |
 
 Cómo funciona el import (mismo criterio en todas las secciones):
@@ -1013,20 +1013,21 @@ Desde la ficha del personaje puedes ver las estadísticas de cada profesión en 
 
 ### Gestionar Contactos
 
-Ve a **Contactos** en el menú principal. Un contacto (NPC) tiene datos **globales** (nombre, raza, foto, profesiones del catálogo, si pertenece a la Untersuchung y su(s) grado(s), estado, lugares de descanso/trabajo/ocio, notas del director — solo admin) y datos **por personaje** (nivel de relación, tipo de relación, salario, notas privadas) sobre el vínculo con el **personaje activo** del usuario — cada personaje ve y edita solo su propio vínculo, nunca el de otro, aunque sean del mismo usuario.
+Ve a **Contactos** en el menú principal. Un contacto (NPC) tiene datos **globales** (nombre, raza, foto, carrera profesional con sueldo objetivo, si pertenece a la Untersuchung y su(s) grado(s), estado, lugares de descanso/trabajo/ocio, notas del director — solo admin) y datos **por personaje** (nivel de relación, tipo de relación, notas privadas) sobre el vínculo con el **personaje activo** del usuario — cada personaje ve y edita solo su propio vínculo, nunca el de otro, aunque sean del mismo usuario.
 
 - **Crear y editar contactos es exclusivo de administrador**, desde **+ Nuevo contacto** o desde **Editar** en la propia ficha. El resto de usuarios solo consulta y gestiona su propio vínculo.
 - **Personaje activo**: cada usuario tiene un personaje "activo" persistido (sustituye al antiguo selector "Ver como" por página). Se fija al hacer login si hace falta (con un único personaje se marca solo; con varios y ninguno marcado, se te lleva una vez al listado de Personajes a elegir), desde **Mi perfil** (menú de usuario, arriba a la derecha), o con el botón "Marcar activo" en cada tarjeta del listado de Personajes. Un administrador conserva además, solo en la ficha del contacto, un selector para editar el vínculo de cualquier otro personaje puntualmente.
 - **Raza**: desplegable guiado (Humano, Enano, Alto elfo, Elfo Silvano, Halfling, Ogro, Hombre bestia, Piel verde, No muerto, Slam, Criatura, Monstruo, Demonio) con una opción **"Nueva raza…"** que revela un campo de texto libre para cualquier otra.
 - **Estado**: Vivo / Muerto / Desconocido, como insignia en el listado y la ficha.
 - **Visibilidad**: un único interruptor admin, **Visible** (en Editar contacto) — si está desmarcado, el contacto queda oculto para todos los no-admin. Sin concesiones por personaje.
+- **Carrera profesional y sueldo** (2026-07-17): en Editar contacto, las profesiones se añaden con el mismo buscador + filas repetibles que la carrera de un Personaje (columnas Profesión / Tipo de trabajador / Calidad del trabajador / Sueldo del trabajador). El sueldo es un **hecho objetivo** que pone el director (no una creencia por personaje): se calcula en vivo a partir de la tabla de referencia de sueldos (tipo × calidad, sin ajuste por % de habilidad — a diferencia de un Personaje, un NPC no tiene ese dato) y se muestra también en la ficha, junto a cada profesión.
 - **Nivel y tipo de relación**: el nivel es un desplegable de -5 a 5 con etiqueta descriptiva (Enemigo mortal…Amigo incondicional). El tipo de relación es una selección múltiple (Baza, Unter/Untersuchung, Súbdito, Señor, Otra) — sustituye al antiguo grado "sin marca" de la Untersuchung.
-- **Untersuchung**: si el contacto pertenece a esta organización secreta, ese dato (y su(s) **grado(s)**) **solo se muestra si el personaje activo también es miembro** (o eres admin, que siempre lo ve). Los grados tienen dos tiers: **Agente** (Escudo/Estilete/Gato/Brújula/Pluma/Corona, hasta 3 marcas, repetible = veteranía) y **Adjunto** (Carro/Paloma, exactamente 1 marca — solo se ofrece en la primera de las 3, y elegirlo ahí deshabilita las otras dos). Los **Personajes** tienen el mismo selector en su ficha de edición — un jugador puede ser él mismo agente de la Untersuchung.
-- **Salario**: si el contacto tiene una profesión, puedes elegir manualmente un tipo de sueldo y un estado de habilidad de la tabla de referencia (misma tabla que al asignar profesiones a tus propios personajes).
+- **Untersuchung**: si el contacto pertenece a esta organización secreta, ese dato (y su(s) **grado(s)**) **solo se muestra si el personaje activo también es miembro** (o eres admin, que siempre lo ve). Los grados tienen dos tiers: **Agente** (Escudo/Estilete/Gato/Brújula/Pluma/Corona, hasta 3 marcas, repetible = veteranía) y **Adjunto** (Carro/Paloma, exactamente 1 marca — solo se ofrece en la primera de las 3, y elegirlo ahí deshabilita las otras dos). Los **Personajes** tienen el mismo selector en su ficha de edición (con las mismas cabeceras de columna en su carrera profesional) — un jugador puede ser él mismo agente de la Untersuchung.
 - **Notas**: privadas de cada personaje — una nota de tu personaje A nunca aparece al ver el contacto como tu personaje B. Fuera de la propia ficha, solo se muestra su **número**, nunca el contenido.
-- El listado de Contactos es global (visible para cualquier usuario, ya no hay filtrado por personaje): miniatura con zoom al pasar el ratón/lightbox al hacer clic (mismo sistema que Personajes), Raza, Unter, Estado, y un botón con el nº de personajes vinculados que despliega su nivel y tipo. La ficha añade al final una tabla **"Personajes con relación"**, visible a cualquiera que pueda ver el contacto.
+- La ficha de un contacto muestra siempre **todos** los campos globales, tengan o no dato (con un guion si están vacíos) — solo las marcas de la Untersuchung son la excepción deliberada: se ven únicamente las que el contacto realmente tiene, cada una con su nombre como texto alternativo.
+- El listado de Contactos es global (visible para cualquier usuario, ya no hay filtrado por personaje): miniatura con zoom al pasar el ratón/lightbox al hacer clic (mismo sistema que Personajes), Raza, Unter, Estado, y un botón con el nº de personajes vinculados que despliega su nivel y tipo en un panel con una paleta de color propia (teal), para diferenciarlo claramente del resto de la tabla — el botón queda resaltado mientras el panel está abierto. La ficha añade al final una tabla **"Personajes con relación"**, visible a cualquiera que pueda ver el contacto.
 - **Vínculos** (`/contactos/vinculos`, menú **Contactos → Vínculos**) ya no es admin-only: cualquier usuario lo ve, por defecto filtrado a los vínculos de su propio personaje activo (columnas: Contacto, Tipo de relación, Nivel, nº de notas, Ver ficha); un botón **"Ver todos"** amplía a los vínculos de todos los personajes de todos los usuarios (añade la columna Personaje). Un administrador ve siempre todos.
-- Los administradores gestionan además desde **Admin → Contactos**: listado completo de **todos** los contactos del sistema (mostrar/ocultar, eliminar, editar), e importación/exportación Excel con columnas fijas (`nombre`, `es_untersuchung`, `profesiones` separadas por comas — deben existir ya en el catálogo de Profesiones; el resto de campos solo viaja en el "Backup completo" JSON).
+- Los administradores gestionan además desde **Admin → Contactos**: listado completo de **todos** los contactos del sistema (mostrar/ocultar, eliminar, editar), e importación/exportación Excel con columnas fijas (`nombre`, `es_untersuchung`, `profesiones` separadas por comas — deben existir ya en el catálogo de Profesiones; el resto de campos, incluido el sueldo, solo viaja en el "Backup completo" JSON).
 
 ---
 
@@ -1101,7 +1102,9 @@ contacts                           (hechos GLOBALES de un NPC — iguales para t
   ├─ is_visible                    (único interruptor de visibilidad: oculto para todo no-admin
   │                                 si está apagado, visible para cualquiera si está encendido)
   ├─ created_by_id → users.id      (quién lo registró; ya no determina permisos de edición)
-  ├─ contact_professions           (M2M contacts ↔ professions, reutiliza el catálogo)
+  ├─ contact_professions           (carrera del contacto - profession_id + tipo_sueldo/estado_habilidad,
+  │                                 mismas columnas que CharacterProfession; sueldo objetivo puesto por el
+  │                                 director, no calculado de ninguna habilidad real - ver salary_service)
   ├─ character_links → contact_character_links
   └─ notes → contact_notes
 
@@ -1109,8 +1112,7 @@ contact_character_links            (la visión de UN personaje sobre un Contacto
   ├─ character_id, contact_id      nunca visible para otro personaje, ni del mismo usuario, salvo
   │                                 nivel/tipo en la tabla "Personajes con relación" de la ficha)
   ├─ nivel                         (-5 a 5, con etiqueta descriptiva por NIVEL_LABELS)
-  ├─ tipo_relacion                 (JSON, lista de 0+ de Baza/Unter-Untersuchung/Súbdito/Señor/Otra)
-  └─ salarios → contact_character_salaries  (tipo_sueldo + estado_habilidad por profesión)
+  └─ tipo_relacion                 (JSON, lista de 0+ de Baza/Unter-Untersuchung/Súbdito/Señor/Otra)
 
 contact_notes
   ├─ contact_id, character_id      (nota propia de un personaje, nunca de otro)
@@ -1313,7 +1315,7 @@ WarhammerFantasyTools/
     │   │                   # rasgos, contactos generados en creación, posesiones y objetos mágicos
     │   ├── synonym.py      # Diccionario de sinónimos para importación PDF
     │   ├── contact.py                  # Contact, ContactProfession (hechos globales del NPC)
-    │   ├── contact_character_link.py   # ContactCharacterLink, ContactCharacterSalary
+    │   ├── contact_character_link.py   # ContactCharacterLink
     │   ├── contact_note.py             # ContactNote (por personaje)
     │   ├── food.py                     # CookingMethod, Ingredient, IngredientCookingMethod, Recipe, Drink
     │   ├── equipment.py    # EquipmentItem, CharacterInventoryItem, CharacterCartItem, CharacterPurchase
@@ -1325,7 +1327,7 @@ WarhammerFantasyTools/
     │   ├── skills_talents.py  # CRUD de habilidades y talentos (edición requiere skills.edit)
     │   ├── pathfinder.py   # Buscador de caminos
     │   ├── characters.py   # Gestión de personajes WFRP + tienda/carrito/inventario/historial de compras
-    │   ├── contacts.py     # Vistas de usuario de Contactos (listado, ficha, vínculo/salario/notas por personaje)
+    │   ├── contacts.py     # Vistas de usuario de Contactos (listado, ficha, carrera+sueldo, vínculo/notas por personaje)
     │   ├── admin.py        # Panel admin: usuarios, permisos, plantillas, PDF, Contactos (listado/import-export),
     │   │                   # recargo global de precios
     │   ├── food.py         # Comida y bebida: bebidas, recetas, ingredientes, métodos de cocina, normas,

@@ -11,7 +11,7 @@ from app.models.untersuchung import (
     UNTERSUCHUNG_GRADOS_CON_MARCA, UNTERSUCHUNG_GRADOS_AGENTE, UNTERSUCHUNG_GRADOS_ADJUNTO, MAX_GRADOS,
 )
 from app.models.contact_character_link import (
-    ContactCharacterLink, ContactCharacterSalary, NIVEL_LABELS, TIPO_RELACION_CHOICES,
+    ContactCharacterLink, NIVEL_LABELS, TIPO_RELACION_CHOICES,
 )
 from app.models.contact_note import ContactNote
 from app.services import salary_service
@@ -53,6 +53,50 @@ def _grado_form_context():
         estado_choices=ESTADO_CHOICES, estado_labels=ESTADO_LABELS, raza_choices=RAZA_CHOICES,
         marca_images=_marca_images(),
     )
+
+
+def _professions_picker_context(professions):
+    """JSON-ready data for the searchable profession picker widget (same
+    widget/macro as Character's career - duplicated helper rather than a
+    shared import, the two blueprints don't otherwise depend on each other),
+    plus the salary reference table and a precomputed tipo x estado -> sueldo
+    lookup so the browser can show a live "Sueldo del trabajador" without
+    reimplementing the money math in JS."""
+    from app.models.profession import career_exits_table
+    exits_map = {}
+    for source_id, target_id in db.session.query(
+        career_exits_table.c.source_id, career_exits_table.c.target_id
+    ).all():
+        exits_map.setdefault(source_id, []).append(target_id)
+    return {
+        'professions_picker_list': [{'id': p.id, 'name': p.name} for p in professions],
+        'professions_exits_map': exits_map,
+        'salary_table': salary_service.get_salary_table(),
+        'sueldo_lookup': salary_service.sueldo_lookup(),
+    }
+
+
+def _rebuild_contact_professions(contact_id):
+    """Rebuild a contact's profession list (with its objective salary tier -
+    2026-07-17, replaces the old bare multi-select) from the 3 parallel
+    repeated form fields, same convention as Character._rebuild_professions.
+    A profession picked twice in the same submission is silently deduped
+    (first occurrence wins) since ContactProfession has a uniqueness
+    constraint per contact+profession, unlike a character's career."""
+    prof_ids = request.form.getlist('profession_ids')
+    tipo_list = request.form.getlist('tipo_sueldo_list')
+    estado_list = request.form.getlist('estado_habilidad_list')
+    seen = set()
+    for i, prof_id_str in enumerate(prof_ids):
+        if not prof_id_str or prof_id_str in seen:
+            continue
+        seen.add(prof_id_str)
+        db.session.add(ContactProfession(
+            contact_id=contact_id,
+            profession_id=int(prof_id_str),
+            tipo_sueldo=(tipo_list[i] if i < len(tipo_list) else '') or None,
+            estado_habilidad=(estado_list[i] if i < len(estado_list) else '') or None,
+        ))
 
 
 def _estado_from_form():
@@ -264,27 +308,26 @@ def new():
     fills in the contact's global facts here; each character adds their own
     link/notes/salary afterwards from the contact's own ficha (link_save)."""
     professions = Profession.query.order_by(Profession.name).all()
+    form_context = {**_grado_form_context(), **_professions_picker_context(professions)}
 
     if request.method == 'POST':
         contact = Contact(created_by_id=current_user.id)
         _global_fields_from_form(contact)
         if not contact.nombre:
             flash('El contacto necesita un nombre.', 'danger')
-            return render_template('contacts/new.html', professions=professions, **_grado_form_context())
+            return render_template('contacts/new.html', **form_context)
 
         _save_image_from_form(contact)
         db.session.add(contact)
         db.session.flush()
 
-        for prof_id in request.form.getlist('profession_ids'):
-            if prof_id:
-                db.session.add(ContactProfession(contact_id=contact.id, profession_id=int(prof_id)))
+        _rebuild_contact_professions(contact.id)
 
         db.session.commit()
         flash(f'Contacto «{contact.nombre}» creado.', 'success')
         return redirect(url_for('contacts.detail', contact_id=contact.id))
 
-    return render_template('contacts/new.html', professions=professions, **_grado_form_context())
+    return render_template('contacts/new.html', **form_context)
 
 
 def _link_fields_from_form():
@@ -349,13 +392,13 @@ def detail(contact_id):
         notes=notes,
         links=links,
         note_counts=note_counts,
-        salary_table=salary_service.get_salary_table(),
         can_edit=current_user.is_admin,
         estado_labels=ESTADO_LABELS,
         nivel_labels=NIVEL_LABELS,
         tipo_relacion_choices=TIPO_RELACION_CHOICES,
         marca_images=_marca_images(),
         grados_display=grados_display,
+        compute_sueldo=salary_service.compute_sueldo,
     )
 
 
@@ -397,37 +440,6 @@ def link_delete(contact_id):
     db.session.delete(link)
     db.session.commit()
     flash('Vínculo eliminado.', 'success')
-    return redirect(url_for('contacts.detail', contact_id=contact_id, personaje_id=personaje.id))
-
-
-@contacts_bp.route('/<int:contact_id>/salario', methods=['POST'])
-@login_required
-def salary_save(contact_id):
-    contact = Contact.query.get_or_404(contact_id)
-    characters = _selectable_characters()
-    personaje_id = request.form.get('personaje_id', type=int)
-    personaje = next((c for c in characters if c.id == personaje_id), None)
-    if not personaje or not _can_view(contact):
-        abort(403)
-    link = ContactCharacterLink.query.filter_by(character_id=personaje.id, contact_id=contact_id).first_or_404()
-    profession_id = request.form.get('profession_id', type=int)
-    if not profession_id:
-        abort(400)
-
-    salary = ContactCharacterSalary.query.filter_by(link_id=link.id, profession_id=profession_id).first()
-    tipo_sueldo = request.form.get('tipo_sueldo', '').strip() or None
-    estado_habilidad = request.form.get('estado_habilidad', '').strip() or None
-    if salary:
-        salary.tipo_sueldo = tipo_sueldo
-        salary.estado_habilidad = estado_habilidad
-    else:
-        salary = ContactCharacterSalary(
-            link_id=link.id, profession_id=profession_id,
-            tipo_sueldo=tipo_sueldo, estado_habilidad=estado_habilidad,
-        )
-        db.session.add(salary)
-    db.session.commit()
-    flash('Salario actualizado.', 'success')
     return redirect(url_for('contacts.detail', contact_id=contact_id, personaje_id=personaje.id))
 
 
@@ -498,27 +510,24 @@ def note_delete(contact_id, note_id):
 def edit(contact_id):
     contact = Contact.query.get_or_404(contact_id)
     professions = Profession.query.order_by(Profession.name).all()
-    selected_profession_ids = {cp.profession_id for cp in contact.professions}
+    form_context = {**_grado_form_context(), **_professions_picker_context(professions)}
 
     if request.method == 'POST':
         nombre = request.form.get('nombre', '').strip()
         if not nombre:
             flash('El contacto necesita un nombre.', 'danger')
-            return render_template('contacts/edit.html', contact=contact, professions=professions,
-                                   selected_profession_ids=selected_profession_ids, **_grado_form_context())
+            return render_template('contacts/edit.html', contact=contact, **form_context)
 
         _global_fields_from_form(contact)
         _save_image_from_form(contact)
         contact.is_visible = request.form.get('is_visible') == 'on'
 
         ContactProfession.query.filter_by(contact_id=contact.id).delete()
-        for prof_id in request.form.getlist('profession_ids'):
-            if prof_id:
-                db.session.add(ContactProfession(contact_id=contact.id, profession_id=int(prof_id)))
+        db.session.flush()
+        _rebuild_contact_professions(contact.id)
 
         db.session.commit()
         flash(f'Contacto «{contact.nombre}» actualizado.', 'success')
         return redirect(url_for('contacts.detail', contact_id=contact.id))
 
-    return render_template('contacts/edit.html', contact=contact, professions=professions,
-                           selected_profession_ids=selected_profession_ids, **_grado_form_context())
+    return render_template('contacts/edit.html', contact=contact, **form_context)

@@ -1037,3 +1037,59 @@ mark { background: rgba(212, 168, 48, .28); color: var(--wh-gold-light); padding
 /* Modificador de característica positivo - verde brillante ilegible sobre
    fondo claro, se oscurece manteniendo el matiz pero sin apagarlo. */
 [data-theme="light"] .wh-stat-positive { color: #158a28 !important; }
+
+/* ---- Contactos: panel expandible "Personajes con relación" ----
+   El botón que lo abre pasa a look "pulsado" (mismo lenguaje visual que
+   .wh-accordion-btn:not(.collapsed)), y el panel usa una paleta teal - la
+   misma familia que .wh-navbar-prepro - para que quede inconfundible que
+   son datos ajenos al catálogo de contactos (vínculos de otros personajes),
+   no una fila más de la tabla. */
+.wh-links-toggle {
+  border: 1px solid transparent;
+  border-radius: 4px;
+  padding: 2px 8px !important;
+  transition: background-color .15s, color .15s, border-color .15s;
+}
+.wh-links-toggle[aria-expanded="true"] {
+  background: #1f5866;
+  color: #dff6fa !important;
+  border-color: #2ab0c9;
+  font-weight: 600;
+  text-decoration: none;
+}
+.wh-links-panel {
+  background: #0d2229;
+  border: 1px solid #1f5866;
+}
+.wh-links-panel-header {
+  background: linear-gradient(90deg, #0a1a20 0%, #0d2229 100%);
+  border-bottom: 1px solid #1f5866;
+  color: #6fd0e0;
+  font-family: 'Cinzel', serif;
+  font-size: .9rem;
+  padding: .5rem .75rem;
+}
+.wh-links-table { color: var(--wh-text); }
+.wh-links-table thead th {
+  color: #6fd0e0;
+  border-color: #1f5866;
+  background: transparent;
+}
+.wh-links-table tbody td {
+  background: #0d2229;
+  border-color: #163944;
+  color: var(--wh-text);
+}
+[data-theme="light"] .wh-links-toggle[aria-expanded="true"] {
+  background: #cdeef4;
+  color: #0a4a55 !important;
+  border-color: #2ab0c9;
+}
+[data-theme="light"] .wh-links-panel { background: #e6f7fa; border-color: #7fd4e0; }
+[data-theme="light"] .wh-links-panel-header {
+  background: linear-gradient(90deg, #d3eff5 0%, #e6f7fa 100%);
+  border-color: #7fd4e0;
+  color: #0a5560;
+}
+[data-theme="light"] .wh-links-table thead th { color: #0a5560; border-color: #7fd4e0; }
+[data-theme="light"] .wh-links-table tbody td { background: #e6f7fa; border-color: #c5e8ee; color: var(--wh-text); }

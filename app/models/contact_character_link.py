@@ -29,7 +29,6 @@ class ContactCharacterLink(db.Model):
 
     character = db.relationship('Character', backref=db.backref('contact_links', passive_deletes=True))
     contact = db.relationship('Contact', backref=db.backref('character_links', passive_deletes=True))
-    salarios = db.relationship('ContactCharacterSalary', backref='link', lazy='joined', cascade='all, delete-orphan')
 
     __table_args__ = (
         db.UniqueConstraint('character_id', 'contact_id', name='uq_character_contact'),
@@ -37,22 +36,3 @@ class ContactCharacterLink(db.Model):
 
     def __repr__(self):
         return f'<ContactCharacterLink character={self.character_id} contact={self.contact_id}>'
-
-
-class ContactCharacterSalary(db.Model):
-    """This character's recorded salary tier for one of the contact's
-    professions (picked manually from the reference salary table, not
-    computed from any actual skill percentage)."""
-    __tablename__ = 'contact_character_salaries'
-
-    id = db.Column(db.Integer, primary_key=True)
-    link_id = db.Column(db.Integer, db.ForeignKey('contact_character_links.id', ondelete='CASCADE'), nullable=False)
-    profession_id = db.Column(db.Integer, db.ForeignKey('professions.id', ondelete='CASCADE'), nullable=False)
-    tipo_sueldo = db.Column(db.String(30), nullable=True)
-    estado_habilidad = db.Column(db.String(20), nullable=True)
-
-    profession = db.relationship('Profession', lazy='joined')
-
-    __table_args__ = (
-        db.UniqueConstraint('link_id', 'profession_id', name='uq_link_profession_salary'),
-    )

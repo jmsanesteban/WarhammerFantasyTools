@@ -57,12 +57,17 @@ class Contact(db.Model):
 
 
 class ContactProfession(db.Model):
-    """Which of the existing Profession catalog entries this contact has."""
+    """Which of the existing Profession catalog entries this contact has, with
+    its objective salary tier (tipo_sueldo/estado_habilidad, same reference
+    table as Personajes - see salary_service - but set directly by the
+    director as a fact about the NPC, not a per-character guess)."""
     __tablename__ = 'contact_professions'
 
     id = db.Column(db.Integer, primary_key=True)
     contact_id = db.Column(db.Integer, db.ForeignKey('contacts.id', ondelete='CASCADE'), nullable=False)
     profession_id = db.Column(db.Integer, db.ForeignKey('professions.id', ondelete='CASCADE'), nullable=False)
+    tipo_sueldo = db.Column(db.String(30), nullable=True)
+    estado_habilidad = db.Column(db.String(20), nullable=True)
 
     profession = db.relationship('Profession', lazy='joined')
 

@@ -1,12 +1,14 @@
 """Tests for the Contacts feature (reworked 2026-07-16): visibility is now a
 single admin-controlled switch (Contact.is_visible, no more per-character
 grants), creation/edition of the contact's global data is admin-only, and
-each character keeps its own private link (nivel/tipo_relacion/notas/
-salary) on top of it. Admin-only management routes are covered in
-test_admin_contacts.py."""
-from app.models.contact import Contact
+each character keeps its own private link (nivel/tipo_relacion/notas) on top
+of it. A profession's salary tier is an objective fact set by the admin on
+the contact itself (2026-07-17), not a per-character guess. Admin-only
+management routes are covered in test_admin_contacts.py."""
+from app.models.contact import Contact, ContactProfession
 from app.models.contact_note import ContactNote
-from app.models.contact_character_link import ContactCharacterLink, ContactCharacterSalary
+from app.models.contact_character_link import ContactCharacterLink
+from app.services import salary_service
 
 
 def test_index_requires_login(client):
@@ -302,25 +304,54 @@ def test_two_characters_have_independent_links_to_same_contact(db, client, make_
     assert link_b.nivel == -2
 
 
-# ── Salario ──────────────────────────────────────────────────────────────────
+# ── Sueldo por profesión (2026-07-17: hecho objetivo del contacto, ya no una
+#    creencia por personaje - se fija en new()/edit(), no en una ruta propia) ─
 
-def test_salary_save_creates_salary_entry(db, client, regular_user, make_character, make_contact,
-                                          make_contact_link, make_profession, login_as):
-    char = make_character(regular_user)
+def test_new_contact_saves_profession_with_salary_tier(db, client, admin_user, login_as, make_profession):
     prof = make_profession(name='Herrero')
-    contact = make_contact(professions=[prof])
-    link = make_contact_link(char, contact)
-    login_as(client, regular_user, 'userpass123')
+    login_as(client, admin_user, 'adminpass123')
 
-    client.post(f'/contactos/{contact.id}/salario', data={
-        'personaje_id': str(char.id), 'profession_id': str(prof.id),
-        'tipo_sueldo': 'Artesanos', 'estado_habilidad': 'Buena',
+    client.post('/contactos/nuevo', data={
+        'nombre': 'Gorbag', 'profession_ids': [str(prof.id)],
+        'tipo_sueldo_list': ['Artesanos'], 'estado_habilidad_list': ['Buena'],
     }, follow_redirects=True)
 
-    salary = ContactCharacterSalary.query.filter_by(link_id=link.id, profession_id=prof.id).first()
-    assert salary is not None
-    assert salary.tipo_sueldo == 'Artesanos'
-    assert salary.estado_habilidad == 'Buena'
+    contact = Contact.query.filter_by(nombre='Gorbag').first()
+    assert contact is not None
+    cp = contact.professions[0]
+    assert cp.tipo_sueldo == 'Artesanos'
+    assert cp.estado_habilidad == 'Buena'
+
+
+def test_edit_contact_rebuilds_professions_with_salary(db, client, admin_user, login_as, make_contact, make_profession):
+    prof = make_profession(name='Herrero')
+    contact = make_contact(nombre='Gorbag', professions=[prof])
+    login_as(client, admin_user, 'adminpass123')
+
+    client.post(f'/contactos/{contact.id}/editar', data={
+        'nombre': 'Gorbag', 'profession_ids': [str(prof.id)],
+        'tipo_sueldo_list': ['Especialistas'], 'estado_habilidad_list': ['Excelente'],
+    }, follow_redirects=True)
+
+    db.session.refresh(contact)
+    cp = contact.professions[0]
+    assert cp.tipo_sueldo == 'Especialistas'
+    assert cp.estado_habilidad == 'Excelente'
+
+
+def test_detail_shows_computed_sueldo_for_profession(db, client, admin_user, make_contact, make_profession, login_as):
+    prof = make_profession(name='Herrero')
+    contact = make_contact(nombre='Gorbag')
+    db.session.add(ContactProfession(
+        contact_id=contact.id, profession_id=prof.id,
+        tipo_sueldo='Artesanos', estado_habilidad='Buena',
+    ))
+    db.session.commit()
+    login_as(client, admin_user, 'adminpass123')
+
+    resp = client.get(f'/contactos/{contact.id}')
+    expected_sueldo = salary_service.compute_sueldo('Artesanos', 'Buena')
+    assert expected_sueldo.encode() in resp.data
 
 
 # ── Notas (por personaje) ────────────────────────────────────────────────────

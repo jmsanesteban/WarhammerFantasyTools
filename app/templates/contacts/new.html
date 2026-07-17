@@ -94,15 +94,6 @@
             <input type="file" name="image" class="form-control wh-input" accept="image/*">
           </div>
           <div class="col-12">
-            <label class="form-label wh-label">Profesiones</label>
-            <select name="profession_ids" class="form-select wh-input" multiple size="6">
-              {% for p in professions %}
-              <option value="{{ p.id }}">{{ p.name }}</option>
-              {% endfor %}
-            </select>
-            <small class="text-muted">Ctrl/Cmd + clic para elegir varias.</small>
-          </div>
-          <div class="col-12">
             <label class="form-label wh-label">Notas del director</label>
             <textarea name="notas_director" class="form-control wh-input" rows="3"
                       placeholder="Solo visibles para el director de juego"></textarea>
@@ -110,6 +101,8 @@
         </div>
       </div>
     </div>
+
+    {% include 'contacts/_profesiones_form.html' %}
 
     <div class="d-flex gap-2 mb-5">
       <button type="submit" class="btn btn-wh"><i class="bi bi-floppy me-1"></i>Guardar contacto</button>
@@ -131,4 +124,5 @@
   sync();
 })();
 </script>
+{% include 'contacts/_profesiones_scripts.html' %}
 {% endblock %}

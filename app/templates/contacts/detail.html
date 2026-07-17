@@ -42,35 +42,44 @@
     </div>
     <div class="card-body">
       <div class="row">
-        {% if contact.image_path %}
         <div class="col-md-3 mb-3">
+          {% if contact.image_path %}
           <img src="{{ url_for('main.uploaded_file', filename=contact.image_path) }}" class="wh-prof-image rounded"
                alt="{{ contact.nombre }}">
+          {% else %}
+          <div class="wh-prof-image-placeholder"><i class="bi bi-person-bounding-box"></i></div>
+          {% endif %}
         </div>
-        {% endif %}
-        <div class="{% if contact.image_path %}col-md-9{% else %}col-12{% endif %}">
+        <div class="col-md-9">
           <dl class="row mb-0">
-            {% if contact.raza %}
-            <dt class="col-sm-4 wh-label">Raza</dt><dd class="col-sm-8">{{ contact.raza }}</dd>
-            {% endif %}
-            {% if contact.lugar_descanso %}
-            <dt class="col-sm-4 wh-label">Lugar de descanso</dt><dd class="col-sm-8">{{ contact.lugar_descanso }}</dd>
-            {% endif %}
-            {% if contact.lugar_trabajo %}
-            <dt class="col-sm-4 wh-label">Lugar de trabajo</dt><dd class="col-sm-8">{{ contact.lugar_trabajo }}</dd>
-            {% endif %}
-            {% if contact.lugar_ocio %}
-            <dt class="col-sm-4 wh-label">Lugar de ocio</dt><dd class="col-sm-8">{{ contact.lugar_ocio }}</dd>
-            {% endif %}
+            <dt class="col-sm-4 wh-label">Raza</dt><dd class="col-sm-8">{{ contact.raza or '—' }}</dd>
+            <dt class="col-sm-4 wh-label">Lugar de descanso</dt><dd class="col-sm-8">{{ contact.lugar_descanso or '—' }}</dd>
+            <dt class="col-sm-4 wh-label">Lugar de trabajo</dt><dd class="col-sm-8">{{ contact.lugar_trabajo or '—' }}</dd>
+            <dt class="col-sm-4 wh-label">Lugar de ocio</dt><dd class="col-sm-8">{{ contact.lugar_ocio or '—' }}</dd>
             <dt class="col-sm-4 wh-label">Profesiones</dt>
-            <dd class="col-sm-8">{{ contact.professions|map(attribute='profession.name')|join(', ') or '—' }}</dd>
+            <dd class="col-sm-8">
+              {% if contact.professions %}
+              <ul class="list-unstyled mb-0">
+                {% for cp in contact.professions %}
+                <li>
+                  <strong>{{ cp.profession.name }}</strong>
+                  <span class="text-muted small">
+                    — {{ cp.tipo_sueldo or '—' }} / {{ cp.estado_habilidad or '—' }}
+                    {% set sueldo = compute_sueldo(cp.tipo_sueldo, cp.estado_habilidad) %}
+                    {% if sueldo %}· {{ sueldo }}/semana{% endif %}
+                  </span>
+                </li>
+                {% endfor %}
+              </ul>
+              {% else %}—{% endif %}
+            </dd>
             {% if current_user.is_admin or (active_character and active_character.es_untersuchung) %}
             <dt class="col-sm-4 wh-label">Untersuchung</dt>
             <dd class="col-sm-8">{{ 'Sí' if contact.es_untersuchung else 'No' }}</dd>
-            {% if contact.grados_untersuchung %}
             <dt class="col-sm-4 wh-label">Grado(s)</dt>
             <dd class="col-sm-8">
-              {{ grados_display(contact.grados_untersuchung) }}
+              {{ grados_display(contact.grados_untersuchung) or '—' }}
+              {% if contact.grados_untersuchung %}
               <div class="d-flex flex-wrap gap-2 mt-2">
                 {% for g in contact.grados_untersuchung %}
                 {% if marca_images.get(g) %}
@@ -79,8 +88,8 @@
                 {% endif %}
                 {% endfor %}
               </div>
+              {% endif %}
             </dd>
-            {% endif %}
             {% endif %}
           </dl>
         </div>
@@ -101,14 +110,14 @@
     </div>
   </div>
 
-  {% if current_user.is_admin and contact.notas_director %}
+  {% if current_user.is_admin %}
   <div class="card wh-card mb-4 border-warning" style="max-width:760px">
     <div class="card-header wh-card-header">
       <h3 class="wh-heading mb-0" style="font-size:1.1rem">Notas del director</h3>
       <small class="text-muted">Solo visibles para administradores.</small>
     </div>
     <div class="card-body">
-      <p class="mb-0" style="white-space:pre-wrap;line-height:1.55">{{ contact.notas_director }}</p>
+      <p class="mb-0" style="white-space:pre-wrap;line-height:1.55">{{ contact.notas_director or '—' }}</p>
     </div>
   </div>
   {% endif %}
@@ -164,59 +173,6 @@
       </form>
     </div>
   </div>
-
-  {# ── Salarios por profesión ───────────────────────────────────────────── #}
-  {% if my_link and contact.professions %}
-  <div class="card wh-card mb-4" style="max-width:760px">
-    <div class="card-header wh-card-header">
-      <h3 class="wh-heading mb-0" style="font-size:1.1rem">Salario</h3>
-      <small class="text-muted">Elegido manualmente de la tabla de sueldos, no calculado automáticamente.</small>
-    </div>
-    <div class="table-responsive">
-      <table class="table wh-table align-middle mb-0">
-        <thead>
-          <tr>
-            <th>Profesión</th>
-            <th colspan="3">Sueldo</th>
-          </tr>
-        </thead>
-        <tbody>
-          {% for cp in contact.professions %}
-          {% set existing = (my_link.salarios|selectattr('profession_id', 'equalto', cp.profession_id)|first) %}
-          <tr>
-            <td>{{ cp.profession.name }}</td>
-            <td colspan="3">
-              <form method="POST" action="{{ url_for('contacts.salary_save', contact_id=contact.id) }}"
-                    class="d-flex gap-2 flex-wrap align-items-center">
-                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                <input type="hidden" name="personaje_id" value="{{ active_character.id }}">
-                <input type="hidden" name="profession_id" value="{{ cp.profession_id }}">
-                <select name="tipo_sueldo" class="form-select form-select-sm wh-input" style="max-width:220px">
-                  <option value="">— Tipo de sueldo —</option>
-                  {% for t in salary_table.tipos %}
-                  <option value="{{ t.tipo }}" {% if existing and existing.tipo_sueldo == t.tipo %}selected{% endif %}>
-                    {{ t.tipo }} ({{ t.sueldo_semanal }}/semana)
-                  </option>
-                  {% endfor %}
-                </select>
-                <select name="estado_habilidad" class="form-select form-select-sm wh-input" style="max-width:180px">
-                  <option value="">— Estado —</option>
-                  {% for e in salary_table.estados_habilidad %}
-                  <option value="{{ e.estado }}" {% if existing and existing.estado_habilidad == e.estado %}selected{% endif %}>
-                    {{ e.estado }} (x{{ e.multiplicador }})
-                  </option>
-                  {% endfor %}
-                </select>
-                <button type="submit" class="btn btn-outline-secondary btn-sm">Guardar</button>
-              </form>
-            </td>
-          </tr>
-          {% endfor %}
-        </tbody>
-      </table>
-    </div>
-  </div>
-  {% endif %}
 
   {# ── Notas (propias del personaje activo) ─────────────────────────────── #}
   <div class="card wh-card mb-4" style="max-width:760px">

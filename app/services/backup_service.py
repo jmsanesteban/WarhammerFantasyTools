@@ -67,7 +67,7 @@ from app.models.character import (
 )
 from app.models.equipment import EquipmentItem, CharacterInventoryItem, CharacterPurchase
 from app.models.contact import Contact, ContactProfession
-from app.models.contact_character_link import ContactCharacterLink, ContactCharacterSalary
+from app.models.contact_character_link import ContactCharacterLink
 from app.models.contact_note import ContactNote
 from app.models.food import Recipe, CookingMethod, Ingredient, Drink
 
@@ -707,7 +707,13 @@ def export_contacts_full():
             'image_data_b64': _encode_image_b64(contact.image_path),
             'is_visible': contact.is_visible,
             'created_by_username': contact.created_by.username if contact.created_by else None,
-            'profesiones': [cp.profession.name for cp in contact.professions if cp.profession],
+            'profesiones': [
+                {
+                    'profession_name': cp.profession.name,
+                    'tipo_sueldo': cp.tipo_sueldo, 'estado_habilidad': cp.estado_habilidad,
+                }
+                for cp in contact.professions if cp.profession
+            ],
             'notes': [
                 {
                     'character_username': n.character.owner.username, 'character_name': n.character.name,
@@ -722,13 +728,6 @@ def export_contacts_full():
                     'character_username': link.character.owner.username,
                     'character_name': link.character.name,
                     'nivel': link.nivel, 'tipo_relacion': link.tipo_relacion,
-                    'salarios': [
-                        {
-                            'profession_name': s.profession.name,
-                            'tipo_sueldo': s.tipo_sueldo, 'estado_habilidad': s.estado_habilidad,
-                        }
-                        for s in link.salarios
-                    ],
                 }
                 for link in contact.character_links
             ],
@@ -776,12 +775,16 @@ def import_contacts_full(data, mode='skip'):
                 )
             contact.created_by_id = creator.id if creator else None
 
-        for prof_name in row.get('profesiones', []):
+        for prof_data in row.get('profesiones', []):
+            prof_name = prof_data['profession_name']
             profession = Profession.query.filter_by(name=prof_name).first()
             if profession is None:
                 summary['warnings'].append(f"Contacto '{row['nombre']}': profesión '{prof_name}' no existe, omitida.")
                 continue
-            contact.professions.append(ContactProfession(profession_id=profession.id))
+            contact.professions.append(ContactProfession(
+                profession_id=profession.id,
+                tipo_sueldo=prof_data.get('tipo_sueldo'), estado_habilidad=prof_data.get('estado_habilidad'),
+            ))
 
         db.session.flush()
 
@@ -798,18 +801,6 @@ def import_contacts_full(data, mode='skip'):
                 nivel=link_data.get('nivel'), tipo_relacion=link_data.get('tipo_relacion'),
             )
             db.session.add(link)
-            db.session.flush()
-            for sal in link_data.get('salarios', []):
-                profession = Profession.query.filter_by(name=sal['profession_name']).first()
-                if profession is None:
-                    summary['warnings'].append(
-                        f"Contacto '{row['nombre']}': profesión de salario '{sal['profession_name']}' no existe, omitida."
-                    )
-                    continue
-                db.session.add(ContactCharacterSalary(
-                    link_id=link.id, profession_id=profession.id,
-                    tipo_sueldo=sal.get('tipo_sueldo'), estado_habilidad=sal.get('estado_habilidad'),
-                ))
 
         for note_data in row.get('notes', []):
             character = _find_character(note_data['character_username'], note_data['character_name'])

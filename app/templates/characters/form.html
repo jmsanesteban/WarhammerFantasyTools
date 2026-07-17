@@ -106,13 +106,13 @@
       <div class="card-body" id="profList">
         {% macro salary_selects(cp=none) %}
         <select name="tipo_sueldo_list" class="form-select form-select-sm wh-input" style="max-width:210px">
-          <option value="">— Tipo de sueldo —</option>
+          <option value="">— Tipo de trabajador —</option>
           {% for t in salary_table.tipos %}
           <option value="{{ t.tipo }}" {% if cp and cp.tipo_sueldo == t.tipo %}selected{% endif %}>{{ t.tipo }}</option>
           {% endfor %}
         </select>
         <select name="estado_habilidad_list" class="form-select form-select-sm wh-input" style="max-width:160px">
-          <option value="">— Estado —</option>
+          <option value="">— Calidad —</option>
           {% for e in salary_table.estados_habilidad %}
           <option value="{{ e.estado }}" {% if cp and cp.estado_habilidad == e.estado %}selected{% endif %}>{{ e.estado }}</option>
           {% endfor %}
@@ -128,6 +128,11 @@
           <div class="prof-picker-dropdown"></div>
         </div>
         {% endmacro %}
+        <div class="d-flex gap-2 mb-2 text-muted small fw-bold flex-wrap d-none d-md-flex" style="padding-left:1.6rem">
+          <span style="min-width:220px; max-width:260px; flex:1 1 260px;">Profesión</span>
+          <span style="max-width:210px; flex:1 1 210px;">Tipo de trabajador</span>
+          <span style="max-width:160px; flex:1 1 160px;">Calidad del trabajador</span>
+        </div>
         {% if char and char.professions %}
           {% for cp in char.professions %}
           <div class="d-flex align-items-center gap-2 mb-2 prof-row flex-wrap">
@@ -161,13 +166,13 @@
     <span class="prof-index text-muted"></span>
     {{ prof_picker() }}
     <select name="tipo_sueldo_list" class="form-select form-select-sm wh-input" style="max-width:210px">
-      <option value="">— Tipo de sueldo —</option>
+      <option value="">— Tipo de trabajador —</option>
       {% for t in salary_table.tipos %}
       <option value="{{ t.tipo }}">{{ t.tipo }}</option>
       {% endfor %}
     </select>
     <select name="estado_habilidad_list" class="form-select form-select-sm wh-input" style="max-width:160px">
-      <option value="">— Estado —</option>
+      <option value="">— Calidad —</option>
       {% for e in salary_table.estados_habilidad %}
       <option value="{{ e.estado }}">{{ e.estado }}</option>
       {% endfor %}

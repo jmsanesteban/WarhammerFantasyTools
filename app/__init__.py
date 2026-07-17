@@ -451,6 +451,25 @@ def _register_cli_commands(app):
                     conn.execute(text('DROP TABLE contact_apodos'))
                     click.echo('  Dropped legacy table contact_apodos')
 
+            # Sueldo objetivo por profesión del contacto (2026-07-17): sustituye
+            # a la vieja tabla contact_character_salaries (cada personaje
+            # anotaba su propia creencia sobre el sueldo del NPC, por vínculo);
+            # ahora es un hecho único que el director pone directamente en la
+            # profesión del contacto, mismas columnas que ya tiene
+            # CharacterProfession. Sin backfill: son conceptos distintos
+            # (creencia subjetiva por personaje vs. hecho objetivo del NPC).
+            if inspector.has_table('contact_professions'):
+                cprof_cols = {c['name'] for c in inspector.get_columns('contact_professions')}
+                with db.engine.begin() as conn:
+                    for col_name, col_def in (('tipo_sueldo', 'VARCHAR(30) NULL'), ('estado_habilidad', 'VARCHAR(20) NULL')):
+                        if col_name not in cprof_cols:
+                            conn.execute(text(f'ALTER TABLE contact_professions ADD COLUMN {col_name} {col_def}'))
+                            click.echo(f'  Added contact_professions.{col_name}')
+            if inspector.has_table('contact_character_salaries'):
+                with db.engine.begin() as conn:
+                    conn.execute(text('DROP TABLE contact_character_salaries'))
+                    click.echo('  Dropped legacy table contact_character_salaries')
+
             # Incremental column: users.active_character_id (2026-07-17) -
             # persisted "personaje activo" per user, sustituye al viejo
             # patrón de elegir personaje por query-string en cada página.
