@@ -50,7 +50,11 @@ def _filtered_query(category, subcategory, quality, search, category_choices=Non
         query = query.filter(db.or_(EquipmentItem.category != 'ropa', EquipmentItem.quality == quality))
     if search:
         query = query.filter(EquipmentItem.name.ilike(f'%{search}%'))
-    return query.order_by(EquipmentItem.category, EquipmentItem.name)
+    # `orden` (book position, see app/data/equipment_orden.py) sorts first
+    # when set; anything without one (not yet book-ordered, or a category
+    # that never gets one, e.g. municion/libro/otros/especial) falls back to
+    # alphabetical, same as before this field existed.
+    return query.order_by(EquipmentItem.category, db.nullslast(EquipmentItem.orden), EquipmentItem.name)
 
 
 def _render_catalog(category, locked_category):
@@ -338,6 +342,8 @@ def _item_from_form(item):
     item.category = f.get('category', 'arma')
     item.subcategory = f.get('subcategory', '').strip() or None
     item.quality = f.get('quality', '').strip() or None
+    orden = f.get('orden', '').strip()
+    item.orden = int(orden) if orden else None
     item.is_special = f.get('is_special') == 'on'
     base_item_id = f.get('base_item_id', '').strip()
     item.base_item_id = int(base_item_id) if base_item_id else None

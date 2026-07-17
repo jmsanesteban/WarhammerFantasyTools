@@ -606,6 +606,14 @@ def _register_cli_commands(app):
                         conn.execute(text('ALTER TABLE equipment_items ADD COLUMN peso FLOAT NULL'))
                     click.echo('  Added equipment_items.peso')
 
+                # Book-order position (2026-07-17) - NULL until `flask
+                # set-equipment-book-order --apply` fills it in; listings fall
+                # back to alphabetical for anything still unset.
+                if 'orden' not in equip_cols:
+                    with db.engine.begin() as conn:
+                        conn.execute(text('ALTER TABLE equipment_items ADD COLUMN orden INT NULL'))
+                    click.echo('  Added equipment_items.orden')
+
             # Incremental column: character_inventory_items.condition
             # (placeholder JSON for the future wear/damage/repair phase - unused today)
             if inspector.has_table('character_inventory_items'):
@@ -713,6 +721,78 @@ def _register_cli_commands(app):
             if updated:
                 db.session.commit()
             click.echo(f'Normalized casing for {updated} catalog entr{"y" if updated == 1 else "ies"}.')
+
+    @app.cli.command('set-equipment-book-order')
+    @click.option('--apply', 'do_apply', is_flag=True,
+                  help='Write orden values. Without this flag, only reports what would change.')
+    def set_equipment_book_order_cmd(do_apply):
+        """Sets EquipmentItem.orden to match the order weapons/armour/clothing
+        appear in their source book PDFs (uploads/), so catalog listings sort
+        by book order instead of alphabetically. Arma/Armadura match by exact
+        (name, subcategory) pair against app/data/equipment_orden.py; Ropa has
+        no per-item book order to match against (every quality tier repeats
+        the same list of clothing types) so its orden is instead computed
+        from (subcategory rank, quality rank).
+
+        Sin --apply solo IMPRIME un informe de filas emparejadas/sin
+        emparejar por categoría (dry-run, no escribe nada). Re-ejecutar con
+        --apply es un no-op seguro sobre filas ya al día (siempre recalcula y
+        sobrescribe orden para toda fila emparejada)."""
+        from app.models.equipment import EquipmentItem
+        from app.data.equipment_orden import ARMA_ORDEN, ARMADURA_ORDEN, ROPA_SUBCATEGORY_ORDEN
+
+        with app.app_context():
+            report = {cat: {'matched': 0, 'unmatched_db': [], 'unmatched_book': []}
+                       for cat in ('arma', 'armadura', 'ropa')}
+            updates = []
+
+            for category, orden_list in (('arma', ARMA_ORDEN), ('armadura', ARMADURA_ORDEN)):
+                bucket = report[category]
+                lookup = {(name, subcat): i for i, (name, subcat) in enumerate(orden_list)}
+                seen_keys = set()
+                for item in EquipmentItem.query.filter_by(category=category).all():
+                    key = (item.name, item.subcategory)
+                    seen_keys.add(key)
+                    if key in lookup:
+                        updates.append((item, lookup[key]))
+                        bucket['matched'] += 1
+                    else:
+                        bucket['unmatched_db'].append(f'{item.name} ({item.subcategory})')
+                for key in lookup:
+                    if key not in seen_keys:
+                        bucket['unmatched_book'].append(f'{key[0]} ({key[1]})')
+
+            bucket = report['ropa']
+            for item in EquipmentItem.query.filter_by(category='ropa').all():
+                if item.subcategory not in ROPA_SUBCATEGORY_ORDEN or item.quality not in EquipmentItem.QUALITIES:
+                    bucket['unmatched_db'].append(f'{item.name} ({item.subcategory}/{item.quality})')
+                    continue
+                subcat_rank = ROPA_SUBCATEGORY_ORDEN.index(item.subcategory)
+                quality_rank = EquipmentItem.QUALITIES.index(item.quality)
+                updates.append((item, subcat_rank * 10 + quality_rank))
+                bucket['matched'] += 1
+
+            click.echo('=== Orden por libro: informe ===')
+            for category, bucket in report.items():
+                click.echo(f'\n{category}: {bucket["matched"]} fila(s) emparejada(s)')
+                if bucket['unmatched_db']:
+                    click.echo(f'  En BD sin match en el libro ({len(bucket["unmatched_db"])}):')
+                    for name in bucket['unmatched_db']:
+                        click.echo(f'    - {name}')
+                if bucket['unmatched_book']:
+                    click.echo(f'  En el libro sin fila en BD ({len(bucket["unmatched_book"])}):')
+                    for name in bucket['unmatched_book']:
+                        click.echo(f'    - {name}')
+
+            if not do_apply:
+                click.echo(f'\nDry-run: {len(updates)} fila(s) se actualizarían. Nada escrito. '
+                           'Ejecuta con --apply para aplicar.')
+                return
+
+            for item, orden in updates:
+                item.orden = orden
+            db.session.commit()
+            click.echo(f'\nAplicado: {len(updates)} fila(s) actualizadas.')
 
     @app.cli.command('migrate-contacts-rework')
     @click.option('--apply', 'do_apply', is_flag=True,

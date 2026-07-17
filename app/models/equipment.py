@@ -150,6 +150,12 @@ class EquipmentItem(db.Model):
     category = db.Column(db.String(20), nullable=False, index=True)  # arma | armadura | ropa | especial
     subcategory = db.Column(db.String(50), nullable=True, index=True)
     quality = db.Column(db.String(20), nullable=True, index=True)  # mala | normal | buena | excelente
+    # Position within its category, matching the order weapons/armour/clothing
+    # appear in their source book (see app/data/equipment_orden.py and the
+    # `flask set-equipment-book-order` command) - NULL for anything never
+    # assigned one, which falls back to alphabetical (see equipment.py's
+    # _filtered_query: `orden` sorts first, nulls last).
+    orden = db.Column(db.Integer, nullable=True, index=True)
     is_special = db.Column(db.Boolean, nullable=False, default=False)
     base_item_id = db.Column(db.Integer, db.ForeignKey('equipment_items.id', ondelete='SET NULL'), nullable=True)
 
