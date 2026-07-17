@@ -28,7 +28,7 @@ ARMA_ORDEN = [
     ('Lanza', 'cuerpo_a_cuerpo'), ('Bastón de guerra', 'cuerpo_a_cuerpo'),
     ('Florete', 'cuerpo_a_cuerpo'), ('Ropera', 'cuerpo_a_cuerpo'), ('Lanza de Caballería', 'cuerpo_a_cuerpo'),
     ('Garrote/porra', 'cuerpo_a_cuerpo'), ('Guantalete', 'cuerpo_a_cuerpo'), ('Nudilleras', 'cuerpo_a_cuerpo'),
-    ('Vizcaina', 'cuerpo_a_cuerpo'), ('Rompespadas', 'cuerpo_a_cuerpo'), ('Puño/patada', 'cuerpo_a_cuerpo'),
+    ('Vizcaina', 'cuerpo_a_cuerpo'), ('Rompespada', 'cuerpo_a_cuerpo'), ('Puño/patada', 'cuerpo_a_cuerpo'),
     ('Improvisada', 'cuerpo_a_cuerpo'),
     # A distancia: arcos/ballestas/pólvora (p.5), luego arrojadizas/ingeniería (p.6)
     ('Arco Corto', 'distancia'), ('Arco compuesto', 'distancia'), ('Arco largo', 'distancia'),
@@ -52,11 +52,14 @@ ARMADURA_ORDEN = [
     ('Brazales', 'cuero_endurecido'),
     # Cota de malla (p.8-9)
     ('Cofia', 'malla'), ('Camisa', 'malla'), ('Camisote', 'malla'), ('Abrigo', 'malla'),
-    # Escamas / Lamelar (p.10-11)
-    ('Casco', 'escamas'), ('Yelmo', 'escamas'), ('Camisa', 'escamas'), ('Camisote', 'escamas'),
-    ('Abrigo', 'escamas'),
-    # Placas (p.12-13)
-    ('Casco', 'placas'), ('Yelmo', 'placas'), ('Coraza', 'placas'), ('Grebas', 'placas'), ('Brazales', 'placas'),
+    # Escamas / Lamelar (p.10-11) - el libro da un único "Yelmo" con precio
+    # doble ("50/75", sin/con visera); el catálogo lo desdobla en dos filas
+    # compradas por separado.
+    ('Casco', 'escamas'), ('Yelmo de escamas', 'escamas'), ('Yelmo de escamas con visera', 'escamas'),
+    ('Camisa', 'escamas'), ('Camisote', 'escamas'), ('Abrigo', 'escamas'),
+    # Placas (p.12-13) - mismo desdoble sin/con visera que en Escamas.
+    ('Casco', 'placas'), ('Yelmo de placas', 'placas'), ('Yelmo de placas con visera', 'placas'),
+    ('Coraza', 'placas'), ('Grebas', 'placas'), ('Brazales', 'placas'),
     # Escudos (p.14-15)
     ('Rodela', 'escudos'), ('Redondo', 'escudos'), ('Heraldo', 'escudos'), ('Torre', 'escudos'),
 ]
