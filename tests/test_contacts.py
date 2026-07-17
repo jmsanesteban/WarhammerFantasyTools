@@ -512,3 +512,40 @@ def test_detail_personajes_con_relacion_shows_note_count_not_content(
     assert b'Debe dinero al gremio.' not in resp.data
     assert b'Personajes con relaci' in resp.data
     assert b'Karl-Heinz' in resp.data
+
+
+def test_detail_admin_editar_on_own_row_toggles_panel_not_a_dead_reload(
+    client, admin_user, make_character, make_contact, make_contact_link, set_active_character, login_as,
+):
+    """Regression: admin's own row used to also render the ?personaje_id=
+    reload link (meant for editing OTHER people's rows) - for the admin's
+    own row that's a no-op reload to the same page, which looked broken.
+    It must instead toggle the same collapse as the notes-count link."""
+    char = make_character(admin_user, name='Personaje del admin')
+    contact = make_contact(nombre='Wilhelm el tabernero')
+    make_contact_link(char, contact, nivel=1)
+    set_active_character(admin_user, char)
+    login_as(client, admin_user, 'adminpass123')
+
+    resp = client.get(f'/contactos/{contact.id}')
+    assert resp.status_code == 200
+    html = resp.data.decode('utf-8')
+    own_row_start = html.index('Personaje del admin')
+    own_row_end = html.index('</tr>', own_row_start)
+    own_row_html = html[own_row_start:own_row_end]
+    assert 'data-bs-target="#own-link-panel"' in own_row_html
+    assert f'personaje_id={char.id}' not in own_row_html
+
+
+def test_detail_admin_editar_on_other_row_still_reloads_as_that_character(
+    client, admin_user, make_user, make_character, make_contact, make_contact_link, login_as,
+):
+    other = make_user(username='otro_editable', password='otropass123')
+    other_char = make_character(other, name='Personaje ajeno')
+    contact = make_contact(nombre='Wilhelm el tabernero')
+    make_contact_link(other_char, contact, nivel=1)
+    login_as(client, admin_user, 'adminpass123')
+
+    resp = client.get(f'/contactos/{contact.id}')
+    assert resp.status_code == 200
+    assert f'personaje_id={other_char.id}'.encode() in resp.data

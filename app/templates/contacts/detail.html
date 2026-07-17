@@ -291,8 +291,13 @@
             </td>
             {% if current_user.is_admin %}
             <td>
+              {% if is_own %}
+              <button type="button" class="btn btn-outline-warning btn-sm wh-links-toggle" data-bs-toggle="collapse"
+                      data-bs-target="#own-link-panel" aria-expanded="false">Editar</button>
+              {% else %}
               <a href="{{ url_for('contacts.detail', contact_id=contact.id, personaje_id=link.character_id) }}"
                  class="btn btn-outline-warning btn-sm">Editar</a>
+              {% endif %}
             </td>
             {% endif %}
           </tr>

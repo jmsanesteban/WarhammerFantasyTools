@@ -202,7 +202,14 @@ def _active_character():
         match = next((c for c in characters if c.id == current_user.active_character_id), None)
         if match:
             return match
-    return characters[0]
+    # Falls back to one of the user's OWN characters, never `characters[0]`
+    # directly - for admin, `characters` is every character in the system
+    # (see _selectable_characters), so that would silently pick some other
+    # player's character as "active" (and, since the ficha now marks that
+    # row "tú" with inline edit access, actually let an admin with no
+    # character of their own edit a stranger's vínculo without realizing it).
+    own = _own_characters()
+    return own[0] if own else None
 
 
 @contacts_bp.route('/')
