@@ -265,6 +265,48 @@ def test_link_save_ignores_unknown_tipo_relacion(db, client, regular_user, make_
     assert link.tipo_relacion == ['Baza']
 
 
+def test_link_save_ignores_retired_unter_untersuchung_choice(db, client, regular_user, make_character,
+                                                               make_contact, login_as):
+    """2026-07-17: Untersuchung membership moved to Contact.es_untersuchung -
+    'Unter/Untersuchung' is no longer a valid tipo_relacion choice."""
+    char = make_character(regular_user)
+    contact = make_contact()
+    login_as(client, regular_user, 'userpass123')
+
+    client.post(f'/contactos/{contact.id}/vinculo', data={
+        'personaje_id': str(char.id), 'tipo_relacion': ['Unter/Untersuchung', 'Otra'],
+    }, follow_redirects=True)
+
+    link = ContactCharacterLink.query.filter_by(character_id=char.id, contact_id=contact.id).first()
+    assert link.tipo_relacion == ['Otra']
+
+
+def test_link_save_deduplicates_baza_contacto_pair(db, client, regular_user, make_character, make_contact, login_as):
+    char = make_character(regular_user)
+    contact = make_contact()
+    login_as(client, regular_user, 'userpass123')
+
+    client.post(f'/contactos/{contact.id}/vinculo', data={
+        'personaje_id': str(char.id), 'tipo_relacion': ['Baza', 'Contacto'],
+    }, follow_redirects=True)
+
+    link = ContactCharacterLink.query.filter_by(character_id=char.id, contact_id=contact.id).first()
+    assert link.tipo_relacion == ['Baza']
+
+
+def test_link_save_deduplicates_subdito_senor_pair(db, client, regular_user, make_character, make_contact, login_as):
+    char = make_character(regular_user)
+    contact = make_contact()
+    login_as(client, regular_user, 'userpass123')
+
+    client.post(f'/contactos/{contact.id}/vinculo', data={
+        'personaje_id': str(char.id), 'tipo_relacion': ['Señor', 'Súbdito'],
+    }, follow_redirects=True)
+
+    link = ContactCharacterLink.query.filter_by(character_id=char.id, contact_id=contact.id).first()
+    assert link.tipo_relacion == ['Súbdito']
+
+
 def test_detail_own_row_shows_create_form_when_no_link_yet(db, client, regular_user, make_character,
                                                              make_contact, login_as, set_active_character):
     """2026-07-17: 'Vínculo de X'/'Notas de X' are no longer fixed cards - the
@@ -279,6 +321,10 @@ def test_detail_own_row_shows_create_form_when_no_link_yet(db, client, regular_u
     assert resp.status_code == 200
     assert 'Crear vínculo'.encode() in resp.data
     assert 'name="tipo_relacion" value="Súbdito"'.encode() in resp.data
+    assert 'name="tipo_relacion" value="Contacto"'.encode() in resp.data
+    assert 'name="tipo_relacion" value="Unter/Untersuchung"'.encode() not in resp.data
+    assert b'data-exclusive-group="tipo-relacion-pair-0"' in resp.data
+    assert b'data-exclusive-group="tipo-relacion-pair-1"' in resp.data
     assert b'own-link-panel' in resp.data
 
 

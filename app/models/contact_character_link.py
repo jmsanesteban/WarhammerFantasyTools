@@ -7,11 +7,14 @@ NIVEL_LABELS = {
     -1: 'Desconfianza', 0: 'Conocido', 1: 'Cercano', 2: 'Amigo', 3: 'Amigo profesional',
     4: 'Amigo hermanado', 5: 'Amigo incondicional',
 }
-# Cómo se relaciona ESTE personaje con el contacto - independiente del grado
-# global de la Untersuchung del contacto (eso es un hecho objetivo sobre el
-# NPC; esto es la relación concreta de un personaje con él). Sustituye a los
-# antiguos grados "sin marca" (Bazas/Contactos) para ese caso concreto.
-TIPO_RELACION_CHOICES = ['Baza', 'Unter/Untersuchung', 'Súbdito', 'Señor', 'Otra']
+# Cómo se relaciona ESTE personaje con el contacto - independiente de si el
+# contacto pertenece a la Untersuchung (eso es un hecho objetivo del propio
+# Contact, ver Contact.es_untersuchung - ya no vive aquí, 2026-07-17).
+TIPO_RELACION_CHOICES = ['Baza', 'Contacto', 'Súbdito', 'Señor', 'Otra']
+# Pares mutuamente excluyentes: un contacto tuyo es o tu Baza o tu Contacto,
+# nunca las dos a la vez (mismo criterio para Súbdito/Señor - no tiene
+# sentido que tu señor sea también tu súbdito). "Otra" no tiene pareja.
+TIPO_RELACION_EXCLUSIVE_PAIRS = [('Baza', 'Contacto'), ('Súbdito', 'Señor')]
 
 
 class ContactCharacterLink(db.Model):

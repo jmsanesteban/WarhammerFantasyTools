@@ -74,6 +74,23 @@ document.addEventListener('DOMContentLoaded', () => {
   // three hand-edited copies are how that kind of rule silently drifts.
   initGradoPicker();
 
+  // Tipo de relación (contacts/detail.html): checkboxes marcados con el
+  // mismo data-exclusive-group son mutuamente excluyentes (p.ej. Baza/
+  // Contacto, Súbdito/Señor - ver TIPO_RELACION_EXCLUSIVE_PAIRS) - marcar
+  // uno desmarca su pareja. El servidor aplica la misma regla igualmente
+  // (_dedupe_tipo_relacion), esto es solo para no dejar que el usuario
+  // marque ambos y luego se sorprenda al ver que uno desaparece al guardar.
+  document.querySelectorAll('.wh-exclusive-cb[data-exclusive-group]').forEach(cb => {
+    cb.addEventListener('change', () => {
+      if (!cb.checked) return;
+      document.querySelectorAll(
+        `.wh-exclusive-cb[data-exclusive-group="${cb.dataset.exclusiveGroup}"]`
+      ).forEach(other => {
+        if (other !== cb) other.checked = false;
+      });
+    });
+  });
+
   // Contactos: drag-to-reorder field definitions
   const fieldsTbody = document.getElementById('fieldsTbody');
   if (fieldsTbody) {

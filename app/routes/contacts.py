@@ -11,7 +11,7 @@ from app.models.untersuchung import (
     UNTERSUCHUNG_GRADOS_CON_MARCA, UNTERSUCHUNG_GRADOS_AGENTE, UNTERSUCHUNG_GRADOS_ADJUNTO, MAX_GRADOS,
 )
 from app.models.contact_character_link import (
-    ContactCharacterLink, NIVEL_LABELS, TIPO_RELACION_CHOICES,
+    ContactCharacterLink, NIVEL_LABELS, TIPO_RELACION_CHOICES, TIPO_RELACION_EXCLUSIVE_PAIRS,
 )
 from app.models.contact_note import ContactNote
 from app.services import salary_service
@@ -138,10 +138,12 @@ def _global_fields_from_form(contact):
     contact.estado = _estado_from_form()
     grados = _grados_from_form()
     contact.grados_untersuchung = grados
-    # Sin checkbox manual (2026-07-17) - es_untersuchung se deriva solo de si
-    # tiene marca(s) asignada(s); no hay forma de marcarlo "miembro sin
-    # marca" desde este formulario a día de hoy.
-    contact.es_untersuchung = has_marca(grados)
+    # es_untersuchung (2026-07-17): hecho del propio contacto, no del vínculo
+    # (ver TIPO_RELACION_CHOICES) - se marca a mano con el checkbox, o solo
+    # (el checkbox se auto-marca en cliente al asignar una marca - ver
+    # initGradoPicker en main.js), pero desmarcar el checkbox sin quitar
+    # también las marcas no lo desactiva (has_marca manda).
+    contact.es_untersuchung = request.form.get('es_untersuchung') == 'on' or has_marca(grados)
     contact.lugar_descanso = request.form.get('lugar_descanso', '').strip() or None
     contact.lugar_trabajo = request.form.get('lugar_trabajo', '').strip() or None
     contact.lugar_ocio = request.form.get('lugar_ocio', '').strip() or None
@@ -340,11 +342,38 @@ def new():
     return render_template('contacts/new.html', **form_context)
 
 
+def _tipo_relacion_groups():
+    """{choice: group_key} for every choice that's part of an exclusive pair
+    (see TIPO_RELACION_EXCLUSIVE_PAIRS) - lets the template mark each
+    checkbox with a shared data-exclusive-group so main.js can enforce
+    "pick at most one per pair" client-side. Choices with no pair (e.g.
+    'Otra') are simply absent from the map."""
+    groups = {}
+    for i, pair in enumerate(TIPO_RELACION_EXCLUSIVE_PAIRS):
+        for choice in pair:
+            groups[choice] = f'tipo-relacion-pair-{i}'
+    return groups
+
+
+def _dedupe_tipo_relacion(selected):
+    """Enforces TIPO_RELACION_EXCLUSIVE_PAIRS server-side (the form's JS
+    already keeps both members of a pair from being checked at once, but a
+    direct POST could still send both) - if both are present, keeps whichever
+    is listed first in the pair, drops the other."""
+    result = list(selected)
+    for first, second in TIPO_RELACION_EXCLUSIVE_PAIRS:
+        if first in result and second in result:
+            result.remove(second)
+    return result
+
+
 def _link_fields_from_form():
     nivel = request.form.get('nivel', type=int)
     if nivel is not None:
         nivel = max(-5, min(5, nivel))
-    tipo_relacion = [v for v in request.form.getlist('tipo_relacion') if v in TIPO_RELACION_CHOICES]
+    tipo_relacion = _dedupe_tipo_relacion(
+        v for v in request.form.getlist('tipo_relacion') if v in TIPO_RELACION_CHOICES
+    )
     return {
         'nivel': nivel,
         'tipo_relacion': tipo_relacion or None,
@@ -406,6 +435,7 @@ def detail(contact_id):
         estado_labels=ESTADO_LABELS,
         nivel_labels=NIVEL_LABELS,
         tipo_relacion_choices=TIPO_RELACION_CHOICES,
+        tipo_relacion_groups=_tipo_relacion_groups(),
         marca_images=_marca_images(),
         grados_display=grados_display,
         compute_sueldo=salary_service.compute_sueldo,

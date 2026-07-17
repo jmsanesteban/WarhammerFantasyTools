@@ -49,6 +49,22 @@ def test_edit_contact_updates_global_fields(db, client, admin_user, make_contact
     assert ContactProfession.query.filter_by(contact_id=contact.id, profession_id=prof.id).first() is not None
 
 
+def test_edit_contact_checkbox_alone_sets_es_untersuchung_without_grado(db, client, admin_user, make_contact, login_as):
+    """2026-07-17: es_untersuchung is manually toggleable again (not only
+    derived from grados) - a contact can be a member with no assigned mark
+    yet."""
+    contact = make_contact(nombre='Miembro sin marca', es_untersuchung=False)
+    login_as(client, admin_user, 'adminpass123')
+
+    client.post(f'/contactos/{contact.id}/editar', data={
+        'nombre': 'Miembro sin marca', 'es_untersuchung': 'on',
+    }, follow_redirects=True)
+
+    db.session.refresh(contact)
+    assert contact.es_untersuchung is True
+    assert contact.grados_untersuchung is None
+
+
 def test_edit_contact_toggles_is_visible(db, client, admin_user, make_contact, login_as):
     contact = make_contact(nombre='Precargado', is_visible=False)
     login_as(client, admin_user, 'adminpass123')
