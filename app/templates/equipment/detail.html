@@ -33,7 +33,9 @@
           {% set show_quality = quality and item.category in ('arma', 'armadura') %}
           <div class="d-flex gap-2 flex-wrap mb-3">
             <span class="badge bg-secondary">{{ item.category_label }}</span>
-            {% if item.subcategory %}<span class="badge bg-dark">{{ item.subcategory_label }}</span>{% endif %}
+            {% if item.subcategory and item.subcategory_label|lower != item.name|lower %}
+            <span class="badge bg-dark">{{ item.subcategory_label }}</span>
+            {% endif %}
             {% if item.quality %}<span class="badge bg-info text-dark">{{ item.quality_label }}</span>{% endif %}
             {% if show_quality %}<span class="badge bg-info text-dark">Calidad: {{ item.QUALITY_LABELS[quality] }}</span>{% endif %}
             {% if item.is_special %}<span class="badge bg-warning text-dark">Especial</span>{% endif %}

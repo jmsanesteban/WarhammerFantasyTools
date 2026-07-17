@@ -8,12 +8,13 @@ cuerpo_a_cuerpo weapon and a distancia/arrojadiza one; "Casco" appears in
 several armour families), which is why matching is by (name, subcategory)
 pair, never name alone.
 
-ROPA_SUBCATEGORY_ORDEN: Ropa's book ("Ropas revisada.pdf") repeats the same
-list of clothing types across 4 quality-tier sections (Harapos/Común/
-Burguesa/Noble = mala/normal/buena/excelente) rather than listing distinct
-items per tier, so there's nothing to name-match - orden is instead computed
-as `type_rank * 10 + quality_rank` (see the command), giving a stable order
-without needing a name at all.
+ROPA_SUBCATEGORY_ORDEN: Ropa's book ("Ropas revisada.pdf") lists everything
+section by section - all of Harapos, then all of Común, then Burguesa, then
+Noble - repeating the same list of clothing types within each section rather
+than listing distinct items per tier, so there's nothing to name-match -
+orden is instead computed as `quality_rank * 100 + type_rank` (see the
+command: quality tier is the primary key, clothing type the secondary one,
+matching that section-by-section book layout), without needing a name at all.
 """
 
 ARMA_ORDEN = [

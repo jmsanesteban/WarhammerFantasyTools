@@ -769,7 +769,10 @@ def _register_cli_commands(app):
                     continue
                 subcat_rank = ROPA_SUBCATEGORY_ORDEN.index(item.subcategory)
                 quality_rank = EquipmentItem.QUALITIES.index(item.quality)
-                updates.append((item, subcat_rank * 10 + quality_rank))
+                # Quality tier is the primary sort key (the book lists all of
+                # Harapos, then all of Común, then Burguesa, then Noble - not
+                # grouped by clothing type first).
+                updates.append((item, quality_rank * 100 + subcat_rank))
                 bucket['matched'] += 1
 
             click.echo('=== Orden por libro: informe ===')

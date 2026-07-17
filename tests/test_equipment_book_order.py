@@ -56,20 +56,27 @@ def test_apply_leaves_unmatched_item_orden_none(app, db, make_equipment_item):
     assert item.orden is None
 
 
-def test_apply_computes_ropa_orden_from_subcategory_and_quality_rank(app, db, make_equipment_item):
+def test_apply_computes_ropa_orden_from_quality_then_subcategory_rank(app, db, make_equipment_item):
+    """The book lists everything section by section (all of Harapos, then
+    all of Común, then Burguesa, then Noble), repeating the same list of
+    clothing types within each section - quality tier is the primary sort
+    key, clothing type only breaks ties within the same tier."""
     ropa_harapos = make_equipment_item(name='Ropa', category='ropa', subcategory='ropa', quality='mala')
+    ropa_comun = make_equipment_item(name='Ropa', category='ropa', subcategory='ropa', quality='normal')
     ropa_noble = make_equipment_item(name='Ropa', category='ropa', subcategory='ropa', quality='excelente')
-    botas = make_equipment_item(name='Botas', category='ropa', subcategory='botas', quality='normal')
+    botas_harapos = make_equipment_item(name='Botas', category='ropa', subcategory='botas', quality='mala')
 
     app.test_cli_runner().invoke(args=['set-equipment-book-order', '--apply'])
 
-    db.session.refresh(ropa_harapos)
-    db.session.refresh(ropa_noble)
-    db.session.refresh(botas)
-    # Same type (ropa): quality tier decides order (mala < excelente).
-    assert ropa_harapos.orden < ropa_noble.orden
-    # Different type: 'ropa' sorts before 'botas' in the book.
-    assert ropa_harapos.orden < botas.orden
+    for item in (ropa_harapos, ropa_comun, ropa_noble, botas_harapos):
+        db.session.refresh(item)
+    # Same type (ropa): quality tier decides order (mala < normal < excelente).
+    assert ropa_harapos.orden < ropa_comun.orden < ropa_noble.orden
+    # Different type, same tier (mala): 'ropa' sorts before 'botas' within Harapos.
+    assert ropa_harapos.orden < botas_harapos.orden
+    # Quality tier wins over type: Harapos Botas comes before Común Ropa,
+    # even though 'ropa' is an earlier clothing type than 'botas'.
+    assert botas_harapos.orden < ropa_comun.orden
 
 
 def test_apply_is_idempotent(app, db, make_equipment_item):
