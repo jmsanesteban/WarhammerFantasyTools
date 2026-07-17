@@ -1,0 +1,52 @@
+{% extends 'base.html' %}
+{% block title %}Mi perfil — Warhammer Fantasy Tools{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+  <h2 class="wh-heading mb-4"><i class="bi bi-person-circle me-2"></i>Mi perfil</h2>
+
+  <div class="card wh-card mb-4" style="max-width:600px">
+    <div class="card-body">
+      <dl class="row mb-0">
+        <dt class="col-sm-4 wh-label">Usuario</dt><dd class="col-sm-8">{{ current_user.username }}</dd>
+        <dt class="col-sm-4 wh-label">Email</dt><dd class="col-sm-8">{{ current_user.email }}</dd>
+        <dt class="col-sm-4 wh-label">Rol</dt><dd class="col-sm-8">{{ 'Administrador' if current_user.is_admin else 'Usuario' }}</dd>
+      </dl>
+    </div>
+    <div class="card-footer">
+      <a href="{{ url_for('auth.change_password') }}" class="btn btn-outline-secondary btn-sm">
+        <i class="bi bi-key me-1"></i>Cambiar contraseña
+      </a>
+    </div>
+  </div>
+
+  <div class="card wh-card" style="max-width:600px">
+    <div class="card-header wh-card-header">Personaje activo</div>
+    <div class="card-body">
+      {% if not characters %}
+      <p class="text-muted mb-0">No tienes personajes todavía.
+        <a href="{{ url_for('characters.create') }}" class="wh-link">Crea el primero</a>.</p>
+      {% else %}
+      <p class="text-muted small">El personaje activo es el que se usa por defecto en Contactos y Vínculos.</p>
+      <ul class="list-unstyled mb-0">
+        {% for char in characters %}
+        <li class="d-flex justify-content-between align-items-center py-2 {% if not loop.last %}border-bottom{% endif %}"
+            style="border-color: var(--wh-border) !important">
+          <span>{{ char.name }}</span>
+          {% if current_user.active_character_id == char.id %}
+          <span class="badge bg-success"><i class="bi bi-check2-circle me-1"></i>Activo</span>
+          {% else %}
+          <form method="POST" action="{{ url_for('characters.activate', char_id=char.id) }}">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <input type="hidden" name="next_url" value="{{ url_for('auth.profile') }}">
+            <button type="submit" class="btn btn-outline-secondary btn-sm">Marcar activo</button>
+          </form>
+          {% endif %}
+        </li>
+        {% endfor %}
+      </ul>
+      {% endif %}
+    </div>
+  </div>
+</div>
+{% endblock %}

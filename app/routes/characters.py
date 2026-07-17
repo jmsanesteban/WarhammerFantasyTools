@@ -113,6 +113,31 @@ def list_characters():
     return render_template('characters/list.html', characters=characters)
 
 
+def _safe_redirect(default_endpoint, **default_kwargs):
+    """Same open-redirect guard as contacts.py's _safe_redirect: only a
+    plain same-site relative next_url is honored, else fall back."""
+    next_url = request.form.get('next_url', '').strip()
+    if next_url.startswith('/') and not next_url.startswith('//') and '://' not in next_url:
+        return redirect(next_url)
+    return redirect(url_for(default_endpoint, **default_kwargs))
+
+
+@characters_bp.route('/<int:char_id>/activar', methods=['POST'])
+@login_required
+def activate(char_id):
+    """Marks one of the current user's own characters as their persisted
+    "personaje activo" (2026-07-17) - you can only activate a character you
+    own; there's no "admin activates someone else's character" concept, that
+    would be impersonation, a different thing entirely."""
+    char = Character.query.get_or_404(char_id)
+    if char.user_id != current_user.id:
+        abort(403)
+    current_user.active_character_id = char.id
+    db.session.commit()
+    flash(f'{char.name} es ahora tu personaje activo.', 'success')
+    return _safe_redirect('characters.list_characters')
+
+
 @characters_bp.route('/<int:char_id>')
 @login_required
 def detail(char_id):

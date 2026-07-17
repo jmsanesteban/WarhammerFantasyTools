@@ -6,7 +6,7 @@ es_untersuchung, profesiones)."""
 import io
 import openpyxl
 from app.models.contact import Contact, ContactProfession
-from app.models.contact_character_link import ContactCharacterLink, NIVEL_LABELS
+from app.models.contact_character_link import ContactCharacterLink
 
 
 # ── Admin contact listing/toggle/delete ─────────────────────────────────────
@@ -33,7 +33,7 @@ def test_edit_contact_updates_global_fields(db, client, admin_user, make_contact
 
     resp = client.post(f'/contactos/{contact.id}/editar', data={
         'nombre': 'Nombre corregido', 'es_untersuchung': 'on', 'estado': 'desconocido',
-        'raza': 'Elfo', 'lugar_descanso': 'Un carromato', 'notas_director': 'Nota confidencial',
+        'raza_choice': 'Elfo Silvano', 'lugar_descanso': 'Un carromato', 'notas_director': 'Nota confidencial',
         'grado_1': 'Paloma', 'profession_ids': [str(prof.id)],
     }, follow_redirects=True)
     assert resp.status_code == 200
@@ -42,7 +42,7 @@ def test_edit_contact_updates_global_fields(db, client, admin_user, make_contact
     assert contact.nombre == 'Nombre corregido'
     assert contact.es_untersuchung is True
     assert contact.estado == 'desconocido'
-    assert contact.raza == 'Elfo'
+    assert contact.raza == 'Elfo Silvano'
     assert contact.lugar_descanso == 'Un carromato'
     assert contact.notas_director == 'Nota confidencial'
     assert contact.grados_untersuchung == ['Paloma']
@@ -88,79 +88,6 @@ def test_edit_contact_blocks_non_creator_non_admin(client, regular_user, make_us
     login_as(client, regular_user, 'userpass123')
     resp = client.get(f'/contactos/{contact.id}/editar')
     assert resp.status_code == 403
-
-
-# ── Vínculos (directorio admin contacto↔personaje) ──────────────────────────
-
-def test_contact_links_requires_admin(client, regular_user, login_as):
-    login_as(client, regular_user, 'userpass123')
-    resp = client.get('/admin/vinculos')
-    assert resp.status_code == 403
-
-
-def test_contact_links_shows_owner_username_and_level(client, admin_user, regular_user, make_character,
-                                                       make_contact, make_contact_link, login_as):
-    char = make_character(regular_user, name='Karl-Heinz')
-    contact = make_contact(nombre='Wilhelm el tabernero')
-    make_contact_link(char, contact, nivel=3)
-    login_as(client, admin_user, 'adminpass123')
-
-    resp = client.get('/admin/vinculos')
-    assert resp.status_code == 200
-    assert b'Wilhelm el tabernero' in resp.data
-    assert b'Karl-Heinz' in resp.data
-    assert regular_user.username.encode('utf-8') in resp.data
-    assert NIVEL_LABELS[3].encode('utf-8') in resp.data
-
-
-def test_contact_links_notes_panel_shows_content_not_just_count(
-    client, admin_user, regular_user, make_character, make_contact, make_contact_link, login_as,
-):
-    """The 'Notas' column used to show only a bare count - it must now expose
-    the actual note text (and a way to add one) directly from this table."""
-    char = make_character(regular_user, name='Bardin')
-    contact = make_contact(nombre='El posadero')
-    make_contact_link(char, contact)
-    from app.models.contact_note import ContactNote
-    from app.extensions import db as _db
-    _db.session.add(ContactNote(contact_id=contact.id, character_id=char.id, content='Debe dinero al gremio.'))
-    _db.session.commit()
-    login_as(client, admin_user, 'adminpass123')
-
-    resp = client.get('/admin/vinculos')
-    assert resp.status_code == 200
-    assert b'Debe dinero al gremio.' in resp.data
-    assert f'/contactos/{contact.id}/notas'.encode() in resp.data
-
-
-def test_note_create_redirects_to_next_url_when_provided(
-    db, client, admin_user, regular_user, make_character, make_contact, login_as,
-):
-    char = make_character(regular_user)
-    contact = make_contact()
-    login_as(client, admin_user, 'adminpass123')
-
-    resp = client.post(f'/contactos/{contact.id}/notas', data={
-        'personaje_id': str(char.id), 'content': 'Nota de prueba', 'next_url': '/admin/vinculos?page=1',
-    })
-    assert resp.status_code == 302
-    assert resp.headers['Location'] == '/admin/vinculos?page=1'
-
-
-def test_contact_links_search_filters_by_username(client, admin_user, make_user, make_character,
-                                                   make_contact, make_contact_link, login_as):
-    user_a = make_user(username='searchableuser', password='passa12345')
-    user_b = make_user(username='otheruser', password='passb12345')
-    char_a = make_character(user_a, name='Personaje A')
-    char_b = make_character(user_b, name='Personaje B')
-    contact = make_contact()
-    make_contact_link(char_a, contact)
-    make_contact_link(char_b, contact)
-    login_as(client, admin_user, 'adminpass123')
-
-    resp = client.get('/admin/vinculos?q=searchableuser')
-    assert b'Personaje A' in resp.data
-    assert b'Personaje B' not in resp.data
 
 
 def test_admin_contacts_listing_shows_nombre(client, admin_user, login_as, make_contact):

@@ -8,9 +8,9 @@
     <a href="{{ url_for('contacts.index') }}" class="btn btn-outline-secondary btn-sm">
       <i class="bi bi-arrow-left me-1"></i>Volver
     </a>
-    {% if characters|length > 1 %}
+    {% if current_user.is_admin and characters|length > 1 %}
     <form method="GET" class="d-flex gap-2 align-items-center">
-      <label class="wh-label small mb-0">Ver como</label>
+      <label class="wh-label small mb-0">Editar como</label>
       <select name="personaje_id" class="form-select form-select-sm wh-input" onchange="this.form.submit()">
         {% for c in characters %}
         <option value="{{ c.id }}" {% if active_character and active_character.id == c.id %}selected{% endif %}>{{ c.name }}</option>
@@ -44,7 +44,7 @@
       <div class="row">
         {% if contact.image_path %}
         <div class="col-md-3 mb-3">
-          <img src="{{ url_for('main.uploaded_file', filename=contact.image_path) }}" class="img-fluid rounded"
+          <img src="{{ url_for('main.uploaded_file', filename=contact.image_path) }}" class="wh-prof-image rounded"
                alt="{{ contact.nombre }}">
         </div>
         {% endif %}
@@ -300,6 +300,48 @@
         </div>
         <button type="submit" class="btn btn-wh btn-sm">Añadir nota</button>
       </form>
+    </div>
+  </div>
+  {% endif %}
+
+  {# ── Personajes con relación (2026-07-17): visible a cualquiera que pueda
+       ver el contacto, no solo admin - nivel y tipo de cada personaje; el
+       contenido de las notas sigue siendo privado, solo se ve el número. ─ #}
+  {% if links %}
+  <div class="card wh-card mb-4" style="max-width:760px">
+    <div class="card-header wh-card-header">
+      <h3 class="wh-heading mb-0" style="font-size:1.1rem">Personajes con relación</h3>
+    </div>
+    <div class="table-responsive">
+      <table class="table wh-table align-middle mb-0">
+        <thead>
+          <tr>
+            <th>Personaje</th>
+            <th>Usuario</th>
+            <th>Nivel</th>
+            <th>Tipo de relación</th>
+            <th>Notas</th>
+            {% if current_user.is_admin %}<th></th>{% endif %}
+          </tr>
+        </thead>
+        <tbody>
+          {% for link in links %}
+          <tr>
+            <td>{{ link.character.name }}</td>
+            <td class="text-muted small">{{ link.character.owner.username }}</td>
+            <td>{% if link.nivel is not none %}{{ link.nivel }} — {{ nivel_labels.get(link.nivel, '') }}{% else %}—{% endif %}</td>
+            <td>{{ link.tipo_relacion|join(', ') if link.tipo_relacion else '—' }}</td>
+            <td>{{ note_counts.get(link.character_id, 0) }}</td>
+            {% if current_user.is_admin %}
+            <td>
+              <a href="{{ url_for('contacts.detail', contact_id=contact.id, personaje_id=link.character_id) }}"
+                 class="btn btn-outline-warning btn-sm">Editar</a>
+            </td>
+            {% endif %}
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
     </div>
   </div>
   {% endif %}

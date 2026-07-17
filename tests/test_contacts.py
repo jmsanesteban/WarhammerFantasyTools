@@ -129,7 +129,7 @@ def test_new_contact_creates_global_fields_only(db, client, admin_user, login_as
     login_as(client, admin_user, 'adminpass123')
 
     resp = client.post('/contactos/nuevo', data={
-        'nombre': 'Wilhelm el tabernero', 'raza': 'Humano', 'estado': 'vivo',
+        'nombre': 'Wilhelm el tabernero', 'raza_choice': 'Humano', 'estado': 'vivo',
         'lugar_trabajo': 'La taberna', 'profession_ids': [str(prof.id)],
     }, follow_redirects=True)
     assert resp.status_code == 200
@@ -140,6 +140,20 @@ def test_new_contact_creates_global_fields_only(db, client, admin_user, login_as
     assert contact.lugar_trabajo == 'La taberna'
     assert [cp.profession_id for cp in contact.professions] == [prof.id]
     assert ContactCharacterLink.query.filter_by(contact_id=contact.id).count() == 0
+
+
+def test_new_contact_raza_custom_via_nuevo_sentinel(db, client, admin_user, login_as):
+    """raza_choice='__nuevo__' reveals raza_custom in the UI - server-side,
+    that sentinel means "read the free-text value from raza_custom instead"."""
+    login_as(client, admin_user, 'adminpass123')
+
+    client.post('/contactos/nuevo', data={
+        'nombre': 'Rata gigante', 'raza_choice': '__nuevo__', 'raza_custom': 'Rata mutante',
+    }, follow_redirects=True)
+
+    contact = Contact.query.filter_by(nombre='Rata gigante').first()
+    assert contact is not None
+    assert contact.raza == 'Rata mutante'
 
 
 def test_new_contact_requires_nombre(db, client, admin_user, login_as):
@@ -397,3 +411,40 @@ def test_delete_note_allows_admin(db, client, admin_user, regular_user, make_cha
 
     client.post(f'/contactos/{contact.id}/notas/{note_id}/eliminar', follow_redirects=True)
     assert db.session.get(ContactNote, note_id) is None
+
+
+# ── Personajes con relación (2026-07-17: visible a cualquiera, no solo admin) ──
+
+def test_detail_shows_personajes_con_relacion_to_non_admin(client, regular_user, make_character, make_contact,
+                                                            make_contact_link, login_as):
+    char = make_character(regular_user, name='Karl-Heinz')
+    contact = make_contact(nombre='Wilhelm el tabernero')
+    make_contact_link(char, contact, nivel=3, tipo_relacion=['Baza'])
+    login_as(client, regular_user, 'userpass123')
+
+    resp = client.get(f'/contactos/{contact.id}')
+    assert resp.status_code == 200
+    assert b'Personajes con relaci' in resp.data
+    assert b'Karl-Heinz' in resp.data
+    assert b'Baza' in resp.data
+
+
+def test_detail_personajes_con_relacion_shows_note_count_not_content(
+    client, regular_user, make_user, make_character, make_contact, make_contact_link, make_contact_note, login_as,
+):
+    """The note belongs to a DIFFERENT character than the viewer's own active
+    one - only the "Personajes con relación" summary can leak it, and that
+    summary must show just the count, never the content."""
+    other = make_user(username='otro_con_nota', password='otropass123')
+    other_char = make_character(other, name='Karl-Heinz')
+    my_char = make_character(regular_user, name='Mi personaje')
+    contact = make_contact(nombre='Wilhelm el tabernero')
+    make_contact_link(other_char, contact)
+    make_contact_link(my_char, contact)
+    make_contact_note(contact, other_char, content='Debe dinero al gremio.')
+    login_as(client, regular_user, 'userpass123')
+
+    resp = client.get(f'/contactos/{contact.id}')
+    assert b'Debe dinero al gremio.' not in resp.data
+    assert b'Personajes con relaci' in resp.data
+    assert b'Karl-Heinz' in resp.data

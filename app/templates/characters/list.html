@@ -50,6 +50,19 @@
             {% endfor %}
           </div>
           {% endif %}
+          {% if char.user_id == current_user.id %}
+          <div class="mt-2">
+            {% if current_user.active_character_id == char.id %}
+            <span class="badge bg-success"><i class="bi bi-check2-circle me-1"></i>Personaje activo</span>
+            {% else %}
+            <form method="POST" action="{{ url_for('characters.activate', char_id=char.id) }}" class="d-inline">
+              <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+              <input type="hidden" name="next_url" value="{{ request.full_path }}">
+              <button type="submit" class="btn btn-outline-secondary btn-sm">Marcar activo</button>
+            </form>
+            {% endif %}
+          </div>
+          {% endif %}
         </div>
         <div class="card-footer d-flex gap-2">
           <a href="{{ url_for('characters.detail', char_id=char.id) }}" class="btn btn-wh btn-sm flex-grow-1">Ver</a>

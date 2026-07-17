@@ -17,30 +17,16 @@
     </div>
   </div>
 
-  <div class="d-flex flex-wrap gap-2 mb-3 align-items-end">
-    <form method="GET" class="d-flex gap-2 flex-grow-1">
-      {% if active_character %}<input type="hidden" name="personaje_id" value="{{ active_character.id }}">{% endif %}
-      <input type="text" name="q" class="form-control wh-input" placeholder="Buscar contactos por nombre…"
-             value="{{ search }}" autocomplete="off">
-      <button class="btn btn-wh px-3" type="submit"><i class="bi bi-search"></i></button>
-      {% if search %}
-      <a href="{{ url_for('contacts.index') }}" class="btn btn-outline-secondary" title="Limpiar búsqueda">
-        <i class="bi bi-x-lg"></i>
-      </a>
-      {% endif %}
-    </form>
-    {% if my_characters|length > 1 %}
-    <form method="GET" class="d-flex gap-2 align-items-center">
-      <input type="hidden" name="q" value="{{ search }}">
-      <label class="wh-label small mb-0">Ver como</label>
-      <select name="personaje_id" class="form-select form-select-sm wh-input" onchange="this.form.submit()">
-        {% for c in my_characters %}
-        <option value="{{ c.id }}" {% if active_character and active_character.id == c.id %}selected{% endif %}>{{ c.name }}</option>
-        {% endfor %}
-      </select>
-    </form>
+  <form method="GET" class="d-flex gap-2 mb-3">
+    <input type="text" name="q" class="form-control wh-input" placeholder="Buscar contactos por nombre…"
+           value="{{ search }}" autocomplete="off">
+    <button class="btn btn-wh px-3" type="submit"><i class="bi bi-search"></i></button>
+    {% if search %}
+    <a href="{{ url_for('contacts.index') }}" class="btn btn-outline-secondary" title="Limpiar búsqueda">
+      <i class="bi bi-x-lg"></i>
+    </a>
     {% endif %}
-  </div>
+  </form>
 
   {% if not contacts %}
   <div class="alert wh-alert">
@@ -55,44 +41,83 @@
     <table class="table wh-table align-middle">
       <thead>
         <tr>
+          <th></th>
           <th>Nombre</th>
-          <th>Profesiones</th>
-          <th>Untersuchung</th>
-          <th>Nivel {% if active_character %}({{ active_character.name }}){% endif %}</th>
+          <th>Raza</th>
+          <th>Unter</th>
+          <th>Estado</th>
+          <th>Personajes</th>
           <th style="width:5rem"></th>
         </tr>
       </thead>
       <tbody>
         {% for contact in contacts %}
+        {% set links = links_by_contact.get(contact.id, []) %}
         <tr>
           <td>
-            <strong>{{ contact.nombre }}</strong>
-            {% if contact.estado != 'vivo' %}
-            <span class="badge {% if contact.estado == 'muerto' %}bg-dark{% else %}bg-warning text-dark{% endif %}" style="font-size:.65rem">
-              {{ estado_labels[contact.estado] }}
-            </span>
+            {% if contact.image_path %}
+            <img src="{{ url_for('main.uploaded_file', filename=contact.image_path) }}"
+                 class="wh-char-avatar wh-lightbox-trigger" alt="{{ contact.nombre }}">
             {% endif %}
+          </td>
+          <td>
+            <strong>{{ contact.nombre }}</strong>
             {% if current_user.is_admin and not contact.is_visible %}
             <span class="badge bg-secondary" style="font-size:.65rem">Oculto</span>
             {% endif %}
           </td>
-          <td class="small text-muted">
-            {{ contact.professions|map(attribute='profession.name')|join(', ') or '—' }}
-          </td>
+          <td class="small text-muted">{{ contact.raza or '—' }}</td>
           <td>
-            {% if current_user.is_admin or (active_character and active_character.es_untersuchung) %}
+            {% if current_user.is_admin or (current_user.active_character and current_user.active_character.es_untersuchung) %}
               {{ 'Sí' if contact.es_untersuchung else 'No' }}
             {% else %}—{% endif %}
           </td>
           <td>
-            {% set link = link_by_contact.get(contact.id) %}
-            {% if link and link.nivel is not none %}{{ link.nivel }} — {{ nivel_labels.get(link.nivel, '') }}{% else %}—{% endif %}
+            {% if contact.estado != 'vivo' %}
+            <span class="badge {% if contact.estado == 'muerto' %}bg-dark{% else %}bg-warning text-dark{% endif %}" style="font-size:.65rem">
+              {{ estado_labels[contact.estado] }}
+            </span>
+            {% else %}—{% endif %}
           </td>
           <td>
-            <a href="{{ url_for('contacts.detail', contact_id=contact.id, personaje_id=active_character.id if active_character else none) }}"
+            {% if links %}
+            <button type="button" class="btn btn-link btn-sm p-0" data-bs-toggle="collapse"
+                    data-bs-target="#links-{{ contact.id }}">
+              {{ links|length }} personaje{{ 's' if links|length != 1 }}
+            </button>
+            {% else %}—{% endif %}
+          </td>
+          <td>
+            <a href="{{ url_for('contacts.detail', contact_id=contact.id) }}"
                class="btn btn-outline-secondary btn-sm">Ver</a>
           </td>
         </tr>
+        {% if links %}
+        <tr>
+          <td colspan="7" class="p-0 border-0">
+            <div class="collapse" id="links-{{ contact.id }}">
+              <div class="card wh-card my-2">
+                <div class="table-responsive">
+                  <table class="table wh-table table-sm align-middle mb-0">
+                    <thead>
+                      <tr><th>Personaje</th><th>Nivel</th><th>Tipo de relación</th></tr>
+                    </thead>
+                    <tbody>
+                      {% for link in links %}
+                      <tr>
+                        <td>{{ link.character.name }}</td>
+                        <td>{% if link.nivel is not none %}{{ link.nivel }} — {{ nivel_labels.get(link.nivel, '') }}{% else %}—{% endif %}</td>
+                        <td>{{ link.tipo_relacion|join(', ') if link.tipo_relacion else '—' }}</td>
+                      </tr>
+                      {% endfor %}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+          </td>
+        </tr>
+        {% endif %}
         {% endfor %}
       </tbody>
     </table>

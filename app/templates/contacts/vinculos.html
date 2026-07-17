@@ -1,0 +1,116 @@
+{% extends 'base.html' %}
+{% block title %}Vínculos — Warhammer Fantasy Tools{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+  <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+    <h2 class="wh-heading mb-0"><i class="bi bi-diagram-3 me-2"></i>Vínculos</h2>
+    <div class="d-flex gap-2">
+      {% if current_user.is_admin %}
+      <a href="{{ url_for('admin.contacts_full_export') }}" class="btn btn-outline-secondary btn-sm">
+        <i class="bi bi-download me-1"></i>Exportar
+      </a>
+      <a href="{{ url_for('admin.contacts_full_import') }}" class="btn btn-outline-secondary btn-sm">
+        <i class="bi bi-upload me-1"></i>Importar
+      </a>
+      {% endif %}
+      {% if not current_user.is_admin %}
+        {% if show_all %}
+        <a href="{{ url_for('contacts.vinculos', q=search) }}" class="btn btn-outline-secondary btn-sm">
+          <i class="bi bi-person me-1"></i>Ver solo los míos
+        </a>
+        {% else %}
+        <a href="{{ url_for('contacts.vinculos', q=search, todos=1) }}" class="btn btn-outline-secondary btn-sm">
+          <i class="bi bi-people me-1"></i>Ver todos los vínculos
+        </a>
+        {% endif %}
+      {% endif %}
+    </div>
+  </div>
+  <p class="text-muted small">
+    {% if show_all %}Todas las relaciones entre contactos y personajes, de todos los usuarios.
+    {% else %}Los vínculos de tu personaje activo. Los datos completos (notas, editar el vínculo) se gestionan desde la ficha de cada contacto.{% endif %}
+  </p>
+
+  {% if no_active_character %}
+  <div class="alert wh-alert">
+    No tienes un personaje activo marcado todavía.
+    <a href="{{ url_for('characters.list_characters') }}" class="wh-link">Elige uno</a>
+    o <a href="{{ url_for('contacts.vinculos', q=search, todos=1) }}" class="wh-link">ver todos los vínculos</a>.
+  </div>
+  {% else %}
+
+  <form method="GET" class="mb-3">
+    {% if show_all %}<input type="hidden" name="todos" value="1">{% endif %}
+    <div class="d-flex gap-2" style="max-width:420px">
+      <input type="text" name="q" class="form-control wh-input" placeholder="Buscar por contacto o personaje…"
+             value="{{ search }}">
+      <button class="btn btn-wh px-3" type="submit"><i class="bi bi-search"></i></button>
+      {% if search %}
+      <a href="{{ url_for('contacts.vinculos', todos=1 if show_all else none) }}" class="btn btn-outline-secondary" title="Limpiar búsqueda">
+        <i class="bi bi-x-lg"></i>
+      </a>
+      {% endif %}
+    </div>
+  </form>
+
+  {% if not links %}
+  <div class="alert wh-alert">
+    {% if search %}No se encontraron vínculos para «{{ search }}».{% else %}Todavía no hay ningún vínculo registrado.{% endif %}
+  </div>
+  {% else %}
+  <div class="table-responsive">
+    <table class="table wh-table align-middle">
+      <thead>
+        <tr>
+          <th>Contacto</th>
+          {% if show_all %}<th>Personaje</th>{% endif %}
+          <th>Tipo de relación</th>
+          <th>Nivel</th>
+          <th>Notas</th>
+          <th style="width:5rem"></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for link in links %}
+        <tr>
+          <td><strong>{{ link.contact.nombre }}</strong></td>
+          {% if show_all %}<td>{{ link.character.name }}</td>{% endif %}
+          <td>{{ link.tipo_relacion|join(', ') if link.tipo_relacion else '—' }}</td>
+          <td>{% if link.nivel is not none %}{{ link.nivel }} — {{ nivel_labels.get(link.nivel, '') }}{% else %}—{% endif %}</td>
+          <td>{{ note_counts.get((link.contact_id, link.character_id), 0) }}</td>
+          <td>
+            <a href="{{ url_for('contacts.detail', contact_id=link.contact_id, personaje_id=link.character_id) }}"
+               class="btn btn-outline-secondary btn-sm">Ver ficha</a>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+  {% if pagination.pages > 1 %}
+  <nav class="mt-3">
+    <ul class="pagination pagination-sm mb-0">
+      <li class="page-item {% if not pagination.has_prev %}disabled{% endif %}">
+        <a class="page-link" href="{{ url_for('contacts.vinculos', page=pagination.prev_num, q=search, todos=1 if show_all else none) }}">‹</a>
+      </li>
+      {% for p in pagination.iter_pages(left_edge=1, right_edge=1, left_current=2, right_current=2) %}
+      {% if p %}
+      <li class="page-item {% if p == pagination.page %}active{% endif %}">
+        <a class="page-link" href="{{ url_for('contacts.vinculos', page=p, q=search, todos=1 if show_all else none) }}">{{ p }}</a>
+      </li>
+      {% else %}
+      <li class="page-item disabled"><span class="page-link">…</span></li>
+      {% endif %}
+      {% endfor %}
+      <li class="page-item {% if not pagination.has_next %}disabled{% endif %}">
+        <a class="page-link" href="{{ url_for('contacts.vinculos', page=pagination.next_num, q=search, todos=1 if show_all else none) }}">›</a>
+      </li>
+    </ul>
+  </nav>
+  {% endif %}
+  {% endif %}
+  {% endif %}
+</div>
+{% endblock %}

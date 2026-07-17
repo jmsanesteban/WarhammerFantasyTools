@@ -67,6 +67,13 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
+  // Untersuchung grado picker (contacts/new.html, contacts/edit.html,
+  // characters/form.html): 3 independent slots. Was duplicated verbatim in
+  // all 3 templates; consolidated here (2026-07-17) since it needed a
+  // second real change (disabling slots 2/3 when slot 1 is Adjunto) and
+  // three hand-edited copies are how that kind of rule silently drifts.
+  initGradoPicker();
+
   // Contactos: drag-to-reorder field definitions
   const fieldsTbody = document.getElementById('fieldsTbody');
   if (fieldsTbody) {
@@ -84,6 +91,46 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 });
+
+// ── Untersuchung grado picker ────────────────────────────────────────────────
+// Slots 2/3 no longer offer Adjunto options at all (only slot 1's <select>
+// has that <optgroup> - see contacts/new.html etc.), so the only rule left
+// to enforce client-side is: if slot 1 holds an Adjunto value (Carro/
+// Paloma - capped at exactly 1 mark, server-enforced by clamp_grados()),
+// slots 2 and 3 are irrelevant and get disabled + cleared.
+function initGradoPicker() {
+  const slots = Array.from(document.querySelectorAll('.grado-slot'));
+  if (!slots.length) return;
+  const preview = document.getElementById('marcas-preview');
+  const untersuchungChk = document.getElementById('chk-untersuchung');
+  const selectedOption = slot => slot.options[slot.selectedIndex];
+  function sync() {
+    const first = selectedOption(slots[0]);
+    const firstIsAdjunto = Boolean(first.value) && first.dataset.tier === 'adjunto';
+    slots.forEach((s, i) => {
+      if (i === 0) return;
+      s.disabled = firstIsAdjunto;
+      if (s.disabled) s.value = '';
+    });
+    if (preview) {
+      preview.innerHTML = '';
+      slots.map(selectedOption).filter(o => o.value).forEach(o => {
+        if (!o.dataset.marca) return;
+        const img = document.createElement('img');
+        img.src = o.dataset.marca;
+        img.alt = o.value;
+        img.title = o.value;
+        img.style.cssText = 'width:64px;height:64px;object-fit:cover;border-radius:4px;border:1px solid var(--wh-border-gold)';
+        preview.appendChild(img);
+      });
+    }
+    if (untersuchungChk && slots.some(s => selectedOption(s).value)) {
+      untersuchungChk.checked = true;
+    }
+  }
+  slots.forEach(s => s.addEventListener('change', sync));
+  sync();
+}
 
 // ── Contactos helpers ────────────────────────────────────────────────────────
 

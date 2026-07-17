@@ -23,7 +23,15 @@
           </div>
           <div class="col-md-4">
             <label class="form-label wh-label">Raza</label>
-            <input type="text" name="raza" class="form-control wh-input" placeholder="Humano, Enano, Elfo…">
+            <select name="raza_choice" id="raza-select" class="form-select wh-input">
+              <option value="">— Sin especificar —</option>
+              {% for r in raza_choices %}
+              <option value="{{ r }}">{{ r }}</option>
+              {% endfor %}
+              <option value="__nuevo__">Nueva raza…</option>
+            </select>
+            <input type="text" name="raza_custom" id="raza-custom" class="form-control wh-input mt-2"
+                   style="display:none" placeholder="Escribe la nueva raza">
           </div>
           <div class="col-md-3">
             <label class="form-label wh-label">Estado</label>
@@ -51,18 +59,21 @@
                     <option value="{{ g }}" data-marca="{{ marca_images.get(g, '') }}" data-tier="agente">{{ g }}</option>
                     {% endfor %}
                   </optgroup>
+                  {% if i == 1 %}
                   <optgroup label="Adjunto">
                     {% for g in grados_adjunto %}
                     <option value="{{ g }}" data-marca="{{ marca_images.get(g, '') }}" data-tier="adjunto">{{ g }}</option>
                     {% endfor %}
                   </optgroup>
+                  {% endif %}
                 </select>
               </div>
               {% endfor %}
             </div>
             <small class="text-muted">
               Agente: hasta 3 marcas, se puede repetir la misma (marca doble = veteranía). Adjunto: solo una
-              marca, nunca junto con marcas de Agente — es ayudante de los agentes, no uno de ellos.
+              marca — es ayudante de los agentes, no uno de ellos; solo se elige en la primera marca y las
+              otras dos se deshabilitan.
             </small>
             <div id="marcas-preview" class="d-flex flex-wrap gap-2 mt-2"></div>
           </div>
@@ -111,43 +122,12 @@
 {% block extra_scripts %}
 <script>
 (function () {
-  const slots = Array.from(document.querySelectorAll('.grado-slot'));
-  const preview = document.getElementById('marcas-preview');
-  const untersuchungChk = document.getElementById('chk-untersuchung');
-  function selectedOption(slot) { return slot.options[slot.selectedIndex]; }
-  function sync(changed) {
-    // Tier exclusivity: the first slot with a value fixes the tier for the
-    // rest - clear any other slot whose value belongs to the other tier, and
-    // cap Adjunto at a single slot (mirrors clamp_grados() server-side).
-    const chosen = slots.map(selectedOption).filter(o => o.value);
-    const tier = chosen.length ? chosen[0].dataset.tier : null;
-    if (tier) {
-      let adjuntoSeen = false;
-      slots.forEach(s => {
-        const o = selectedOption(s);
-        if (!o.value) return;
-        if (o.dataset.tier !== tier) { s.value = ''; return; }
-        if (tier === 'adjunto') {
-          if (adjuntoSeen) s.value = '';
-          else adjuntoSeen = true;
-        }
-      });
-    }
-    preview.innerHTML = '';
-    slots.map(selectedOption).filter(o => o.value).forEach(o => {
-      if (!o.dataset.marca) return;
-      const img = document.createElement('img');
-      img.src = o.dataset.marca;
-      img.alt = o.value;
-      img.title = o.value;
-      img.style.cssText = 'width:64px;height:64px;object-fit:cover;border-radius:4px;border:1px solid var(--wh-border-gold)';
-      preview.appendChild(img);
-    });
-    if (slots.some(s => selectedOption(s).value)) {
-      untersuchungChk.checked = true;
-    }
+  const select = document.getElementById('raza-select');
+  const custom = document.getElementById('raza-custom');
+  function sync() {
+    custom.style.display = select.value === '__nuevo__' ? '' : 'none';
   }
-  slots.forEach(s => s.addEventListener('change', sync));
+  select.addEventListener('change', sync);
   sync();
 })();
 </script>

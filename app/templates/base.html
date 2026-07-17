@@ -110,27 +110,18 @@
             <i class="bi bi-people me-1"></i>Personajes
           </a>
         </li>
-        {% if current_user.is_admin %}
         <li class="nav-item dropdown">
-          <a class="nav-link dropdown-toggle {% if request.blueprint == 'contacts' or request.endpoint == 'admin.contact_links' %}active{% endif %}"
+          <a class="nav-link dropdown-toggle {% if request.blueprint == 'contacts' %}active{% endif %}"
              href="#" data-bs-toggle="dropdown">
             <i class="bi bi-person-lines-fill me-1"></i>Contactos
           </a>
           <ul class="dropdown-menu dropdown-menu-dark">
-            <li><a class="dropdown-item {% if request.blueprint == 'contacts' %}active{% endif %}"
+            <li><a class="dropdown-item {% if request.endpoint == 'contacts.index' %}active{% endif %}"
                    href="{{ url_for('contacts.index') }}">Contactos</a></li>
-            <li><a class="dropdown-item {% if request.endpoint == 'admin.contact_links' %}active{% endif %}"
-                   href="{{ url_for('admin.contact_links') }}">Vínculos</a></li>
+            <li><a class="dropdown-item {% if request.endpoint == 'contacts.vinculos' %}active{% endif %}"
+                   href="{{ url_for('contacts.vinculos') }}">Vínculos</a></li>
           </ul>
         </li>
-        {% else %}
-        <li class="nav-item">
-          <a class="nav-link {% if request.blueprint == 'contacts' %}active{% endif %}"
-             href="{{ url_for('contacts.index') }}">
-            <i class="bi bi-person-lines-fill me-1"></i>Contactos
-          </a>
-        </li>
-        {% endif %}
         <li class="nav-item dropdown">
           <a class="nav-link dropdown-toggle {% if request.blueprint == 'food' %}active{% endif %}"
              href="#" data-bs-toggle="dropdown">
@@ -188,7 +179,7 @@
               <li><a class="dropdown-item" href="{{ url_for('contacts.new') }}"><i class="bi bi-plus-circle me-2"></i>Nuevo Contacto</a></li>
               <li><a class="dropdown-item" href="{{ url_for('admin.contacts_import') }}"><i class="bi bi-upload me-2"></i>Importar Contactos</a></li>
               <li><a class="dropdown-item" href="{{ url_for('admin.contacts_export') }}"><i class="bi bi-download me-2"></i>Exportar Contactos</a></li>
-              <li><a class="dropdown-item" href="{{ url_for('admin.contact_links') }}"><i class="bi bi-diagram-3 me-2"></i>Vínculos</a></li>
+              <li><a class="dropdown-item" href="{{ url_for('contacts.vinculos') }}"><i class="bi bi-diagram-3 me-2"></i>Vínculos</a></li>
               <li><hr class="dropdown-divider"></li>
               <li><a class="dropdown-item" href="{{ url_for('admin.recipes_pending') }}"><i class="bi bi-egg-fried me-2"></i>Recetas pendientes</a></li>
               <li><hr class="dropdown-divider"></li>
@@ -219,6 +210,7 @@
                 </button>
               </li>
               <li><hr class="dropdown-divider"></li>
+              <li><a class="dropdown-item" href="{{ url_for('auth.profile') }}"><i class="bi bi-person-circle me-2"></i>Mi perfil</a></li>
               <li><a class="dropdown-item" href="{{ url_for('auth.change_password') }}"><i class="bi bi-key me-2"></i>Cambiar contraseña</a></li>
               <li><a class="dropdown-item" href="{{ url_for('auth.logout') }}"><i class="bi bi-box-arrow-right me-2"></i>Cerrar sesión</a></li>
             </ul>

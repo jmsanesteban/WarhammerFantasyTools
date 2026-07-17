@@ -2,6 +2,7 @@ from flask import Blueprint, render_template, redirect, url_for, flash, request
 from flask_login import login_user, logout_user, login_required, current_user
 from app.extensions import db
 from app.models.user import User
+from app.models.character import Character
 
 auth_bp = Blueprint('auth', __name__, template_folder='../templates')
 
@@ -21,6 +22,21 @@ def login():
             login_user(user, remember=remember)
             next_page = request.args.get('next')
             flash(f'¡Bienvenido, {user.username}!', 'success')
+
+            # Personaje activo (2026-07-17): si no hay uno marcado, con un
+            # único personaje se fija sin preguntar; con varios y ninguno
+            # marcado, se manda una vez al listado de Personajes a elegir -
+            # pero solo cuando el login no venía de un rebote @login_required
+            # con destino explícito (next_page), que siempre tiene prioridad.
+            if not next_page and user.active_character_id is None:
+                own_chars = user.characters.all()
+                if len(own_chars) == 1:
+                    user.active_character_id = own_chars[0].id
+                    db.session.commit()
+                elif len(own_chars) > 1:
+                    flash('Elige con qué personaje vas a jugar.', 'info')
+                    return redirect(url_for('characters.list_characters'))
+
             return redirect(next_page or url_for('main.index'))
 
         flash('Usuario o contraseña incorrectos.', 'danger')
@@ -73,6 +89,13 @@ def logout():
     logout_user()
     flash('Has cerrado sesión.', 'info')
     return redirect(url_for('main.index'))
+
+
+@auth_bp.route('/perfil')
+@login_required
+def profile():
+    own_chars = current_user.characters.order_by(Character.name).all()
+    return render_template('auth/profile.html', characters=own_chars)
 
 
 @auth_bp.route('/cambiar-clave', methods=['GET', 'POST'])

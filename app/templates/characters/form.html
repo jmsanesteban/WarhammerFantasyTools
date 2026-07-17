@@ -58,18 +58,21 @@
                     <option value="{{ g }}" data-marca="{{ marca_images.get(g, '') }}" data-tier="agente" {% if g == current %}selected{% endif %}>{{ g }}</option>
                     {% endfor %}
                   </optgroup>
+                  {% if i == 1 %}
                   <optgroup label="Adjunto">
                     {% for g in grados_adjunto %}
                     <option value="{{ g }}" data-marca="{{ marca_images.get(g, '') }}" data-tier="adjunto" {% if g == current %}selected{% endif %}>{{ g }}</option>
                     {% endfor %}
                   </optgroup>
+                  {% endif %}
                 </select>
               </div>
               {% endfor %}
             </div>
             <small class="text-muted">
               Agente: hasta 3 marcas, se puede repetir la misma (marca doble = veteranía). Adjunto: solo una
-              marca, nunca junto con marcas de Agente — es ayudante de los agentes, no uno de ellos.
+              marca — es ayudante de los agentes, no uno de ellos; solo se elige en la primera marca y las
+              otras dos se deshabilitan.
             </small>
             <div id="marcas-preview" class="d-flex flex-wrap gap-2 mt-2"></div>
           </div>
@@ -209,43 +212,5 @@ profList.addEventListener('click', e => {
 });
 
 wireProfPickers(profList);
-
-(function () {
-  const slots = Array.from(document.querySelectorAll('.grado-slot'));
-  const preview = document.getElementById('marcas-preview');
-  const untersuchungChk = document.getElementById('chk-untersuchung');
-  function selectedOption(slot) { return slot.options[slot.selectedIndex]; }
-  function sync() {
-    const chosen = slots.map(selectedOption).filter(o => o.value);
-    const tier = chosen.length ? chosen[0].dataset.tier : null;
-    if (tier) {
-      let adjuntoSeen = false;
-      slots.forEach(s => {
-        const o = selectedOption(s);
-        if (!o.value) return;
-        if (o.dataset.tier !== tier) { s.value = ''; return; }
-        if (tier === 'adjunto') {
-          if (adjuntoSeen) s.value = '';
-          else adjuntoSeen = true;
-        }
-      });
-    }
-    preview.innerHTML = '';
-    slots.map(selectedOption).filter(o => o.value).forEach(o => {
-      if (!o.dataset.marca) return;
-      const img = document.createElement('img');
-      img.src = o.dataset.marca;
-      img.alt = o.value;
-      img.title = o.value;
-      img.style.cssText = 'width:64px;height:64px;object-fit:cover;border-radius:4px;border:1px solid var(--wh-border-gold)';
-      preview.appendChild(img);
-    });
-    if (slots.some(s => selectedOption(s).value)) {
-      untersuchungChk.checked = true;
-    }
-  }
-  slots.forEach(s => s.addEventListener('change', sync));
-  sync();
-})();
 </script>
 {% endblock %}

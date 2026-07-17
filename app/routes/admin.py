@@ -21,8 +21,6 @@ from app.models.talent import Talent
 from app.models.synonym import Synonym, DEFAULT_SYNONYMS
 from app.models.permission import Permission, PermissionTemplate, ALL_PERMISSIONS
 from app.models.contact import Contact, ContactProfession
-from app.models.contact_character_link import ContactCharacterLink, NIVEL_LABELS
-from app.models.contact_note import ContactNote
 from app.models.character import Character
 from app.models.food import Recipe
 from app.models.equipment import EquipmentItem
@@ -1674,64 +1672,6 @@ def contacts_export():
     return render_template('admin/contacts_export.html', contacts=contacts_list)
 
 
-# ---------------------------------------------------------------------------
-# Vínculos: directorio de todas las relaciones contacto↔personaje, con el
-# usuario propietario de cada personaje - de solo lectura, enlaza a la ficha
-# del contacto ya filtrada como ese personaje (donde viven notas/vínculo
-# completos) y a la edición del propio personaje.
-# ---------------------------------------------------------------------------
-
-@admin_bp.route('/vinculos')
-@login_required
-@admin_required
-def contact_links():
-    page = request.args.get('page', 1, type=int)
-    search = request.args.get('q', '').strip()
-    per_page = 30
-
-    query = (
-        ContactCharacterLink.query
-        .join(Contact, Contact.id == ContactCharacterLink.contact_id)
-        .join(Character, Character.id == ContactCharacterLink.character_id)
-        .join(User, User.id == Character.user_id)
-        .order_by(Contact.nombre, Character.name)
-    )
-    if search:
-        like = f'%{search}%'
-        query = query.filter(db.or_(
-            Contact.nombre.ilike(like),
-            Character.name.ilike(like),
-            User.username.ilike(like),
-        ))
-
-    pagination = query.paginate(page=page, per_page=per_page, error_out=False)
-    links = pagination.items
-
-    contact_ids = [l.contact_id for l in links]
-    note_counts = {}
-    notes_map = {}
-    if contact_ids:
-        notes = (
-            ContactNote.query.filter(ContactNote.contact_id.in_(contact_ids))
-            .order_by(ContactNote.created_at.desc())
-            .all()
-        )
-        notes_map = {}
-        for n in notes:
-            notes_map.setdefault((n.contact_id, n.character_id), []).append(n)
-        note_counts = {key: len(rows) for key, rows in notes_map.items()}
-
-    return render_template(
-        'admin/contact_links.html',
-        links=links,
-        pagination=pagination,
-        search=search,
-        note_counts=note_counts,
-        notes_map=notes_map,
-        nivel_labels=NIVEL_LABELS,
-    )
-
-
 @admin_bp.route('/vinculos/exportar')
 @login_required
 @admin_required
@@ -1762,7 +1702,7 @@ def contacts_full_import():
     mode = request.form.get('mode', 'skip')
     summary = import_contacts_full(data, mode=mode)
     flash_import_summary(summary)
-    return redirect(url_for('admin.contact_links'))
+    return redirect(url_for('contacts.vinculos'))
 
 
 # ---------------------------------------------------------------------------

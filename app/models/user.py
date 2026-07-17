@@ -21,9 +21,18 @@ class User(UserMixin, db.Model):
     # regularizing a character's already-owned gear when migrating to the
     # shop, not for everyday free purchases.
     puede_anadir_equipo_sin_coste = db.Column(db.Boolean, default=False, nullable=False)
+    # Personaje "activo" del usuario (2026-07-17): sustituye al viejo patrón
+    # de elegir personaje por query-string (?personaje_id=) en cada página de
+    # Contactos - un único valor persistido, editable desde el perfil o el
+    # listado de Personajes. ON DELETE SET NULL: si se borra el personaje,
+    # simplemente deja de haber uno activo, no falla el borrado.
+    active_character_id = db.Column(db.Integer, db.ForeignKey('characters.id', ondelete='SET NULL'),
+                                     nullable=True)
 
     # Relationships
-    characters = db.relationship('Character', backref='owner', lazy='dynamic')
+    characters = db.relationship('Character', backref='owner', lazy='dynamic',
+                                  foreign_keys='Character.user_id')
+    active_character = db.relationship('Character', foreign_keys=[active_character_id])
     template   = db.relationship('PermissionTemplate', foreign_keys=[template_id], lazy='select')
     direct_permissions = db.relationship(
         'Permission',

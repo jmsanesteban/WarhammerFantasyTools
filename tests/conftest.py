@@ -154,6 +154,14 @@ def make_contact_link(db):
 
 
 @pytest.fixture
+def set_active_character(db):
+    def _set(user, character):
+        user.active_character_id = character.id
+        db.session.commit()
+    return _set
+
+
+@pytest.fixture
 def make_contact_note(db):
     def _make(contact, character, content='Nota'):
         from app.models.contact_note import ContactNote

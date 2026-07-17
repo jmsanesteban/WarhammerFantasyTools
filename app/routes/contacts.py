@@ -5,7 +5,7 @@ from werkzeug.utils import secure_filename
 from app.extensions import db
 from app.models.character import Character
 from app.models.profession import Profession
-from app.models.contact import Contact, ContactProfession, UNTERSUCHUNG_GRADOS, ESTADO_CHOICES, ESTADO_LABELS
+from app.models.contact import Contact, ContactProfession, UNTERSUCHUNG_GRADOS, ESTADO_CHOICES, ESTADO_LABELS, RAZA_CHOICES
 from app.models.untersuchung import (
     clamp_grados, has_marca, marca_image_path, grados_display,
     UNTERSUCHUNG_GRADOS_CON_MARCA, UNTERSUCHUNG_GRADOS_AGENTE, UNTERSUCHUNG_GRADOS_ADJUNTO, MAX_GRADOS,
@@ -50,7 +50,7 @@ def _grado_form_context():
     return dict(
         grados=UNTERSUCHUNG_GRADOS, grados_con_marca=UNTERSUCHUNG_GRADOS_CON_MARCA,
         grados_agente=UNTERSUCHUNG_GRADOS_AGENTE, grados_adjunto=UNTERSUCHUNG_GRADOS_ADJUNTO,
-        estado_choices=ESTADO_CHOICES, estado_labels=ESTADO_LABELS,
+        estado_choices=ESTADO_CHOICES, estado_labels=ESTADO_LABELS, raza_choices=RAZA_CHOICES,
         marca_images=_marca_images(),
     )
 
@@ -58,6 +58,17 @@ def _grado_form_context():
 def _estado_from_form():
     estado = request.form.get('estado', '').strip()
     return estado if estado in ESTADO_CHOICES else 'vivo'
+
+
+def _raza_from_form():
+    """raza_choice is the guided <select> (RAZA_CHOICES + the '__nuevo__'
+    sentinel); when '__nuevo__' is picked, raza_custom carries the actual
+    free-text value the admin typed. Contact.raza stays free text in DB -
+    the choices list only guides the form, it isn't a foreign key."""
+    choice = request.form.get('raza_choice', '').strip()
+    if choice == '__nuevo__':
+        return request.form.get('raza_custom', '').strip() or None
+    return choice or None
 
 
 def _save_image_from_form(contact):
@@ -79,7 +90,7 @@ def _global_fields_from_form(contact):
     """Reads every global (non-per-character) Contact field from the POST
     body - shared by new()/edit()."""
     contact.nombre = request.form.get('nombre', '').strip()
-    contact.raza = request.form.get('raza', '').strip() or None
+    contact.raza = _raza_from_form()
     contact.estado = _estado_from_form()
     grados = _grados_from_form()
     contact.grados_untersuchung = grados
@@ -124,8 +135,12 @@ def _can_view(contact):
 
 
 def _active_character():
-    """The character whose view of Contacts is currently active - explicit
-    ?personaje_id=, defaulting to the user's first character."""
+    """The character whose view of Contacts is currently active. Since
+    2026-07-17 this defaults to the user's persisted "personaje activo"
+    (current_user.active_character_id) instead of "the first one
+    alphabetically" - but an explicit ?personaje_id= still overrides it,
+    which is how the admin-only character switcher on the contact ficha
+    works (no separate mechanism needed for that)."""
     characters = _selectable_characters()
     if not characters:
         return None
@@ -136,17 +151,24 @@ def _active_character():
             return match
         if current_user.is_admin:
             return Character.query.get(personaje_id)
+    if current_user.active_character_id:
+        match = next((c for c in characters if c.id == current_user.active_character_id), None)
+        if match:
+            return match
     return characters[0]
 
 
 @contacts_bp.route('/')
 @login_required
 def index():
+    """Global listing (2026-07-17): no more "view as this character" picker
+    here - the active character is a persisted per-user setting now, read
+    directly in the template via current_user.active_character. Instead of
+    a per-viewer Nivel column, every contact shows how many characters (of
+    any user) have a link to it, expandable to nivel+tipo per character."""
     page = request.args.get('page', 1, type=int)
     search = request.args.get('q', '').strip()
     per_page = 25
-
-    active_character = _active_character()
 
     query = Contact.query.order_by(Contact.nombre)
     if not current_user.is_admin:
@@ -156,26 +178,81 @@ def index():
 
     pagination = query.paginate(page=page, per_page=per_page, error_out=False)
 
-    link_by_contact = {}
-    if active_character:
-        contact_ids = [c.id for c in pagination.items]
-        if contact_ids:
-            links = ContactCharacterLink.query.filter(
-                ContactCharacterLink.character_id == active_character.id,
-                ContactCharacterLink.contact_id.in_(contact_ids),
-            ).all()
-            link_by_contact = {l.contact_id: l for l in links}
+    contact_ids = [c.id for c in pagination.items]
+    links_by_contact = {}
+    if contact_ids:
+        links = (
+            ContactCharacterLink.query
+            .filter(ContactCharacterLink.contact_id.in_(contact_ids))
+            .join(Character, Character.id == ContactCharacterLink.character_id)
+            .order_by(Character.name)
+            .all()
+        )
+        for link in links:
+            links_by_contact.setdefault(link.contact_id, []).append(link)
 
     return render_template(
         'contacts/index.html',
         contacts=pagination.items,
         pagination=pagination,
         search=search,
-        my_characters=_selectable_characters(),
-        active_character=active_character,
-        link_by_contact=link_by_contact,
+        links_by_contact=links_by_contact,
         nivel_labels=NIVEL_LABELS,
         estado_labels=ESTADO_LABELS,
+    )
+
+
+@contacts_bp.route('/vinculos')
+@login_required
+def vinculos():
+    """All contact<->character links (2026-07-17, moved out of admin.py -
+    no longer admin-only). Non-admins default to only their own active
+    character's links; ?todos=1 (or being admin) broadens to every link of
+    every character, of every user - confirmed scope, not a bug. Notes only
+    show a count here, never content (that stays on the contact's own
+    ficha, per-character)."""
+    page = request.args.get('page', 1, type=int)
+    search = request.args.get('q', '').strip()
+    per_page = 30
+    show_all = current_user.is_admin or request.args.get('todos') == '1'
+
+    if not show_all and not current_user.active_character_id:
+        return render_template(
+            'contacts/vinculos.html', links=[], pagination=None, search=search,
+            show_all=False, no_active_character=True, note_counts={}, nivel_labels=NIVEL_LABELS,
+        )
+
+    query = (
+        ContactCharacterLink.query
+        .join(Contact, Contact.id == ContactCharacterLink.contact_id)
+        .join(Character, Character.id == ContactCharacterLink.character_id)
+        .order_by(Contact.nombre, Character.name)
+    )
+    if not show_all:
+        query = query.filter(ContactCharacterLink.character_id == current_user.active_character_id)
+    if search:
+        like = f'%{search}%'
+        query = query.filter(db.or_(Contact.nombre.ilike(like), Character.name.ilike(like)))
+
+    pagination = query.paginate(page=page, per_page=per_page, error_out=False)
+    links = pagination.items
+
+    note_counts = {}
+    contact_ids = [l.contact_id for l in links]
+    if contact_ids:
+        rows = (
+            db.session.query(ContactNote.contact_id, ContactNote.character_id, db.func.count(ContactNote.id))
+            .filter(ContactNote.contact_id.in_(contact_ids))
+            .group_by(ContactNote.contact_id, ContactNote.character_id)
+            .all()
+        )
+        note_counts = {(cid, chid): cnt for cid, chid, cnt in rows}
+
+    return render_template(
+        'contacts/vinculos.html',
+        links=links, pagination=pagination, search=search,
+        show_all=show_all, no_active_character=False,
+        note_counts=note_counts, nivel_labels=NIVEL_LABELS,
     )
 
 
@@ -258,6 +335,23 @@ def detail(contact_id):
             .all()
         )
 
+    # "Personajes con relación" (2026-07-17): visible to anyone who can view
+    # the contact, not just admin - shows nivel/tipo per character, but only
+    # the *count* of notes, never their content (that stays private to each
+    # character, same rule as the Vínculos listing).
+    links = (
+        ContactCharacterLink.query.filter_by(contact_id=contact_id)
+        .join(Character, Character.id == ContactCharacterLink.character_id)
+        .order_by(Character.name)
+        .all()
+    )
+    note_counts = dict(
+        db.session.query(ContactNote.character_id, db.func.count(ContactNote.id))
+        .filter(ContactNote.contact_id == contact_id)
+        .group_by(ContactNote.character_id)
+        .all()
+    )
+
     return render_template(
         'contacts/detail.html',
         contact=contact,
@@ -265,6 +359,8 @@ def detail(contact_id):
         active_character=active_character,
         my_link=my_link,
         notes=notes,
+        links=links,
+        note_counts=note_counts,
         salary_table=salary_service.get_salary_table(),
         can_edit=current_user.is_admin,
         estado_labels=ESTADO_LABELS,

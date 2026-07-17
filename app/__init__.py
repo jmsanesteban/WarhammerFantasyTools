@@ -434,6 +434,18 @@ def _register_cli_commands(app):
                         conn.execute(text('ALTER TABLE contact_character_links ADD COLUMN tipo_relacion JSON NULL'))
                         click.echo('  Added contact_character_links.tipo_relacion')
 
+            # Incremental column: users.active_character_id (2026-07-17) -
+            # persisted "personaje activo" per user, sustituye al viejo
+            # patrón de elegir personaje por query-string en cada página.
+            user_cols = {c['name'] for c in inspector.get_columns('users')}
+            if 'active_character_id' not in user_cols:
+                with db.engine.begin() as conn:
+                    conn.execute(text(
+                        'ALTER TABLE users ADD COLUMN active_character_id INT NULL '
+                        'REFERENCES characters(id) ON DELETE SET NULL'
+                    ))
+                    click.echo('  Added users.active_character_id')
+
             # drinks.sabor changed meaning (base category instead of descriptor+parens)
             # and gained sabor_variante. It's a closed catalog seeded only from JSON
             # (never user-edited), so a shape change just drops and reseeds it rather

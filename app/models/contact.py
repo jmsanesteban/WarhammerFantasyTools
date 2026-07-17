@@ -10,6 +10,14 @@ from app.models.untersuchung import UNTERSUCHUNG_GRADOS  # noqa: F401 (re-export
 ESTADO_CHOICES = ['vivo', 'muerto', 'desconocido']
 ESTADO_LABELS = {'vivo': 'Vivo', 'muerto': 'Muerto', 'desconocido': 'Desconocido'}
 
+# Lista guiada para el desplegable de Raza (2026-07-17) - raza sigue siendo
+# texto libre en BD; esta lista solo orienta el formulario. "Nuevo" no es un
+# valor real, es un centinela de UI que revela un campo de texto libre.
+RAZA_CHOICES = [
+    'Humano', 'Enano', 'Alto elfo', 'Elfo Silvano', 'Halfling', 'Ogro', 'Hombre bestia',
+    'Piel verde', 'No muerto', 'Slam', 'Criatura', 'Monstruo', 'Demonio',
+]
+
 
 class Contact(db.Model):
     """An NPC/contact — global facts shared by every character who knows them.
