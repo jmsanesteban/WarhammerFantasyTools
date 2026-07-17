@@ -1005,8 +1005,13 @@ def _register_cli_commands(app):
                                     if r['Raza_contactos'] not in RAZA_CODE_MAP})
             unknown_estado = sorted({r['Estado_contactos'] for r in contact_rows
                                       if r['Estado_contactos'] not in ESTADO_MAP})
+            # Case-insensitive lookup: the CSV's filenames don't always match the
+            # case of the actual file on disk (e.g. "...jpg" in the CSV vs
+            # "...JPG" on disk) - harmless on a case-insensitive filesystem
+            # (Windows) but a real miss on the container's Linux one.
+            images_on_disk = {f.lower(): f for f in os.listdir(images_dir)} if os.path.isdir(images_dir) else {}
             missing_images = [r['Nombre_contactos'] for r in contact_rows
-                               if not os.path.isfile(os.path.join(images_dir, r['Imagen_contactos'].split('/')[-1]))]
+                               if r['Imagen_contactos'].split('/')[-1].lower() not in images_on_disk]
             unknown_characters = sorted({
                 r['Id_personajes'] for r in link_rows
                 if r['Id_personajes'] and r['Id_personajes'] not in EXTERNAL_CHARACTER_NAME
@@ -1065,9 +1070,10 @@ def _register_cli_commands(app):
                     es_untersuchung=False,
                 )
                 src_filename = row['Imagen_contactos'].split('/')[-1]
-                src_path = os.path.join(images_dir, src_filename)
-                if os.path.isfile(src_path):
-                    dest_filename = _secure_filename(f"{contact.nombre}{os.path.splitext(src_filename)[1].lower()}")
+                real_filename = images_on_disk.get(src_filename.lower())
+                if real_filename:
+                    src_path = os.path.join(images_dir, real_filename)
+                    dest_filename = _secure_filename(f"{contact.nombre}{os.path.splitext(real_filename)[1].lower()}")
                     dest_path = os.path.join(app.config['UPLOAD_FOLDER'], 'contactos', dest_filename)
                     shutil.copy2(src_path, dest_path)
                     contact.image_path = os.path.join('contactos', dest_filename)
