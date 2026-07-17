@@ -17,8 +17,8 @@ from app.models.talent import Talent
 from app.models.user import User
 from app.models.equipment import EquipmentItem, CharacterInventoryItem, CharacterPurchase, CharacterCartItem
 from app.models.untersuchung import (
-    UNTERSUCHUNG_GRADOS, UNTERSUCHUNG_GRADOS_CON_MARCA, clamp_grados, has_marca, marca_image_path,
-    grados_display, MAX_GRADOS,
+    UNTERSUCHUNG_GRADOS, UNTERSUCHUNG_GRADOS_CON_MARCA, UNTERSUCHUNG_GRADOS_AGENTE, UNTERSUCHUNG_GRADOS_ADJUNTO,
+    clamp_grados, has_marca, marca_image_path, grados_display, MAX_GRADOS,
 )
 from app.services import character_creation_service as ccs
 from app.services import salary_service
@@ -77,6 +77,7 @@ def _marca_images():
 def _grado_form_context():
     return dict(
         grados=UNTERSUCHUNG_GRADOS, grados_con_marca=UNTERSUCHUNG_GRADOS_CON_MARCA,
+        grados_agente=UNTERSUCHUNG_GRADOS_AGENTE, grados_adjunto=UNTERSUCHUNG_GRADOS_ADJUNTO,
         marca_images=_marca_images(),
     )
 

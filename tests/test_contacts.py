@@ -1,7 +1,10 @@
-"""Tests for the Contacts feature: visibility rules, per-character notes,
-per-character links (nickname/nivel/org/salary), and the Untersuchung
-visibility gate — from the regular-user perspective. Admin-only contact
-management routes are covered in test_admin_contacts.py."""
+"""Tests for the Contacts feature (reworked 2026-07-16): visibility is now a
+single admin-controlled switch (Contact.is_visible, no more per-character
+grants), creation/edition of the contact's global data is admin-only, and
+each character keeps its own private link (nivel/tipo_relacion/apodos/notas/
+salary) on top of it. Admin-only management routes are covered in
+test_admin_contacts.py."""
+from app.models.contact import Contact
 from app.models.contact_note import ContactNote
 from app.models.contact_character_link import ContactCharacterLink, ContactCharacterSalary
 
@@ -12,75 +15,71 @@ def test_index_requires_login(client):
     assert '/auth/login' in resp.headers['Location']
 
 
-# ── Estado / Paradero badges ─────────────────────────────────────────────────
+# ── Estado ────────────────────────────────────────────────────────────────
 
-def test_index_shows_muerto_badge(client, regular_user, login_as, make_character, make_contact,
-                                  make_contact_visibility):
-    char = make_character(regular_user)
-    contact = make_contact(nombre='Difunto', estado='muerto')
-    make_contact_visibility(char, contact, 'total')
+def test_index_shows_muerto_badge(client, regular_user, login_as, make_contact):
+    make_contact(nombre='Difunto', estado='muerto')
     login_as(client, regular_user, 'userpass123')
     resp = client.get('/contactos/')
     assert b'Muerto' in resp.data
 
 
-def test_index_shows_corrompido_badge(client, regular_user, login_as, make_character, make_contact,
-                                      make_contact_visibility):
-    char = make_character(regular_user)
-    contact = make_contact(nombre='Mutado', estado='corrompido')
-    make_contact_visibility(char, contact, 'total')
+def test_index_shows_desconocido_badge(client, regular_user, login_as, make_contact):
+    make_contact(nombre='Fugitivo', estado='desconocido')
     login_as(client, regular_user, 'userpass123')
     resp = client.get('/contactos/')
-    assert b'Corrompido' in resp.data
+    assert 'Desconocido'.encode() in resp.data
 
 
-def test_index_shows_paradero_badge_only_when_alive(client, regular_user, login_as, make_character,
-                                                     make_contact, make_contact_visibility):
-    char = make_character(regular_user)
-    contact = make_contact(nombre='Fugitivo', estado='vivo', paradero='exiliado')
-    make_contact_visibility(char, contact, 'total')
+def test_index_shows_no_badge_when_vivo(client, regular_user, login_as, make_contact):
+    make_contact(nombre='Sano y salvo', estado='vivo')
     login_as(client, regular_user, 'userpass123')
     resp = client.get('/contactos/')
-    assert 'Exiliado'.encode() in resp.data
+    assert resp.status_code == 200
 
 
-def test_detail_shows_estado_and_paradero(client, regular_user, login_as, make_character, make_contact,
-                                          make_contact_visibility):
-    char = make_character(regular_user)
-    contact = make_contact(nombre='Secuestrada', estado='vivo', paradero='secuestrado')
-    make_contact_visibility(char, contact, 'total')
+def test_detail_shows_estado(client, regular_user, login_as, make_contact):
+    contact = make_contact(nombre='Desaparecida', estado='desconocido')
     login_as(client, regular_user, 'userpass123')
     resp = client.get(f'/contactos/{contact.id}')
     assert resp.status_code == 200
-    assert 'Secuestrado'.encode() in resp.data
+    assert b'Desconocido' in resp.data
 
 
-def test_regular_user_only_sees_visible_contacts(client, regular_user, login_as, make_character,
-                                                 make_contact, make_contact_visibility):
-    char = make_character(regular_user)
+def test_detail_shows_raza_and_lugares(client, regular_user, login_as, make_contact):
+    contact = make_contact(nombre='Completo', raza='Enano', lugar_descanso='Una posada',
+                           lugar_trabajo='La fragua', lugar_ocio='La taberna')
+    login_as(client, regular_user, 'userpass123')
+    resp = client.get(f'/contactos/{contact.id}')
+    assert resp.status_code == 200
+    assert b'Enano' in resp.data
+    assert 'Una posada'.encode() in resp.data
+    assert b'La fragua' in resp.data
+    assert b'La taberna' in resp.data
+
+
+def test_detail_notas_director_only_visible_to_admin(client, admin_user, regular_user, login_as, make_contact):
+    contact = make_contact(nombre='Con nota secreta', notas_director='Es un doble agente')
+    login_as(client, regular_user, 'userpass123')
+    resp = client.get(f'/contactos/{contact.id}')
+    assert b'Es un doble agente' not in resp.data
+
+    client.get('/auth/logout')
+    login_as(client, admin_user, 'adminpass123')
+    resp = client.get(f'/contactos/{contact.id}')
+    assert 'Es un doble agente'.encode() in resp.data
+
+
+# ── Visibilidad (Contact.is_visible es el único interruptor) ────────────────
+
+def test_regular_user_only_sees_visible_contacts(client, regular_user, login_as, make_contact):
     visible = make_contact(nombre='Gotrek Gurnisson', is_visible=True)
     hidden = make_contact(nombre='Espía Oculto', is_visible=False)
-    make_contact_visibility(char, visible, 'total')
-    make_contact_visibility(char, hidden, 'total')  # grant present, but is_visible=False still hides it
 
     login_as(client, regular_user, 'userpass123')
     resp = client.get('/contactos/')
     assert f'/contactos/{visible.id}'.encode() in resp.data
     assert f'/contactos/{hidden.id}'.encode() not in resp.data
-
-
-def test_visible_contact_without_grant_is_not_shown(client, regular_user, login_as, make_character, make_contact):
-    """is_visible=True is necessary but not sufficient - a character also
-    needs an explicit visibility grant to see the contact at all."""
-    char = make_character(regular_user)
-    contact = make_contact(nombre='Sin conceder', is_visible=True)
-
-    login_as(client, regular_user, 'userpass123')
-    resp = client.get('/contactos/')
-    assert f'/contactos/{contact.id}'.encode() not in resp.data
-
-    resp = client.get(f'/contactos/{contact.id}', follow_redirects=True)
-    assert resp.request.path == '/contactos/'
 
 
 def test_admin_sees_hidden_contacts_too(client, admin_user, login_as, make_contact):
@@ -99,23 +98,16 @@ def test_regular_user_cannot_view_hidden_contact_detail(client, regular_user, lo
     assert resp.request.path == '/contactos/'
 
 
-def test_regular_user_can_view_visible_contact_detail(client, regular_user, login_as, make_character,
-                                                       make_contact, make_contact_visibility):
-    char = make_character(regular_user)
+def test_regular_user_can_view_visible_contact_detail(client, regular_user, login_as, make_contact):
     contact = make_contact(is_visible=True)
-    make_contact_visibility(char, contact, 'total')
     login_as(client, regular_user, 'userpass123')
     resp = client.get(f'/contactos/{contact.id}')
     assert resp.status_code == 200
 
 
-def test_search_filters_by_nombre(client, regular_user, login_as, make_character,
-                                  make_contact, make_contact_visibility):
-    char = make_character(regular_user)
+def test_search_filters_by_nombre(client, regular_user, login_as, make_contact):
     c1 = make_contact(nombre='Gotrek Gurnisson')
     c2 = make_contact(nombre='Felix Jaeger')
-    make_contact_visibility(char, c1, 'total')
-    make_contact_visibility(char, c2, 'total')
 
     login_as(client, regular_user, 'userpass123')
     resp = client.get('/contactos/?q=Gotrek')
@@ -123,77 +115,68 @@ def test_search_filters_by_nombre(client, regular_user, login_as, make_character
     assert f'/contactos/{c2.id}'.encode() not in resp.data
 
 
-# ── Creating a contact (any character can create one) ───────────────────────
+# ── Creación/edición de contactos (admin-only desde el rework) ──────────────
 
-def test_new_contact_creates_contact_and_own_link(db, client, regular_user, make_character, login_as):
-    char = make_character(regular_user, name='Karl-Heinz')
+def test_new_contact_is_admin_only(db, client, regular_user, login_as):
     login_as(client, regular_user, 'userpass123')
-
-    resp = client.post('/contactos/nuevo', data={
-        'nombre': 'Wilhelm el tabernero', 'personaje_id': str(char.id),
-        'nivel': '2', 'apodos': ['Willi'], 'organizacion_secta': '',
-    }, follow_redirects=True)
-    assert resp.status_code == 200
-
-    from app.models.contact import Contact
-    contact = Contact.query.filter_by(nombre='Wilhelm el tabernero').first()
-    assert contact is not None
-    link = ContactCharacterLink.query.filter_by(character_id=char.id, contact_id=contact.id).first()
-    assert link is not None
-    assert link.nivel == 2
-    assert link.apodos[0].texto == 'Willi'
+    resp = client.post('/contactos/nuevo', data={'nombre': 'Intento'})
+    assert resp.status_code == 403
+    assert Contact.query.filter_by(nombre='Intento').first() is None
 
 
-def test_new_contact_grants_creating_character_total_visibility(db, client, regular_user, make_character, login_as):
-    char = make_character(regular_user, name='Karl-Heinz')
-    login_as(client, regular_user, 'userpass123')
-
-    client.post('/contactos/nuevo', data={
-        'nombre': 'Wilhelm el tabernero', 'personaje_id': str(char.id),
-    }, follow_redirects=True)
-
-    from app.models.contact import Contact
-    from app.models.contact_character_link import ContactCharacterVisibility
-    contact = Contact.query.filter_by(nombre='Wilhelm el tabernero').first()
-    grant = ContactCharacterVisibility.query.filter_by(contact_id=contact.id, character_id=char.id).first()
-    assert grant is not None
-    assert grant.nivel == 'total'
-
-
-def test_admin_created_contact_without_character_has_no_grant(db, client, admin_user, regular_user,
-                                                               make_character, login_as):
-    make_character(regular_user)  # any character must exist so admin's "new" form isn't empty
+def test_new_contact_creates_global_fields_only(db, client, admin_user, login_as, make_profession):
+    prof = make_profession(name='Herrero')
     login_as(client, admin_user, 'adminpass123')
 
-    client.post('/contactos/nuevo', data={'nombre': 'Contacto sin repartir'}, follow_redirects=True)
-
-    from app.models.contact import Contact
-    from app.models.contact_character_link import ContactCharacterLink, ContactCharacterVisibility
-    contact = Contact.query.filter_by(nombre='Contacto sin repartir').first()
-    assert contact is not None
-    assert ContactCharacterLink.query.filter_by(contact_id=contact.id).count() == 0
-    assert ContactCharacterVisibility.query.filter_by(contact_id=contact.id).count() == 0
-
-
-def test_new_contact_requires_own_character(client, regular_user, login_as):
-    """A user with no characters yet can't register a contact - there's no
-    character to attach the per-character link to."""
-    login_as(client, regular_user, 'userpass123')
-    resp = client.get('/contactos/nuevo', follow_redirects=True)
+    resp = client.post('/contactos/nuevo', data={
+        'nombre': 'Wilhelm el tabernero', 'raza': 'Humano', 'estado': 'vivo',
+        'lugar_trabajo': 'La taberna', 'profession_ids': [str(prof.id)],
+    }, follow_redirects=True)
     assert resp.status_code == 200
-    assert resp.request.path == '/personajes/'
+
+    contact = Contact.query.filter_by(nombre='Wilhelm el tabernero').first()
+    assert contact is not None
+    assert contact.raza == 'Humano'
+    assert contact.lugar_trabajo == 'La taberna'
+    assert [cp.profession_id for cp in contact.professions] == [prof.id]
+    assert ContactCharacterLink.query.filter_by(contact_id=contact.id).count() == 0
 
 
-# ── Untersuchung visibility gate ─────────────────────────────────────────────
+def test_new_contact_requires_nombre(db, client, admin_user, login_as):
+    login_as(client, admin_user, 'adminpass123')
+    resp = client.post('/contactos/nuevo', data={'nombre': '  '})
+    assert resp.status_code == 200
+    assert Contact.query.count() == 0
+
+
+def test_edit_contact_is_admin_only(db, client, regular_user, login_as, make_contact):
+    contact = make_contact(nombre='Original')
+    login_as(client, regular_user, 'userpass123')
+    resp = client.post(f'/contactos/{contact.id}/editar', data={'nombre': 'Hackeado'})
+    assert resp.status_code == 403
+    db.session.refresh(contact)
+    assert contact.nombre == 'Original'
+
+
+def test_edit_contact_toggles_is_visible(db, client, admin_user, login_as, make_contact):
+    contact = make_contact(nombre='Precargado', is_visible=False)
+    login_as(client, admin_user, 'adminpass123')
+
+    client.post(f'/contactos/{contact.id}/editar', data={
+        'nombre': 'Precargado', 'is_visible': 'on',
+    }, follow_redirects=True)
+    db.session.refresh(contact)
+    assert contact.is_visible is True
+
+
+# ── Untersuchung visibility gate (unchanged: admin o personaje miembro) ────
 
 _UNTERSUCHUNG_FACT = b'<dt class="col-sm-4 wh-label">Untersuchung</dt>'
 
 
-def test_untersuchung_hidden_from_non_member_character(client, regular_user, make_character, make_contact,
-                                                       make_contact_visibility, login_as):
+def test_untersuchung_hidden_from_non_member_character(client, regular_user, make_character, make_contact, login_as):
     char = make_character(regular_user, name='Civil', es_untersuchung=False)
     contact = make_contact(nombre='Agente secreto', es_untersuchung=True)
-    make_contact_visibility(char, contact, 'total')
     login_as(client, regular_user, 'userpass123')
 
     resp = client.get(f'/contactos/{contact.id}?personaje_id={char.id}')
@@ -201,45 +184,13 @@ def test_untersuchung_hidden_from_non_member_character(client, regular_user, mak
     assert _UNTERSUCHUNG_FACT not in resp.data
 
 
-def test_untersuchung_visible_to_member_character(client, regular_user, make_character, make_contact,
-                                                  make_contact_visibility, login_as):
+def test_untersuchung_visible_to_member_character(client, regular_user, make_character, make_contact, login_as):
     char = make_character(regular_user, name='Agente', es_untersuchung=True)
     contact = make_contact(nombre='Agente secreto', es_untersuchung=True)
-    make_contact_visibility(char, contact, 'total')
     login_as(client, regular_user, 'userpass123')
 
     resp = client.get(f'/contactos/{contact.id}?personaje_id={char.id}')
     assert _UNTERSUCHUNG_FACT in resp.data
-
-
-_PROFESIONES_FACT = b'<dt class="col-sm-4 wh-label">Profesiones</dt>'
-
-
-def test_total_visibility_shows_professions(client, regular_user, make_character, make_contact,
-                                            make_contact_visibility, make_profession, login_as):
-    char = make_character(regular_user)
-    prof = make_profession(name='Herrero')
-    contact = make_contact(professions=[prof])
-    make_contact_visibility(char, contact, 'total')
-    login_as(client, regular_user, 'userpass123')
-
-    resp = client.get(f'/contactos/{contact.id}?personaje_id={char.id}')
-    assert _PROFESIONES_FACT in resp.data
-    assert b'Herrero' in resp.data
-
-
-def test_parcial_visibility_hides_professions(client, regular_user, make_character, make_contact,
-                                              make_contact_visibility, make_profession, login_as):
-    char = make_character(regular_user)
-    prof = make_profession(name='Herrero')
-    contact = make_contact(professions=[prof])
-    make_contact_visibility(char, contact, 'parcial')
-    login_as(client, regular_user, 'userpass123')
-
-    resp = client.get(f'/contactos/{contact.id}?personaje_id={char.id}')
-    assert resp.status_code == 200
-    assert _PROFESIONES_FACT not in resp.data
-    assert b'Herrero' not in resp.data
 
 
 def test_untersuchung_visible_to_admin_regardless(client, admin_user, make_contact, login_as):
@@ -250,23 +201,52 @@ def test_untersuchung_visible_to_admin_regardless(client, admin_user, make_conta
     assert _UNTERSUCHUNG_FACT in resp.data
 
 
+_PROFESIONES_FACT = b'<dt class="col-sm-4 wh-label">Profesiones</dt>'
+
+
+def test_professions_always_shown_regardless_of_active_character(client, regular_user, make_character,
+                                                                  make_contact, make_profession, login_as):
+    """Since the rework, Profesiones is no longer gated by any per-character
+    visibility level - it's always shown to whoever can view the contact."""
+    char = make_character(regular_user)
+    prof = make_profession(name='Herrero')
+    contact = make_contact(professions=[prof])
+    login_as(client, regular_user, 'userpass123')
+
+    resp = client.get(f'/contactos/{contact.id}?personaje_id={char.id}')
+    assert _PROFESIONES_FACT in resp.data
+    assert b'Herrero' in resp.data
+
+
 # ── Vínculo personaje-contacto ───────────────────────────────────────────────
 
-def test_link_save_creates_link(db, client, regular_user, make_character, make_contact,
-                                make_contact_visibility, login_as):
+def test_link_save_creates_link_with_nivel_and_tipo_relacion(db, client, regular_user, make_character,
+                                                              make_contact, login_as):
     char = make_character(regular_user)
     contact = make_contact()
-    make_contact_visibility(char, contact, 'total')
     login_as(client, regular_user, 'userpass123')
 
     client.post(f'/contactos/{contact.id}/vinculo', data={
-        'personaje_id': str(char.id), 'nivel': '-3', 'lugar_residencia': 'Desconocido',
+        'personaje_id': str(char.id), 'nivel': '-3', 'tipo_relacion': ['Baza', 'Otra'],
     }, follow_redirects=True)
 
     link = ContactCharacterLink.query.filter_by(character_id=char.id, contact_id=contact.id).first()
     assert link is not None
     assert link.nivel == -3
-    assert link.lugar_residencia == 'Desconocido'
+    assert set(link.tipo_relacion) == {'Baza', 'Otra'}
+
+
+def test_link_save_ignores_unknown_tipo_relacion(db, client, regular_user, make_character, make_contact, login_as):
+    char = make_character(regular_user)
+    contact = make_contact()
+    login_as(client, regular_user, 'userpass123')
+
+    client.post(f'/contactos/{contact.id}/vinculo', data={
+        'personaje_id': str(char.id), 'tipo_relacion': ['Baza', 'Inventado'],
+    }, follow_redirects=True)
+
+    link = ContactCharacterLink.query.filter_by(character_id=char.id, contact_id=contact.id).first()
+    assert link.tipo_relacion == ['Baza']
 
 
 def test_link_save_blocks_other_users_character(client, make_user, make_character, make_contact, login_as):
@@ -281,11 +261,10 @@ def test_link_save_blocks_other_users_character(client, make_user, make_characte
 
 
 def test_link_delete_removes_link(db, client, regular_user, make_character, make_contact, make_contact_link,
-                                  make_contact_visibility, login_as):
+                                  login_as):
     char = make_character(regular_user)
     contact = make_contact()
     make_contact_link(char, contact, nivel=1)
-    make_contact_visibility(char, contact, 'total')
     login_as(client, regular_user, 'userpass123')
 
     client.post(f'/contactos/{contact.id}/vinculo/eliminar', data={'personaje_id': str(char.id)},
@@ -312,12 +291,11 @@ def test_two_characters_have_independent_links_to_same_contact(db, client, make_
 # ── Salario ──────────────────────────────────────────────────────────────────
 
 def test_salary_save_creates_salary_entry(db, client, regular_user, make_character, make_contact,
-                                          make_contact_link, make_contact_visibility, make_profession, login_as):
+                                          make_contact_link, make_profession, login_as):
     char = make_character(regular_user)
     prof = make_profession(name='Herrero')
     contact = make_contact(professions=[prof])
     link = make_contact_link(char, contact)
-    make_contact_visibility(char, contact, 'total')
     login_as(client, regular_user, 'userpass123')
 
     client.post(f'/contactos/{contact.id}/salario', data={
@@ -333,10 +311,9 @@ def test_salary_save_creates_salary_entry(db, client, regular_user, make_charact
 
 # ── Notas (por personaje) ────────────────────────────────────────────────────
 
-def test_create_note(db, client, regular_user, make_character, make_contact, make_contact_visibility, login_as):
+def test_create_note(db, client, regular_user, make_character, make_contact, login_as):
     char = make_character(regular_user)
     contact = make_contact(is_visible=True)
-    make_contact_visibility(char, contact, 'total')
     login_as(client, regular_user, 'userpass123')
 
     resp = client.post(f'/contactos/{contact.id}/notas',
@@ -348,24 +325,20 @@ def test_create_note(db, client, regular_user, make_character, make_contact, mak
     assert note.character_id == char.id
 
 
-def test_create_note_rejects_empty_content(client, regular_user, make_character, make_contact,
-                                           make_contact_visibility, login_as):
+def test_create_note_rejects_empty_content(client, regular_user, make_character, make_contact, login_as):
     char = make_character(regular_user)
     contact = make_contact(is_visible=True)
-    make_contact_visibility(char, contact, 'total')
     login_as(client, regular_user, 'userpass123')
     client.post(f'/contactos/{contact.id}/notas', data={'content': '  ', 'personaje_id': str(char.id)})
     assert ContactNote.query.filter_by(contact_id=contact.id).count() == 0
 
 
 def test_note_from_one_character_hidden_from_another_characters_view(
-    db, client, regular_user, make_character, make_contact, make_contact_note, make_contact_visibility, login_as,
+    db, client, regular_user, make_character, make_contact, make_contact_note, login_as,
 ):
     char_a = make_character(regular_user, name='Personaje A')
     char_b = make_character(regular_user, name='Personaje B')
     contact = make_contact(is_visible=True)
-    make_contact_visibility(char_a, contact, 'total')
-    make_contact_visibility(char_b, contact, 'total')
     make_contact_note(contact, char_a, content='Nota de A')
 
     login_as(client, regular_user, 'userpass123')

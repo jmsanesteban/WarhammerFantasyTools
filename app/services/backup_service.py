@@ -67,9 +67,7 @@ from app.models.character import (
 )
 from app.models.equipment import EquipmentItem, CharacterInventoryItem, CharacterPurchase
 from app.models.contact import Contact, ContactProfession
-from app.models.contact_character_link import (
-    ContactCharacterLink, ContactApodo, ContactCharacterSalary, ContactCharacterVisibility,
-)
+from app.models.contact_character_link import ContactCharacterLink, ContactApodo, ContactCharacterSalary
 from app.models.contact_note import ContactNote
 from app.models.food import Recipe, CookingMethod, Ingredient, Drink
 
@@ -700,9 +698,11 @@ def export_contacts_full():
     result = []
     for contact in Contact.query.order_by(Contact.nombre).all():
         result.append({
-            'nombre': contact.nombre, 'es_untersuchung': contact.es_untersuchung,
-            'estado': contact.estado, 'paradero': contact.paradero,
+            'nombre': contact.nombre, 'raza': contact.raza, 'es_untersuchung': contact.es_untersuchung,
+            'estado': contact.estado,
             'grados_untersuchung': contact.grados_untersuchung,
+            'lugar_descanso': contact.lugar_descanso, 'lugar_trabajo': contact.lugar_trabajo,
+            'lugar_ocio': contact.lugar_ocio, 'notas_director': contact.notas_director,
             'image_path': contact.image_path,
             'image_data_b64': _encode_image_b64(contact.image_path),
             'is_visible': contact.is_visible,
@@ -721,8 +721,8 @@ def export_contacts_full():
                 {
                     'character_username': link.character.owner.username,
                     'character_name': link.character.name,
-                    'nivel': link.nivel, 'organizacion_secta': link.organizacion_secta,
-                    'lugar_residencia': link.lugar_residencia, 'lugar_contacto': link.lugar_contacto,
+                    'nivel': link.nivel, 'tipo_relacion': link.tipo_relacion,
+                    'organizacion_secta': link.organizacion_secta,
                     'creacion': link.creacion, 'gm': link.gm, 'mision': link.mision,
                     'apodos': [a.texto for a in link.apodos],
                     'salarios': [
@@ -734,13 +734,6 @@ def export_contacts_full():
                     ],
                 }
                 for link in contact.character_links
-            ],
-            'visibilidades': [
-                {
-                    'character_username': v.character.owner.username,
-                    'character_name': v.character.name, 'nivel': v.nivel,
-                }
-                for v in contact.character_visibilities
             ],
         })
     return result
@@ -759,8 +752,6 @@ def import_contacts_full(data, mode='skip'):
             contact.professions = []
             for link in list(contact.character_links):
                 db.session.delete(link)
-            for vis in list(contact.character_visibilities):
-                db.session.delete(vis)
             for note in list(contact.notes):
                 db.session.delete(note)
             summary['updated'] += 1
@@ -769,10 +760,14 @@ def import_contacts_full(data, mode='skip'):
             db.session.add(contact)
             summary['created'] += 1
 
+        contact.raza = row.get('raza')
         contact.es_untersuchung = row.get('es_untersuchung', False)
         contact.estado = row.get('estado') or ('vivo' if row.get('vivo', True) else 'muerto')
-        contact.paradero = row.get('paradero')
         contact.grados_untersuchung = row.get('grados_untersuchung')
+        contact.lugar_descanso = row.get('lugar_descanso')
+        contact.lugar_trabajo = row.get('lugar_trabajo')
+        contact.lugar_ocio = row.get('lugar_ocio')
+        contact.notas_director = row.get('notas_director')
         contact.image_path = row.get('image_path')
         _write_image_b64(contact.image_path, row.get('image_data_b64'))
         contact.is_visible = row.get('is_visible', True)
@@ -803,8 +798,8 @@ def import_contacts_full(data, mode='skip'):
                 continue
             link = ContactCharacterLink(
                 contact_id=contact.id, character_id=character.id,
-                nivel=link_data.get('nivel'), organizacion_secta=link_data.get('organizacion_secta'),
-                lugar_residencia=link_data.get('lugar_residencia'), lugar_contacto=link_data.get('lugar_contacto'),
+                nivel=link_data.get('nivel'), tipo_relacion=link_data.get('tipo_relacion'),
+                organizacion_secta=link_data.get('organizacion_secta'),
                 creacion=link_data.get('creacion', False), gm=link_data.get('gm'), mision=link_data.get('mision'),
             )
             db.session.add(link)
@@ -822,15 +817,6 @@ def import_contacts_full(data, mode='skip'):
                     link_id=link.id, profession_id=profession.id,
                     tipo_sueldo=sal.get('tipo_sueldo'), estado_habilidad=sal.get('estado_habilidad'),
                 ))
-
-        for vis_data in row.get('visibilidades', []):
-            character = _find_character(vis_data['character_username'], vis_data['character_name'])
-            if character is None:
-                summary['warnings'].append(f"Contacto '{row['nombre']}': personaje de visibilidad no existe, omitida.")
-                continue
-            db.session.add(ContactCharacterVisibility(
-                contact_id=contact.id, character_id=character.id, nivel=vis_data.get('nivel', 'total'),
-            ))
 
         for note_data in row.get('notes', []):
             character = _find_character(note_data['character_username'], note_data['character_name'])

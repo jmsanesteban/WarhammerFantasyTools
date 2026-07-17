@@ -21,7 +21,7 @@ from app.models.talent import Talent
 from app.models.synonym import Synonym, DEFAULT_SYNONYMS
 from app.models.permission import Permission, PermissionTemplate, ALL_PERMISSIONS
 from app.models.contact import Contact, ContactProfession
-from app.models.contact_character_link import ContactCharacterLink, ContactCharacterVisibility
+from app.models.contact_character_link import ContactCharacterLink, NIVEL_LABELS
 from app.models.contact_note import ContactNote
 from app.models.character import Character
 from app.models.food import Recipe
@@ -1573,21 +1573,10 @@ def contacts():
     pagination = query.paginate(page=page, per_page=per_page, error_out=False)
     contacts_page = pagination.items
 
-    all_characters = Character.query.order_by(Character.name).all()
-    visibility_map = {}
-    contact_ids = [c.id for c in contacts_page]
-    if contact_ids:
-        grants = ContactCharacterVisibility.query.filter(
-            ContactCharacterVisibility.contact_id.in_(contact_ids),
-        ).all()
-        visibility_map = {(g.contact_id, g.character_id): g.nivel for g in grants}
-
     return render_template('admin/contacts.html',
                            contacts=contacts_page,
                            pagination=pagination,
-                           search=search,
-                           all_characters=all_characters,
-                           visibility_map=visibility_map)
+                           search=search)
 
 
 @admin_bp.route('/contactos/<int:contact_id>/toggle', methods=['POST'])
@@ -1719,16 +1708,9 @@ def contact_links():
     links = pagination.items
 
     contact_ids = [l.contact_id for l in links]
-    visibility_map = {}
     note_counts = {}
     notes_map = {}
-    contact_access_map = {}
     if contact_ids:
-        grants = ContactCharacterVisibility.query.filter(
-            ContactCharacterVisibility.contact_id.in_(contact_ids),
-        ).all()
-        visibility_map = {(g.contact_id, g.character_id): g.nivel for g in grants}
-
         notes = (
             ContactNote.query.filter(ContactNote.contact_id.in_(contact_ids))
             .order_by(ContactNote.created_at.desc())
@@ -1739,36 +1721,14 @@ def contact_links():
             notes_map.setdefault((n.contact_id, n.character_id), []).append(n)
         note_counts = {key: len(rows) for key, rows in notes_map.items()}
 
-        # Every character with visibility into each contact, regardless of whether
-        # that character is also the one who registered it (has a ContactCharacterLink) -
-        # shown directly in this table so an admin doesn't have to open each contact.
-        access_rows = (
-            db.session.query(
-                ContactCharacterVisibility.contact_id,
-                Character.name,
-                User.username,
-                ContactCharacterVisibility.nivel,
-            )
-            .join(Character, Character.id == ContactCharacterVisibility.character_id)
-            .join(User, User.id == Character.user_id)
-            .filter(ContactCharacterVisibility.contact_id.in_(contact_ids))
-            .order_by(Character.name)
-            .all()
-        )
-        for cid, char_name, username, nivel in access_rows:
-            contact_access_map.setdefault(cid, []).append({
-                'character_name': char_name, 'username': username, 'nivel': nivel,
-            })
-
     return render_template(
         'admin/contact_links.html',
         links=links,
         pagination=pagination,
         search=search,
-        visibility_map=visibility_map,
         note_counts=note_counts,
         notes_map=notes_map,
-        contact_access_map=contact_access_map,
+        nivel_labels=NIVEL_LABELS,
     )
 
 

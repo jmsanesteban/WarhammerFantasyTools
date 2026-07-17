@@ -468,34 +468,41 @@ def test_contacts_full_round_trip(app, db, make_user, make_character, make_profe
         user = make_user(username='zz_contact_owner')
         char = make_character(user, name='Grimm')
         prof = make_profession(name='Mercader')
-        contact = make_contact(nombre='Hans', es_untersuchung=True, professions=[prof], created_by=user)
-        contact.estado = 'corrompido'
-        contact.paradero = None
+        contact = make_contact(
+            nombre='Hans', es_untersuchung=True, professions=[prof], created_by=user,
+            raza='Humano', lugar_descanso='Un carromato', notas_director='Doble agente',
+        )
+        contact.estado = 'desconocido'
         db.session.commit()
 
-        from app.models.contact_character_link import ContactCharacterLink, ContactApodo, ContactCharacterSalary, ContactCharacterVisibility
+        from app.models.contact_character_link import ContactCharacterLink, ContactApodo, ContactCharacterSalary
         from app.models.contact_note import ContactNote
-        link = ContactCharacterLink(character_id=char.id, contact_id=contact.id, nivel=3, gm='GM1', mision='Rescate')
+        link = ContactCharacterLink(
+            character_id=char.id, contact_id=contact.id, nivel=3, tipo_relacion=['Baza', 'Otra'],
+            gm='GM1', mision='Rescate',
+        )
         db.session.add(link)
         db.session.flush()
         db.session.add(ContactApodo(link_id=link.id, texto='El Gordo'))
         db.session.add(ContactCharacterSalary(link_id=link.id, profession_id=prof.id, tipo_sueldo='Artesanos', estado_habilidad='Buena'))
-        db.session.add(ContactCharacterVisibility(contact_id=contact.id, character_id=char.id, nivel='total'))
         db.session.add(ContactNote(contact_id=contact.id, character_id=char.id, content='Le debe un favor a Grimm'))
         db.session.commit()
 
         data = bkp.export_contacts_full()
         row = next(r for r in data if r['nombre'] == 'Hans')
         assert row['es_untersuchung'] is True
-        assert row['estado'] == 'corrompido'
+        assert row['estado'] == 'desconocido'
+        assert row['raza'] == 'Humano'
+        assert row['lugar_descanso'] == 'Un carromato'
+        assert row['notas_director'] == 'Doble agente'
         assert row['created_by_username'] == 'zz_contact_owner'
         assert row['profesiones'] == ['Mercader']
         assert row['links'][0]['character_username'] == 'zz_contact_owner'
         assert row['links'][0]['character_name'] == 'Grimm'
         assert row['links'][0]['nivel'] == 3
+        assert set(row['links'][0]['tipo_relacion']) == {'Baza', 'Otra'}
         assert row['links'][0]['apodos'] == ['El Gordo']
         assert row['links'][0]['salarios'][0]['profession_name'] == 'Mercader'
-        assert row['visibilidades'][0]['nivel'] == 'total'
         assert row['notes'][0]['content'] == 'Le debe un favor a Grimm'
         assert row['notes'][0]['character_username'] == 'zz_contact_owner'
 
@@ -503,8 +510,6 @@ def test_contacts_full_round_trip(app, db, make_user, make_character, make_profe
             db.session.delete(n)
         for l in link.__class__.query.all():
             db.session.delete(l)
-        for v in ContactCharacterVisibility.query.all():
-            db.session.delete(v)
         for c in Contact.query.all():
             db.session.delete(c)
         db.session.commit()
@@ -513,30 +518,32 @@ def test_contacts_full_round_trip(app, db, make_user, make_character, make_profe
         assert summary['created'] == 1
         restored = Contact.query.filter_by(nombre='Hans').first()
         assert restored.es_untersuchung is True
-        assert restored.estado == 'corrompido'
+        assert restored.estado == 'desconocido'
+        assert restored.raza == 'Humano'
+        assert restored.lugar_descanso == 'Un carromato'
+        assert restored.notas_director == 'Doble agente'
         assert restored.created_by.username == 'zz_contact_owner'
         assert [cp.profession.name for cp in restored.professions] == ['Mercader']
         assert len(restored.character_links) == 1
         restored_link = restored.character_links[0]
         assert restored_link.nivel == 3
+        assert set(restored_link.tipo_relacion) == {'Baza', 'Otra'}
         assert restored_link.apodos[0].texto == 'El Gordo'
         assert restored_link.salarios[0].tipo_sueldo == 'Artesanos'
-        assert len(restored.character_visibilities) == 1
         assert len(restored.notes) == 1
         assert restored.notes[0].content == 'Le debe un favor a Grimm'
 
 
 def test_contacts_full_import_backfills_estado_from_legacy_vivo_flag(app, db):
-    """Old backups made before "vivo" (bool) was replaced by "estado"/
-    "paradero" must still import sensibly instead of erroring or silently
-    dropping the fact."""
+    """Old backups made before "vivo" (bool) was replaced by "estado" must
+    still import sensibly instead of erroring or silently dropping the fact."""
     with app.app_context():
         from app.models.contact import Contact
         data = [
             {'nombre': 'Legacy vivo', 'es_untersuchung': False, 'is_visible': True, 'profesiones': [],
-             'vivo': True, 'links': [], 'visibilidades': []},
+             'vivo': True, 'links': []},
             {'nombre': 'Legacy muerto', 'es_untersuchung': False, 'is_visible': True, 'profesiones': [],
-             'vivo': False, 'links': [], 'visibilidades': []},
+             'vivo': False, 'links': []},
         ]
         bkp.import_contacts_full(data)
         assert Contact.query.filter_by(nombre='Legacy vivo').first().estado == 'vivo'
@@ -549,9 +556,8 @@ def test_contacts_full_import_warns_on_missing_character(app, db):
         data = [{
             'nombre': 'Sin vinculo', 'es_untersuchung': False, 'is_visible': True, 'profesiones': [],
             'links': [{'character_username': 'no_existe', 'character_name': 'Nadie', 'nivel': 1,
-                       'organizacion_secta': None, 'lugar_residencia': None, 'lugar_contacto': None,
+                       'tipo_relacion': None, 'organizacion_secta': None,
                        'creacion': False, 'gm': None, 'mision': None, 'apodos': [], 'salarios': []}],
-            'visibilidades': [],
         }]
         summary = bkp.import_contacts_full(data)
         assert summary['created'] == 1

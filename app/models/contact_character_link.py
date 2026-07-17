@@ -1,21 +1,32 @@
 from datetime import datetime
 from app.extensions import db
 
+# Nivel de relación (-5..5), con nombres descriptivos (2026-07-16 rework).
+NIVEL_LABELS = {
+    -5: 'Enemigo mortal', -4: 'Enemigo hostil', -3: 'Rival profesional', -2: 'Antipatía',
+    -1: 'Desconfianza', 0: 'Conocido', 1: 'Cercano', 2: 'Amigo', 3: 'Amigo profesional',
+    4: 'Amigo hermanado', 5: 'Amigo incondicional',
+}
+# Cómo se relaciona ESTE personaje con el contacto - independiente del grado
+# global de la Untersuchung del contacto (eso es un hecho objetivo sobre el
+# NPC; esto es la relación concreta de un personaje con él). Sustituye a los
+# antiguos grados "sin marca" (Bazas/Contactos) para ese caso concreto.
+TIPO_RELACION_CHOICES = ['Baza', 'Unter/Untersuchung', 'Súbdito', 'Señor', 'Otra']
+
 
 class ContactCharacterLink(db.Model):
-    """A character's own view of a contact - nickname(s), relationship level,
-    org/sect (unless Untersuchung, which is a global Contact fact), where they
-    live/can be found, whether the link came from character creation, which
-    GM/mission it was met through. Never visible to another character."""
+    """A character's own view of a contact - nickname(s), relationship level
+    and type, org/sect (unless Untersuchung, which is a global Contact fact),
+    whether the link came from character creation, which GM/mission it was
+    met through. Never visible to another character."""
     __tablename__ = 'contact_character_links'
 
     id = db.Column(db.Integer, primary_key=True)
     character_id = db.Column(db.Integer, db.ForeignKey('characters.id', ondelete='CASCADE'), nullable=False)
     contact_id = db.Column(db.Integer, db.ForeignKey('contacts.id', ondelete='CASCADE'), nullable=False)
-    nivel = db.Column(db.Integer, nullable=True)  # -5..5
+    nivel = db.Column(db.Integer, nullable=True)  # -5..5, ver NIVEL_LABELS
+    tipo_relacion = db.Column(db.JSON, nullable=True)  # lista de TIPO_RELACION_CHOICES
     organizacion_secta = db.Column(db.String(150), nullable=True)
-    lugar_residencia = db.Column(db.Text, nullable=True)
-    lugar_contacto = db.Column(db.Text, nullable=True)
     creacion = db.Column(db.Boolean, default=False, nullable=False)
     gm = db.Column(db.String(100), nullable=True)
     mision = db.Column(db.String(255), nullable=True)
@@ -44,29 +55,6 @@ class ContactApodo(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     link_id = db.Column(db.Integer, db.ForeignKey('contact_character_links.id', ondelete='CASCADE'), nullable=False)
     texto = db.Column(db.String(100), nullable=False)
-
-
-class ContactCharacterVisibility(db.Model):
-    """Grants a character permission to see a contact at all. Absence of a
-    row means the character can't see the contact, regardless of
-    Contact.is_visible (which is a separate, coarser admin kill-switch that
-    hides a contact from every non-admin regardless of grants).
-
-    'total' shows every global field on the contact; 'parcial' hides some
-    (currently: profesiones) - see contacts.py's _visibility_level()."""
-    __tablename__ = 'contact_character_visibilities'
-
-    id = db.Column(db.Integer, primary_key=True)
-    contact_id = db.Column(db.Integer, db.ForeignKey('contacts.id', ondelete='CASCADE'), nullable=False)
-    character_id = db.Column(db.Integer, db.ForeignKey('characters.id', ondelete='CASCADE'), nullable=False)
-    nivel = db.Column(db.String(10), nullable=False, default='total')  # 'total' | 'parcial'
-
-    character = db.relationship('Character', backref=db.backref('contact_visibilities', passive_deletes=True))
-    contact = db.relationship('Contact', backref=db.backref('character_visibilities', passive_deletes=True))
-
-    __table_args__ = (
-        db.UniqueConstraint('contact_id', 'character_id', name='uq_contact_character_visibility'),
-    )
 
 
 class ContactCharacterSalary(db.Model):

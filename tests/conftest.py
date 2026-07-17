@@ -154,17 +154,6 @@ def make_contact_link(db):
 
 
 @pytest.fixture
-def make_contact_visibility(db):
-    def _make(character, contact, nivel='total'):
-        from app.models.contact_character_link import ContactCharacterVisibility
-        grant = ContactCharacterVisibility(character_id=character.id, contact_id=contact.id, nivel=nivel)
-        db.session.add(grant)
-        db.session.commit()
-        return grant
-    return _make
-
-
-@pytest.fixture
 def make_contact_note(db):
     def _make(contact, character, content='Nota'):
         from app.models.contact_note import ContactNote

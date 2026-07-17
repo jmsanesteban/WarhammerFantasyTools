@@ -2,20 +2,13 @@ from datetime import datetime
 from app.extensions import db
 from app.models.untersuchung import UNTERSUCHUNG_GRADOS  # noqa: F401 (re-exported for existing importers)
 
-# Dos preguntas distintas sobre la situación de un contacto (2026-07-14, tras
-# discutirlo con el usuario): "estado" es si sigue con vida o no; "paradero"
-# es dónde está, que solo tiene sentido preguntarlo si sigue vivo (un
-# personaje puede estar Vivo pero Desaparecido - no son lo mismo que "muerto"
-# ni que "paradero desconocido" sin más). "Asesinado" quedó fuera a propósito:
-# es la causa de "Muerto", no un estado distinto - se anota en las notas del
-# contacto si importa para una trama de venganza.
-ESTADO_CHOICES = ['vivo', 'muerto', 'corrompido']
-ESTADO_LABELS = {'vivo': 'Vivo', 'muerto': 'Muerto', 'corrompido': 'Corrompido'}
-PARADERO_CHOICES = ['encarcelado', 'exiliado', 'secuestrado', 'desaparecido', 'paradero_desconocido']
-PARADERO_LABELS = {
-    'encarcelado': 'Encarcelado', 'exiliado': 'Exiliado', 'secuestrado': 'Secuestrado',
-    'desaparecido': 'Desaparecido', 'paradero_desconocido': 'Paradero desconocido',
-}
+# Simplificado a un único campo de 3 valores (2026-07-16 rework, sustituye al
+# antiguo par estado+paradero) - "corrompido" y los distintos paraderos
+# (encarcelado/exiliado/secuestrado/desaparecido/paradero_desconocido) se
+# consideraron demasiado granulares para el uso real; cualquier matiz que se
+# pierda se anota como texto libre en las notas del contacto si hace falta.
+ESTADO_CHOICES = ['vivo', 'muerto', 'desconocido']
+ESTADO_LABELS = {'vivo': 'Vivo', 'muerto': 'Muerto', 'desconocido': 'Desconocido'}
 
 
 class Contact(db.Model):
@@ -27,10 +20,20 @@ class Contact(db.Model):
 
     id = db.Column(db.Integer, primary_key=True)
     nombre = db.Column(db.String(150), nullable=False)
+    raza = db.Column(db.String(100), nullable=True)
     es_untersuchung = db.Column(db.Boolean, default=False, nullable=False)
     estado = db.Column(db.String(20), nullable=False, default='vivo')
-    paradero = db.Column(db.String(30), nullable=True)  # solo relevante si estado == 'vivo'
     grados_untersuchung = db.Column(db.JSON, nullable=True)  # lista de UNTERSUCHUNG_GRADOS (ver app/models/untersuchung.py)
+    # Hechos globales del contacto (2026-07-16 rework) - antes vivían por
+    # personaje en ContactCharacterLink (lugar_residencia/lugar_contacto);
+    # dónde vive/trabaja/se relaja un NPC no depende de quién pregunta.
+    lugar_descanso = db.Column(db.Text, nullable=True)
+    lugar_trabajo = db.Column(db.Text, nullable=True)
+    lugar_ocio = db.Column(db.Text, nullable=True)
+    # Solo visible/editable por el director de juego (admin) - distinta de
+    # ContactNote, que es privada POR PERSONAJE; esto es una única nota
+    # global del director sobre el contacto.
+    notas_director = db.Column(db.Text, nullable=True)
     image_path = db.Column(db.String(300), nullable=True)
     is_visible = db.Column(db.Boolean, default=True, nullable=False)
     created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)

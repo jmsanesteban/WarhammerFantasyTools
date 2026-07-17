@@ -1,23 +1,28 @@
 """Shared Untersuchung grado/marca data - used by both Contact (NPCs) and
 Character (player characters who are themselves Untersuchung agents). Source:
-the user's "untersuchung.pdf" (uploads/) - 8 "con marca" grados are real
-agents of the organization, each represented by a physical mark/brand with
-its own image; Bazas and Contactos are "sin marca" - external collaborators
-who are explicitly NOT members, so they have no mark image and never
-auto-flag es_untersuchung. A person can hold up to MAX_GRADOS marks at once
-("grados mixtos", e.g. Paloma/Gato) - rare in practice (only 2 players
-currently have a 2nd mark), but the book allows it."""
+the user's "untersuchung.pdf" (uploads/). Two tiers now (reworked 2026-07-16,
+replacing the old flat 10-value con-marca/sin-marca split):
+- Agente: full members, hold 1-MAX_GRADOS marks, may repeat the same grado
+  twice (represents a senior/veteran double mark).
+- Adjunto: helpers/assistants of the agents, hold exactly ONE mark, never
+  combined with an Agente mark in the same set - Carro and Paloma used to
+  live in the same flat list as the 6 Agente grados with no exclusivity at
+  all; that's the actual behavior change here.
+The old "sin marca" tier (Bazas, Contactos) is gone - a person related to the
+organization without a mark is now expressed as Contacto/ContactCharacterLink
+tipo_relacion='Baza', a per-character fact, not a global grado."""
 
-UNTERSUCHUNG_GRADOS_CON_MARCA = [
-    'Escudo', 'Estilete', 'Gato', 'Brújula', 'Pluma', 'Corona', 'Carro', 'Paloma',
-]
-UNTERSUCHUNG_GRADOS_SIN_MARCA = ['Bazas', 'Contactos']
-UNTERSUCHUNG_GRADOS = UNTERSUCHUNG_GRADOS_CON_MARCA + UNTERSUCHUNG_GRADOS_SIN_MARCA
+UNTERSUCHUNG_GRADOS_AGENTE = ['Escudo', 'Estilete', 'Gato', 'Brújula', 'Pluma', 'Corona']
+UNTERSUCHUNG_GRADOS_ADJUNTO = ['Carro', 'Paloma']
+UNTERSUCHUNG_GRADOS = UNTERSUCHUNG_GRADOS_AGENTE + UNTERSUCHUNG_GRADOS_ADJUNTO
+# Alias kept for existing importers/templates: every remaining grado carries
+# a physical mark now that Bazas/Contactos are gone, so this is just the
+# full list under its old name - avoids touching every call site.
+UNTERSUCHUNG_GRADOS_CON_MARCA = UNTERSUCHUNG_GRADOS
 
 MAX_GRADOS = 3
 
-# Filenames the user placed in uploads/imagenes_untersuchung/ - one per
-# "con marca" grado. Bazas/Contactos intentionally have no entry here.
+# Filenames the user placed in uploads/imagenes_untersuchung/ - one per grado.
 _MARCA_IMAGE_FILENAMES = {
     'Escudo': 'escudo.jpg', 'Estilete': 'estilete.jpg', 'Gato': 'gato.jpg',
     'Brújula': 'brujula.jpg', 'Pluma': 'pluma.jpg', 'Corona': 'corona.jpg',
@@ -26,28 +31,49 @@ _MARCA_IMAGE_FILENAMES = {
 
 
 def marca_image_path(grado):
-    """Path relative to UPLOAD_FOLDER for a grado's mark image, or None for
-    grados sin marca (Bazas/Contactos) - they have no physical mark at all."""
+    """Path relative to UPLOAD_FOLDER for a grado's mark image, or None if
+    the value isn't a recognized grado at all."""
     filename = _MARCA_IMAGE_FILENAMES.get(grado)
     return f'imagenes_untersuchung/{filename}' if filename else None
 
 
 def has_marca(grados):
-    """True if any of the given grados is one of the 8 "con marca" ones -
-    used to auto-set es_untersuchung=True. Bazas/Contactos alone never do,
-    since the source material is explicit that they aren't members."""
-    return bool(grados) and any(g in UNTERSUCHUNG_GRADOS_CON_MARCA for g in grados)
+    """True if any grado is set - both remaining tiers carry a physical mark,
+    so this is now just "is the list non-empty", kept as a named function
+    since callers already depend on it rather than inlining `bool(grados)`."""
+    return bool(grados)
 
 
 def clamp_grados(grados):
-    """Keep only recognized values, in the order given, capped at
-    MAX_GRADOS. Deliberately does NOT deduplicate - an agent can hold the
-    same grado twice (represents a senior/veteran double mark), confirmed
-    with the user. Returns None (not []) when nothing's left, matching the
-    nullable-JSON-column convention used elsewhere in this app."""
+    """Keep only recognized values, in the order given, and now tier-
+    exclusive: the first recognized grado commits the whole selection to its
+    tier (Agente or Adjunto); any value from the other tier is silently
+    dropped, matching this function's existing "sanitize, never reject"
+    style. Within Agente, up to MAX_GRADOS, duplicates preserved (a repeated
+    grado represents a veteran double mark). Within Adjunto, capped at
+    exactly 1 - there's no "double mark" concept for an Adjunto. Returns
+    None (not []) when nothing's left, matching the nullable-JSON-column
+    convention used elsewhere in this app."""
     if not grados:
         return None
-    kept = [g for g in grados if g in UNTERSUCHUNG_GRADOS][:MAX_GRADOS]
+    tier = None
+    kept = []
+    for g in grados:
+        if g in UNTERSUCHUNG_GRADOS_AGENTE:
+            g_tier = 'agente'
+        elif g in UNTERSUCHUNG_GRADOS_ADJUNTO:
+            g_tier = 'adjunto'
+        else:
+            continue
+        if tier is None:
+            tier = g_tier
+        elif g_tier != tier:
+            continue
+        if tier == 'adjunto' and kept:
+            continue
+        kept.append(g)
+        if len(kept) == MAX_GRADOS:
+            break
     return kept or None
 
 

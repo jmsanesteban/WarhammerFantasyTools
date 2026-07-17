@@ -14,9 +14,7 @@ from app.models.character import (
 )
 from app.models.synonym import Synonym
 from app.models.contact import Contact, ContactProfession
-from app.models.contact_character_link import (
-    ContactCharacterLink, ContactApodo, ContactCharacterSalary, ContactCharacterVisibility,
-)
+from app.models.contact_character_link import ContactCharacterLink, ContactApodo, ContactCharacterSalary
 from app.models.contact_note import ContactNote
 from app.models.equipment import EquipmentItem, CharacterInventoryItem, CharacterPurchase, CharacterCartItem
 
@@ -31,7 +29,7 @@ __all__ = [
     'CharacterMoneyGrant',
     'Synonym',
     'Contact', 'ContactProfession',
-    'ContactCharacterLink', 'ContactApodo', 'ContactCharacterSalary', 'ContactCharacterVisibility',
+    'ContactCharacterLink', 'ContactApodo', 'ContactCharacterSalary',
     'ContactNote',
     'EquipmentItem', 'CharacterInventoryItem', 'CharacterPurchase', 'CharacterCartItem',
 ]

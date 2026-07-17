@@ -5,45 +5,37 @@ from werkzeug.utils import secure_filename
 from app.extensions import db
 from app.models.character import Character
 from app.models.profession import Profession
-from app.models.contact import (
-    Contact, ContactProfession, UNTERSUCHUNG_GRADOS,
-    ESTADO_CHOICES, ESTADO_LABELS, PARADERO_CHOICES, PARADERO_LABELS,
-)
+from app.models.contact import Contact, ContactProfession, UNTERSUCHUNG_GRADOS, ESTADO_CHOICES, ESTADO_LABELS
 from app.models.untersuchung import (
     clamp_grados, has_marca, marca_image_path, grados_display,
-    UNTERSUCHUNG_GRADOS_CON_MARCA, MAX_GRADOS,
+    UNTERSUCHUNG_GRADOS_CON_MARCA, UNTERSUCHUNG_GRADOS_AGENTE, UNTERSUCHUNG_GRADOS_ADJUNTO, MAX_GRADOS,
 )
 from app.models.contact_character_link import (
-    ContactCharacterLink, ContactApodo, ContactCharacterSalary, ContactCharacterVisibility,
+    ContactCharacterLink, ContactApodo, ContactCharacterSalary, NIVEL_LABELS, TIPO_RELACION_CHOICES,
 )
 from app.models.contact_note import ContactNote
 from app.services import salary_service
+from app.utils import admin_required
 
 contacts_bp = Blueprint('contacts', __name__, template_folder='../templates')
 
 _ALLOWED_IMAGE_EXTENSIONS = {'png', 'jpg', 'jpeg', 'webp', 'gif'}
 
 
-def _can_edit(contact):
-    """Full-detail editing (nombre, grados, profesiones...) is open to admins
-    and whoever originally registered the contact - not to any user who can
-    merely view it, since the fields here are global, not per-character."""
-    return current_user.is_admin or contact.created_by_id == current_user.id
-
-
 def _grados_from_form():
     """Reads 3 independent single-select slots (grado_1/2/3) rather than one
     multi-select - a <select multiple> can't have the same option chosen
-    twice, but an agent can genuinely hold the same grado twice over (a
-    senior/veteran double mark)."""
+    twice, but an Agente can genuinely hold the same grado twice over (a
+    senior/veteran double mark). Tier exclusivity (Agente vs Adjunto) and the
+    1-mark cap for Adjunto are enforced server-side by clamp_grados()."""
     values = [request.form.get(f'grado_{i}', '').strip() for i in range(1, MAX_GRADOS + 1)]
     return clamp_grados(values)
 
 
 def _marca_images():
-    """{grado: uploaded-file-url} for the 8 "con marca" grados - passed to
-    every contact form/detail template so it can show the mark image live as
-    grados are picked (JS) or read-only (ficha)."""
+    """{grado: uploaded-file-url} for every grado - passed to every contact
+    form/detail template so it can show the mark image live as grados are
+    picked (JS) or read-only (ficha)."""
     images = {}
     for g in UNTERSUCHUNG_GRADOS:
         path = marca_image_path(g)
@@ -57,8 +49,8 @@ def _grado_form_context():
     the happy path and each validation-error re-render)."""
     return dict(
         grados=UNTERSUCHUNG_GRADOS, grados_con_marca=UNTERSUCHUNG_GRADOS_CON_MARCA,
+        grados_agente=UNTERSUCHUNG_GRADOS_AGENTE, grados_adjunto=UNTERSUCHUNG_GRADOS_ADJUNTO,
         estado_choices=ESTADO_CHOICES, estado_labels=ESTADO_LABELS,
-        paradero_choices=PARADERO_CHOICES, paradero_labels=PARADERO_LABELS,
         marca_images=_marca_images(),
     )
 
@@ -66,17 +58,6 @@ def _grado_form_context():
 def _estado_from_form():
     estado = request.form.get('estado', '').strip()
     return estado if estado in ESTADO_CHOICES else 'vivo'
-
-
-def _paradero_from_form(estado):
-    """Paradero only makes sense while the contact is alive - ignore
-    whatever was posted (stale UI state, or a hand-crafted request) once
-    estado says otherwise, so a dead/corrupted contact never keeps a leftover
-    'Encarcelado'/'Desaparecido' badge that no longer applies."""
-    if estado != 'vivo':
-        return None
-    paradero = request.form.get('paradero', '').strip()
-    return paradero if paradero in PARADERO_CHOICES else None
 
 
 def _save_image_from_form(contact):
@@ -92,6 +73,21 @@ def _save_image_from_form(contact):
     os.makedirs(os.path.dirname(save_path), exist_ok=True)
     file.save(save_path)
     contact.image_path = os.path.join('contactos', filename)
+
+
+def _global_fields_from_form(contact):
+    """Reads every global (non-per-character) Contact field from the POST
+    body - shared by new()/edit()."""
+    contact.nombre = request.form.get('nombre', '').strip()
+    contact.raza = request.form.get('raza', '').strip() or None
+    contact.estado = _estado_from_form()
+    grados = _grados_from_form()
+    contact.grados_untersuchung = grados
+    contact.es_untersuchung = request.form.get('es_untersuchung') == 'on' or has_marca(grados)
+    contact.lugar_descanso = request.form.get('lugar_descanso', '').strip() or None
+    contact.lugar_trabajo = request.form.get('lugar_trabajo', '').strip() or None
+    contact.lugar_ocio = request.form.get('lugar_ocio', '').strip() or None
+    contact.notas_director = request.form.get('notas_director', '').strip() or None
 
 
 def _safe_redirect(default_endpoint, **default_kwargs):
@@ -118,19 +114,13 @@ def _selectable_characters():
     return _own_characters()
 
 
-def _visibility_level(character, contact):
-    """'total' | 'parcial' | None - whether/how much this character can see
-    of the contact. Admins bypass this entirely at the call site."""
-    if not character:
-        return None
-    grant = ContactCharacterVisibility.query.filter_by(
-        contact_id=contact.id, character_id=character.id,
-    ).first()
-    return grant.nivel if grant else None
-
-
-def _can_view(character, contact):
-    return current_user.is_admin or (contact.is_visible and _visibility_level(character, contact) is not None)
+def _can_view(contact):
+    """Whether the current user can see this contact at all. Since 2026-07-16
+    the only gate is the admin-controlled Contact.is_visible kill-switch (the
+    old per-character ContactCharacterVisibility grant system is gone) - any
+    logged-in user can see any visible contact, and can add their own
+    per-character link/notes/salary to it."""
+    return current_user.is_admin or contact.is_visible
 
 
 def _active_character():
@@ -161,23 +151,12 @@ def index():
     query = Contact.query.order_by(Contact.nombre)
     if not current_user.is_admin:
         query = query.filter_by(is_visible=True)
-        if active_character:
-            query = query.join(
-                ContactCharacterVisibility,
-                db.and_(
-                    ContactCharacterVisibility.contact_id == Contact.id,
-                    ContactCharacterVisibility.character_id == active_character.id,
-                ),
-            )
-        else:
-            query = query.filter(db.false())
     if search:
         query = query.filter(Contact.nombre.ilike(f'%{search}%'))
 
     pagination = query.paginate(page=page, per_page=per_page, error_out=False)
 
     link_by_contact = {}
-    visibility_by_contact = {}
     if active_character:
         contact_ids = [c.id for c in pagination.items]
         if contact_ids:
@@ -187,12 +166,6 @@ def index():
             ).all()
             link_by_contact = {l.contact_id: l for l in links}
 
-            grants = ContactCharacterVisibility.query.filter(
-                ContactCharacterVisibility.character_id == active_character.id,
-                ContactCharacterVisibility.contact_id.in_(contact_ids),
-            ).all()
-            visibility_by_contact = {g.contact_id: g.nivel for g in grants}
-
     return render_template(
         'contacts/index.html',
         contacts=pagination.items,
@@ -201,43 +174,27 @@ def index():
         my_characters=_selectable_characters(),
         active_character=active_character,
         link_by_contact=link_by_contact,
-        visibility_by_contact=visibility_by_contact,
-        paradero_labels=PARADERO_LABELS,
+        nivel_labels=NIVEL_LABELS,
+        estado_labels=ESTADO_LABELS,
     )
 
 
 @contacts_bp.route('/nuevo', methods=['GET', 'POST'])
 @login_required
+@admin_required
 def new():
-    characters = _selectable_characters()
+    """Contact creation is admin-only (2026-07-16 rework) - the admin only
+    fills in the contact's global facts here; each character adds their own
+    link/notes/salary afterwards from the contact's own ficha (link_save)."""
     professions = Profession.query.order_by(Profession.name).all()
-    if not characters:
-        flash('Necesitas al menos un personaje antes de poder registrar contactos.', 'warning')
-        return redirect(url_for('characters.list_characters'))
 
     if request.method == 'POST':
-        nombre = request.form.get('nombre', '').strip()
-        personaje_id = request.form.get('personaje_id', type=int)
-        personaje = next((c for c in characters if c.id == personaje_id), None)
-        if not nombre:
+        contact = Contact(created_by_id=current_user.id)
+        _global_fields_from_form(contact)
+        if not contact.nombre:
             flash('El contacto necesita un nombre.', 'danger')
-            return render_template('contacts/new.html', characters=characters, professions=professions,
-                                   **_grado_form_context())
-        if not personaje and not current_user.is_admin:
-            flash('Selecciona el personaje que registra este contacto.', 'danger')
-            return render_template('contacts/new.html', characters=characters, professions=professions,
-                                   **_grado_form_context())
+            return render_template('contacts/new.html', professions=professions, **_grado_form_context())
 
-        estado = _estado_from_form()
-        grados = _grados_from_form()
-        contact = Contact(
-            nombre=nombre,
-            es_untersuchung=request.form.get('es_untersuchung') == 'on' or has_marca(grados),
-            estado=estado,
-            paradero=_paradero_from_form(estado),
-            grados_untersuchung=grados,
-            created_by_id=current_user.id,
-        )
         _save_image_from_form(contact)
         db.session.add(contact)
         db.session.flush()
@@ -246,36 +203,22 @@ def new():
             if prof_id:
                 db.session.add(ContactProfession(contact_id=contact.id, profession_id=int(prof_id)))
 
-        if personaje:
-            link = ContactCharacterLink(
-                character_id=personaje.id,
-                contact_id=contact.id,
-                **_link_fields_from_form(),
-            )
-            db.session.add(link)
-            db.session.flush()
-            _save_apodos_from_form(link)
-            db.session.add(ContactCharacterVisibility(
-                contact_id=contact.id, character_id=personaje.id, nivel='total',
-            ))
-
         db.session.commit()
         flash(f'Contacto «{contact.nombre}» creado.', 'success')
         return redirect(url_for('contacts.detail', contact_id=contact.id))
 
-    return render_template('contacts/new.html', characters=characters, professions=professions,
-                           **_grado_form_context())
+    return render_template('contacts/new.html', professions=professions, **_grado_form_context())
 
 
 def _link_fields_from_form():
     nivel = request.form.get('nivel', type=int)
     if nivel is not None:
         nivel = max(-5, min(5, nivel))
+    tipo_relacion = [v for v in request.form.getlist('tipo_relacion') if v in TIPO_RELACION_CHOICES]
     return {
         'nivel': nivel,
+        'tipo_relacion': tipo_relacion or None,
         'organizacion_secta': request.form.get('organizacion_secta', '').strip() or None,
-        'lugar_residencia': request.form.get('lugar_residencia', '').strip() or None,
-        'lugar_contacto': request.form.get('lugar_contacto', '').strip() or None,
         'creacion': request.form.get('creacion') == 'on',
         'gm': request.form.get('gm', '').strip() or None,
         'mision': request.form.get('mision', '').strip() or None,
@@ -297,10 +240,8 @@ def detail(contact_id):
     characters = _selectable_characters()
     active_character = _active_character()
 
-    if not _can_view(active_character, contact):
+    if not _can_view(contact):
         return redirect(url_for('contacts.index'))
-
-    visibility_level = 'total' if current_user.is_admin else _visibility_level(active_character, contact)
 
     my_link = None
     if active_character:
@@ -317,13 +258,6 @@ def detail(contact_id):
             .all()
         )
 
-    visibility_grants = None
-    if current_user.is_admin:
-        visibility_grants = {
-            g.character_id: g.nivel
-            for g in ContactCharacterVisibility.query.filter_by(contact_id=contact_id).all()
-        }
-
     return render_template(
         'contacts/detail.html',
         contact=contact,
@@ -332,12 +266,10 @@ def detail(contact_id):
         my_link=my_link,
         notes=notes,
         salary_table=salary_service.get_salary_table(),
-        visibility_level=visibility_level,
-        visibility_grants=visibility_grants,
-        all_characters=Character.query.order_by(Character.name).all() if current_user.is_admin else None,
-        can_edit=_can_edit(contact),
+        can_edit=current_user.is_admin,
         estado_labels=ESTADO_LABELS,
-        paradero_labels=PARADERO_LABELS,
+        nivel_labels=NIVEL_LABELS,
+        tipo_relacion_choices=TIPO_RELACION_CHOICES,
         marca_images=_marca_images(),
         grados_display=grados_display,
     )
@@ -352,7 +284,7 @@ def link_save(contact_id):
     characters = _selectable_characters()
     personaje_id = request.form.get('personaje_id', type=int)
     personaje = next((c for c in characters if c.id == personaje_id), None)
-    if not personaje or not _can_view(personaje, contact):
+    if not personaje or not _can_view(contact):
         abort(403)
 
     link = ContactCharacterLink.query.filter_by(character_id=personaje.id, contact_id=contact.id).first()
@@ -377,7 +309,7 @@ def link_delete(contact_id):
     characters = _selectable_characters()
     personaje_id = request.form.get('personaje_id', type=int)
     personaje = next((c for c in characters if c.id == personaje_id), None)
-    if not personaje or not _can_view(personaje, contact):
+    if not personaje or not _can_view(contact):
         abort(403)
     link = ContactCharacterLink.query.filter_by(character_id=personaje.id, contact_id=contact_id).first_or_404()
     db.session.delete(link)
@@ -393,7 +325,7 @@ def salary_save(contact_id):
     characters = _selectable_characters()
     personaje_id = request.form.get('personaje_id', type=int)
     personaje = next((c for c in characters if c.id == personaje_id), None)
-    if not personaje or not _can_view(personaje, contact):
+    if not personaje or not _can_view(contact):
         abort(403)
     link = ContactCharacterLink.query.filter_by(character_id=personaje.id, contact_id=contact_id).first_or_404()
     profession_id = request.form.get('profession_id', type=int)
@@ -431,7 +363,7 @@ def note_create(contact_id):
     characters = _selectable_characters()
     personaje_id = request.form.get('personaje_id', type=int)
     personaje = next((c for c in characters if c.id == personaje_id), None)
-    if not personaje or not _can_view(personaje, contact):
+    if not personaje or not _can_view(contact):
         abort(403)
     content = request.form.get('content', '').strip()
     if not content:
@@ -480,10 +412,9 @@ def note_delete(contact_id, note_id):
 
 @contacts_bp.route('/<int:contact_id>/editar', methods=['GET', 'POST'])
 @login_required
+@admin_required
 def edit(contact_id):
     contact = Contact.query.get_or_404(contact_id)
-    if not _can_edit(contact):
-        abort(403)
     professions = Profession.query.order_by(Profession.name).all()
     selected_profession_ids = {cp.profession_id for cp in contact.professions}
 
@@ -494,14 +425,9 @@ def edit(contact_id):
             return render_template('contacts/edit.html', contact=contact, professions=professions,
                                    selected_profession_ids=selected_profession_ids, **_grado_form_context())
 
-        contact.nombre = nombre
-        contact.grados_untersuchung = _grados_from_form()
-        contact.es_untersuchung = request.form.get('es_untersuchung') == 'on' or has_marca(contact.grados_untersuchung)
-        contact.estado = _estado_from_form()
-        contact.paradero = _paradero_from_form(contact.estado)
+        _global_fields_from_form(contact)
         _save_image_from_form(contact)
-        if current_user.is_admin:
-            contact.is_visible = request.form.get('is_visible') == 'on'
+        contact.is_visible = request.form.get('is_visible') == 'on'
 
         ContactProfession.query.filter_by(contact_id=contact.id).delete()
         for prof_id in request.form.getlist('profession_ids'):
@@ -514,51 +440,3 @@ def edit(contact_id):
 
     return render_template('contacts/edit.html', contact=contact, professions=professions,
                            selected_profession_ids=selected_profession_ids, **_grado_form_context())
-
-
-# ── Visibilidad por personaje (admin) ───────────────────────────────────────
-
-@contacts_bp.route('/<int:contact_id>/visibilidad', methods=['POST'])
-@login_required
-def visibility_save(contact_id):
-    """Bulk save: one (character_id, nivel) pair per row of the visibility
-    table, submitted together in a single POST (parallel repeated fields,
-    same convention as profession_ids/tipo_sueldo_list elsewhere)."""
-    if not current_user.is_admin:
-        abort(403)
-    Contact.query.get_or_404(contact_id)
-
-    character_ids = request.form.getlist('character_id', type=int)
-    niveles = request.form.getlist('nivel')
-    if not character_ids:
-        abort(400)
-
-    existing_grants = {
-        g.character_id: g for g in ContactCharacterVisibility.query.filter_by(contact_id=contact_id).all()
-    }
-    granted = revoked = updated = 0
-    for character_id, nivel in zip(character_ids, niveles):
-        nivel = (nivel or '').strip()
-        grant = existing_grants.get(character_id)
-        if nivel not in ('total', 'parcial'):
-            if grant:
-                db.session.delete(grant)
-                revoked += 1
-        elif grant:
-            if grant.nivel != nivel:
-                grant.nivel = nivel
-                updated += 1
-        else:
-            db.session.add(ContactCharacterVisibility(contact_id=contact_id, character_id=character_id, nivel=nivel))
-            granted += 1
-
-    db.session.commit()
-    parts = []
-    if granted:
-        parts.append(f'{granted} concedido(s)')
-    if updated:
-        parts.append(f'{updated} actualizado(s)')
-    if revoked:
-        parts.append(f'{revoked} revocado(s)')
-    flash('Visibilidad guardada: ' + (', '.join(parts) if parts else 'sin cambios') + '.', 'success')
-    return _safe_redirect('contacts.detail', contact_id=contact_id)

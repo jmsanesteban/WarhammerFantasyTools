@@ -404,6 +404,36 @@ def _register_cli_commands(app):
                     conn.execute(text('ALTER TABLE contacts DROP COLUMN vivo'))
                 click.echo('  Backfilled contacts.estado from legacy vivo, then dropped contacts.vivo')
 
+            # Incremental columns: Contactos rework (2026-07-16) - raza/lugares
+            # globales/notas_director son nuevos en Contact; tipo_relacion es
+            # nuevo en los vínculos. Solo columnas ADITIVAS aquí (seguro en
+            # cada arranque); el backfill semántico (estado/paradero->estado
+            # de 3 valores, lugar_residencia/lugar_contacto por vínculo ->
+            # lugares globales, retirar grados Bazas/Contactos) y el DROP de
+            # columnas/tabla obsoletas viven en el comando
+            # `flask migrate-contacts-rework`, que un humano ejecuta a mano
+            # tras revisar su informe - ver docstring de ese comando.
+            contact_cols_3 = {c['name'] for c in inspector.get_columns('contacts')}
+            contact_new_columns_v3 = [
+                ('raza', 'VARCHAR(100) NULL'),
+                ('lugar_descanso', 'TEXT NULL'),
+                ('lugar_trabajo', 'TEXT NULL'),
+                ('lugar_ocio', 'TEXT NULL'),
+                ('notas_director', 'TEXT NULL'),
+            ]
+            with db.engine.begin() as conn:
+                for col_name, col_def in contact_new_columns_v3:
+                    if col_name not in contact_cols_3:
+                        conn.execute(text(f'ALTER TABLE contacts ADD COLUMN {col_name} {col_def}'))
+                        click.echo(f'  Added contacts.{col_name}')
+
+            if inspector.has_table('contact_character_links'):
+                link_cols = {c['name'] for c in inspector.get_columns('contact_character_links')}
+                with db.engine.begin() as conn:
+                    if 'tipo_relacion' not in link_cols:
+                        conn.execute(text('ALTER TABLE contact_character_links ADD COLUMN tipo_relacion JSON NULL'))
+                        click.echo('  Added contact_character_links.tipo_relacion')
+
             # drinks.sabor changed meaning (base category instead of descriptor+parens)
             # and gained sabor_variante. It's a closed catalog seeded only from JSON
             # (never user-edited), so a shape change just drops and reseeds it rather
@@ -635,3 +665,138 @@ def _register_cli_commands(app):
             if updated:
                 db.session.commit()
             click.echo(f'Normalized casing for {updated} catalog entr{"y" if updated == 1 else "ies"}.')
+
+    @app.cli.command('migrate-contacts-rework')
+    @click.option('--apply', 'do_apply', is_flag=True,
+                  help='Write changes and drop legacy columns/table. Without this flag, only reports what would happen.')
+    def migrate_contacts_rework_cmd(do_apply):
+        """One-off data migration for the Contacts rework (2026-07-16): estado+
+        paradero -> estado de 3 valores (vivo/muerto/desconocido), lugar_residencia/
+        lugar_contacto por vínculo -> lugar_descanso/lugar_ocio globales del
+        contacto, retira los grados Bazas/Contactos (sin sustituto automático -
+        revisar el informe y añadir Tipo de relación=Baza a mano donde aplique),
+        y audita ContactCharacterVisibility antes de que --apply la elimine.
+
+        Sin --apply solo IMPRIME un informe completo (dry-run, no escribe nada).
+        Con --apply escribe los cambios y por último hace DROP de las columnas/
+        tabla legadas. Revisa siempre el informe antes de aplicar. Re-ejecutar
+        con --apply tras ya haber migrado es un no-op seguro (detecta que las
+        columnas legadas ya no existen)."""
+        from sqlalchemy import text, inspect as sa_inspect
+        from app.models.contact import Contact
+        from app.models.contact_character_link import ContactCharacterLink
+        from app.models.character import Character
+
+        with app.app_context():
+            inspector = sa_inspect(db.engine)
+            contact_cols = {c['name'] for c in inspector.get_columns('contacts')}
+            link_cols = {c['name'] for c in inspector.get_columns('contact_character_links')}
+            already_migrated = 'paradero' not in contact_cols and 'lugar_residencia' not in link_cols
+            if already_migrated:
+                click.echo('Nothing to migrate: legacy columns already gone.')
+                return
+
+            # --- 1. estado+paradero -> estado (3 valores) --------------------
+            corrompidos, desconocidos, sin_cambios = [], [], 0
+            for c in Contact.query.all():
+                old_estado = c.estado
+                old_paradero = db.session.execute(
+                    text('SELECT paradero FROM contacts WHERE id = :id'), {'id': c.id}
+                ).scalar()
+                if old_estado == 'muerto':
+                    new_estado = 'muerto'
+                    sin_cambios += 1
+                elif old_estado == 'corrompido':
+                    new_estado = 'desconocido'
+                    corrompidos.append((c.id, c.nombre))
+                elif old_estado == 'vivo' and old_paradero:
+                    new_estado = 'desconocido'
+                    desconocidos.append((c.id, c.nombre, old_paradero))
+                else:
+                    new_estado = 'vivo'
+                    sin_cambios += 1
+                if do_apply:
+                    c.estado = new_estado
+
+            # --- 2. lugar_residencia/lugar_contacto (por vínculo) -----------
+            #        -> lugar_descanso/lugar_ocio (global); gana el vínculo
+            #        actualizado más recientemente por contacto.
+            lugar_backfills = []
+            for c in Contact.query.all():
+                rows = db.session.execute(text(
+                    'SELECT ccl.id, ccl.lugar_residencia, ccl.lugar_contacto, ccl.updated_at, ccl.created_at, '
+                    'ch.name FROM contact_character_links ccl JOIN characters ch ON ch.id = ccl.character_id '
+                    'WHERE ccl.contact_id = :cid AND (ccl.lugar_residencia IS NOT NULL OR ccl.lugar_contacto IS NOT NULL)'
+                ), {'cid': c.id}).fetchall()
+                if not rows:
+                    continue
+                winner = max(rows, key=lambda r: (r[3] or r[4]))
+                lugar_backfills.append((c.id, c.nombre, winner[5], winner[1], winner[2]))
+                if do_apply:
+                    c.lugar_descanso = winner[1]
+                    c.lugar_ocio = winner[2]
+
+            # --- 3. Retirar grados Bazas/Contactos (Contact + Character) ----
+            stripped = []
+            for model in (Contact, Character):
+                label = 'name' if model is Character else 'nombre'
+                for row in model.query.filter(model.grados_untersuchung.isnot(None)).all():
+                    old = row.grados_untersuchung or []
+                    new = [g for g in old if g not in ('Bazas', 'Contactos')]
+                    if new != old:
+                        stripped.append((model.__name__, row.id, getattr(row, label), old))
+                        if do_apply:
+                            row.grados_untersuchung = new or None
+
+            # --- 4. Auditoría ContactCharacterVisibility --------------------
+            expanding_visibility = []
+            if inspector.has_table('contact_character_visibilities'):
+                total_chars = Character.query.count()
+                grant_rows = db.session.execute(text(
+                    'SELECT contact_id, COUNT(DISTINCT character_id) FROM contact_character_visibilities GROUP BY contact_id'
+                )).fetchall()
+                grants_by_contact = dict(grant_rows)
+                for c in Contact.query.filter_by(is_visible=True).all():
+                    granted = grants_by_contact.get(c.id, 0)
+                    if granted != total_chars:
+                        expanding_visibility.append((c.id, c.nombre, granted, total_chars))
+
+            # --- Informe ------------------------------------------------------
+            click.echo(f'Estado: {len(corrompidos)} corrompido -> desconocido, '
+                       f'{len(desconocidos)} vivo+paradero -> desconocido, {sin_cambios} sin cambio de categoría.')
+            if corrompidos:
+                click.echo('  Contactos "corrompido" (revisar mapeo a "Desconocido"):')
+                for cid, nombre in corrompidos:
+                    click.echo(f'    #{cid} {nombre}')
+            click.echo(f'Lugares: {len(lugar_backfills)} contacto(s) recibirán lugar_descanso/lugar_ocio '
+                       f'desde el vínculo más reciente. lugar_trabajo queda vacío para todos (sin origen legado).')
+            for cid, nombre, char_name, resid, contacto_lugar in lugar_backfills[:20]:
+                click.echo(f'    #{cid} {nombre}: desde vínculo de {char_name} '
+                           f'(residencia={resid!r}, contacto={contacto_lugar!r})')
+            click.echo(f'Grados retirados (Bazas/Contactos): {len(stripped)} fila(s) afectada(s).')
+            for model_name, rid, name, old in stripped[:20]:
+                click.echo(f'    {model_name} #{rid} {name}: {old}')
+            click.echo(f'Visibilidad: {len(expanding_visibility)} contacto(s) visible(s) ganarán audiencia '
+                       f'(antes solo veían el contacto los personajes con concesión explícita).')
+            for cid, nombre, n_granted, n_total in expanding_visibility[:20]:
+                click.echo(f'    #{cid} {nombre}: {n_granted}/{n_total} personajes tenían concesión')
+
+            if not do_apply:
+                click.echo('\nDry-run only - nada escrito. Ejecuta con --apply tras revisar este informe.')
+                return
+
+            db.session.commit()
+
+            with db.engine.begin() as conn:
+                if 'paradero' in contact_cols:
+                    conn.execute(text('ALTER TABLE contacts DROP COLUMN paradero'))
+                    click.echo('  Dropped contacts.paradero')
+                for col in ('lugar_residencia', 'lugar_contacto'):
+                    if col in link_cols:
+                        conn.execute(text(f'ALTER TABLE contact_character_links DROP COLUMN {col}'))
+                        click.echo(f'  Dropped contact_character_links.{col}')
+                if inspector.has_table('contact_character_visibilities'):
+                    conn.execute(text('DROP TABLE contact_character_visibilities'))
+                    click.echo('  Dropped contact_character_visibilities')
+
+            click.echo('Migration applied.')
