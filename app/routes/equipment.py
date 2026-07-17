@@ -53,8 +53,10 @@ def _filtered_query(category, subcategory, quality, search, category_choices=Non
     # `orden` (book position, see app/data/equipment_orden.py) sorts first
     # when set; anything without one (not yet book-ordered, or a category
     # that never gets one, e.g. municion/libro/otros/especial) falls back to
-    # alphabetical, same as before this field existed.
-    return query.order_by(EquipmentItem.category, db.nullslast(EquipmentItem.orden), EquipmentItem.name)
+    # alphabetical, same as before this field existed. MySQL has no NULLS
+    # LAST syntax (unlike Postgres), hence the CASE instead of nullslast().
+    orden_is_null = db.case((EquipmentItem.orden.is_(None), 1), else_=0)
+    return query.order_by(EquipmentItem.category, orden_is_null, EquipmentItem.orden, EquipmentItem.name)
 
 
 def _render_catalog(category, locked_category):
