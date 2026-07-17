@@ -937,14 +937,14 @@ def _register_cli_commands(app):
                   help='Write changes (delete existing contacts, load the CSVs). Without this flag, only reports what would happen.')
     def import_legacy_contacts_cmd(do_apply):
         """One-off replace of the whole Contacts catalog with data exported from
-        the predecessor app (ContactosWH), dropped at uploads/contactos/:
+        the predecessor app (ContactosWH), dropped at uploads/Personajes/:
         - "Tabla_contactos - Contactos.csv": one row per NPC (external id, name,
           raza as a numeric code, casa/trabajo/ocio, notas, image filename, estado).
         - "Tabla_personajes_contactos - Personajes_contactos.csv": one row per
           character<->contact link (nivel + label, tipo Otra/Unter/blank, a free
           note) - the character side is an external id, mapped below by name to a
           real Character since no character-export table was provided.
-        - "Tabla_Contactos_Images/": one photo per contact, copied+renamed into
+        - "Imagenes_Contactos/": one photo per contact, copied+renamed into
           uploads/contactos/ (flattened, same layout as a normal contact upload).
 
         Raza codes and the external-character-id map were confirmed by the user
@@ -986,10 +986,13 @@ def _register_cli_commands(app):
             return None if not value or value == 'Desconocido' else value
 
         with app.app_context():
-            source_dir = os.path.join(app.config['UPLOAD_FOLDER'], 'contactos')
+            # uploads/contactos/ renamed to uploads/Personajes/ (2026-07-17),
+            # Tabla_Contactos_Images/ renamed to Imagenes_Contactos/ - the two
+            # CSV filenames themselves are unchanged.
+            source_dir = os.path.join(app.config['UPLOAD_FOLDER'], 'Personajes')
             contacts_csv = os.path.join(source_dir, 'Tabla_contactos - Contactos.csv')
             links_csv = os.path.join(source_dir, 'Tabla_personajes_contactos - Personajes_contactos.csv')
-            images_dir = os.path.join(source_dir, 'Tabla_Contactos_Images')
+            images_dir = os.path.join(source_dir, 'Imagenes_Contactos')
 
             if not os.path.isfile(contacts_csv) or not os.path.isfile(links_csv):
                 click.echo(f'No encuentro los CSV en {source_dir!r}. Nada hecho.')

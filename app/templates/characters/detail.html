@@ -17,7 +17,7 @@
         <div class="card-body">
           {% if char.image_path %}
           <img src="{{ url_for('main.uploaded_file', filename=char.image_path) }}"
-               class="img-fluid wh-prof-image rounded mb-3" alt="{{ char.name }}">
+               class="img-fluid wh-prof-image wh-lightbox-trigger rounded mb-3" alt="{{ char.name }}">
           {% else %}
           <div class="wh-prof-image-placeholder mb-3"><i class="bi bi-person-bounding-box"></i></div>
           {% endif %}

@@ -15,7 +15,7 @@
     <div class="col-md-3 text-center">
       {% if prof.image_path %}
         <img src="{{ url_for('main.uploaded_file', filename=prof.image_path) }}"
-             class="img-fluid wh-prof-image rounded mb-3" alt="{{ prof.name }}">
+             class="img-fluid wh-prof-image wh-lightbox-trigger rounded mb-3" alt="{{ prof.name }}">
       {% else %}
         <div class="wh-prof-image-placeholder mb-3"><i class="bi bi-person-bounding-box"></i></div>
       {% endif %}

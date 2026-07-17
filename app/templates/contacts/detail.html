@@ -44,7 +44,7 @@
       <div class="row">
         <div class="col-md-3 mb-3">
           {% if contact.image_path %}
-          <img src="{{ url_for('main.uploaded_file', filename=contact.image_path) }}" class="wh-prof-image rounded"
+          <img src="{{ url_for('main.uploaded_file', filename=contact.image_path) }}" class="wh-prof-image wh-lightbox-trigger rounded"
                alt="{{ contact.nombre }}">
           {% else %}
           <div class="wh-prof-image-placeholder"><i class="bi bi-person-bounding-box"></i></div>
