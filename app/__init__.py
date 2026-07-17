@@ -931,3 +931,181 @@ def _register_cli_commands(app):
                     click.echo('  Dropped contact_character_visibilities')
 
             click.echo('Migration applied.')
+
+    @app.cli.command('import-legacy-contacts')
+    @click.option('--apply', 'do_apply', is_flag=True,
+                  help='Write changes (delete existing contacts, load the CSVs). Without this flag, only reports what would happen.')
+    def import_legacy_contacts_cmd(do_apply):
+        """One-off replace of the whole Contacts catalog with data exported from
+        the predecessor app (ContactosWH), dropped at uploads/contactos/:
+        - "Tabla_contactos - Contactos.csv": one row per NPC (external id, name,
+          raza as a numeric code, casa/trabajo/ocio, notas, image filename, estado).
+        - "Tabla_personajes_contactos - Personajes_contactos.csv": one row per
+          character<->contact link (nivel + label, tipo Otra/Unter/blank, a free
+          note) - the character side is an external id, mapped below by name to a
+          real Character since no character-export table was provided.
+        - "Tabla_Contactos_Images/": one photo per contact, copied+renamed into
+          uploads/contactos/ (flattened, same layout as a normal contact upload).
+
+        Raza codes and the external-character-id map were confirmed by the user
+        (2026-07-17), not inferred: 1=Humano, 2=Enano, 3=Alto elfo, 4=Elfo oscuro,
+        5=Halfling, 6=Ogro, 11=Criatura. 'Unter' tipo -> Contact.es_untersuchung
+        True on that contact (no grado - the source data doesn't specify one),
+        never a tipo_relacion value (that concept moved off the link entirely,
+        see TIPO_RELACION_CHOICES). Estado Vivo/Muerto/Desconocido and the nivel
+        label ("-2 Antipatía", "5 Amigo Incondicional"...) already match this
+        app's own values 1:1 - only the leading number is used for nivel, the
+        label text itself is derived (NIVEL_LABELS), not stored.
+
+        Sin --apply solo IMPRIME un informe (dry-run, no borra ni escribe nada,
+        no copia imágenes). Con --apply BORRA todos los contactos existentes
+        (con sus vínculos/notas/profesiones, todo en cascada) y carga los del
+        CSV. Personajes cuyo id externo no resuelve a un Character real
+        (por nombre) se omiten con aviso en el informe - re-ejecutar con
+        --apply más tarde (tras crear ese personaje) es seguro: vuelve a
+        borrar y recargar todos los contactos desde cero, así que sus vínculos
+        se recrean también."""
+        import re
+        import shutil
+        from werkzeug.utils import secure_filename as _secure_filename
+        from app.models.contact import Contact, ESTADO_CHOICES
+        from app.models.contact_character_link import ContactCharacterLink, NIVEL_LABELS
+        from app.models.contact_note import ContactNote
+        from app.models.character import Character
+
+        RAZA_CODE_MAP = {
+            '1': 'Humano', '2': 'Enano', '3': 'Alto elfo', '4': 'Elfo oscuro',
+            '5': 'Halfling', '6': 'Ogro', '11': 'Criatura',
+        }
+        ESTADO_MAP = {'Vivo': 'vivo', 'Muerto': 'muerto', 'Desconocido': 'desconocido'}
+        EXTERNAL_CHARACTER_NAME = {'75c91a6a': 'Aera Coren', '0cf66d91': 'Arthur Bishop'}
+        NIVEL_RE = re.compile(r'^-?\d+')
+
+        def _clean(value):
+            value = (value or '').strip()
+            return None if not value or value == 'Desconocido' else value
+
+        with app.app_context():
+            source_dir = os.path.join(app.config['UPLOAD_FOLDER'], 'contactos')
+            contacts_csv = os.path.join(source_dir, 'Tabla_contactos - Contactos.csv')
+            links_csv = os.path.join(source_dir, 'Tabla_personajes_contactos - Personajes_contactos.csv')
+            images_dir = os.path.join(source_dir, 'Tabla_Contactos_Images')
+
+            if not os.path.isfile(contacts_csv) or not os.path.isfile(links_csv):
+                click.echo(f'No encuentro los CSV en {source_dir!r}. Nada hecho.')
+                return
+
+            import csv
+            with open(contacts_csv, encoding='utf-8') as f:
+                contact_rows = list(csv.DictReader(f))
+            with open(links_csv, encoding='utf-8') as f:
+                link_rows = [r for r in csv.DictReader(f) if r.get('Id_contactos')]
+
+            unknown_raza = sorted({r['Raza_contactos'] for r in contact_rows
+                                    if r['Raza_contactos'] not in RAZA_CODE_MAP})
+            unknown_estado = sorted({r['Estado_contactos'] for r in contact_rows
+                                      if r['Estado_contactos'] not in ESTADO_MAP})
+            missing_images = [r['Nombre_contactos'] for r in contact_rows
+                               if not os.path.isfile(os.path.join(images_dir, r['Imagen_contactos'].split('/')[-1]))]
+            unknown_characters = sorted({
+                r['Id_personajes'] for r in link_rows
+                if r['Id_personajes'] and r['Id_personajes'] not in EXTERNAL_CHARACTER_NAME
+            })
+            character_by_external_id = {}
+            missing_character_links = 0
+            for ext_id, name in EXTERNAL_CHARACTER_NAME.items():
+                char = Character.query.filter_by(name=name).first()
+                if char:
+                    character_by_external_id[ext_id] = char
+                else:
+                    missing_character_links += sum(1 for r in link_rows if r['Id_personajes'] == ext_id)
+
+            existing_count = Contact.query.count()
+
+            click.echo('=== Importación de contactos legados: informe ===')
+            click.echo(f'Contactos a crear: {len(contact_rows)} (sustituyen a {existing_count} existentes)')
+            click.echo(f'Vínculos en el CSV: {len(link_rows)}')
+            if unknown_raza:
+                click.echo(f'  Códigos de raza sin mapear: {unknown_raza}')
+            if unknown_estado:
+                click.echo(f'  Valores de estado sin mapear: {unknown_estado}')
+            if missing_images:
+                click.echo(f'  Contactos sin imagen encontrada en disco ({len(missing_images)}): {missing_images}')
+            if unknown_characters:
+                click.echo(f'  Ids de personaje externos sin mapeo conocido: {unknown_characters}')
+            for ext_id, name in EXTERNAL_CHARACTER_NAME.items():
+                n_rows = sum(1 for r in link_rows if r['Id_personajes'] == ext_id)
+                status = 'encontrado' if ext_id in character_by_external_id else 'NO EXISTE TODAVÍA - esas filas se omitirán'
+                click.echo(f'  {ext_id} -> {name}: {status} ({n_rows} vínculo(s))')
+
+            if not do_apply:
+                click.echo('\nDry-run: nada borrado ni escrito. Ejecuta con --apply para aplicar.')
+                return
+
+            for link in ContactCharacterLink.query.all():
+                db.session.delete(link)
+            for note in ContactNote.query.all():
+                db.session.delete(note)
+            for contact in Contact.query.all():
+                db.session.delete(contact)
+            db.session.flush()
+
+            contact_by_external_id = {}
+            os.makedirs(os.path.join(app.config['UPLOAD_FOLDER'], 'contactos'), exist_ok=True)
+            for row in contact_rows:
+                contact = Contact(
+                    nombre=row['Nombre_contactos'].strip(),
+                    raza=RAZA_CODE_MAP.get(row['Raza_contactos']),
+                    estado=ESTADO_MAP.get(row['Estado_contactos'], 'vivo'),
+                    lugar_descanso=_clean(row['Casa_contactos']),
+                    lugar_trabajo=_clean(row['Trabajo_contactos']),
+                    lugar_ocio=_clean(row['Ocio_contactos']),
+                    notas_director=_clean(row.get('Notas_DJ_contactos')),
+                    is_visible=True,
+                    es_untersuchung=False,
+                )
+                src_filename = row['Imagen_contactos'].split('/')[-1]
+                src_path = os.path.join(images_dir, src_filename)
+                if os.path.isfile(src_path):
+                    dest_filename = _secure_filename(f"{contact.nombre}{os.path.splitext(src_filename)[1].lower()}")
+                    dest_path = os.path.join(app.config['UPLOAD_FOLDER'], 'contactos', dest_filename)
+                    shutil.copy2(src_path, dest_path)
+                    contact.image_path = os.path.join('contactos', dest_filename)
+                db.session.add(contact)
+                db.session.flush()
+                contact_by_external_id[row['Id_contactos']] = contact
+
+            links_created = 0
+            notes_created = 0
+            links_skipped = 0
+            for row in link_rows:
+                contact = contact_by_external_id.get(row['Id_contactos'])
+                character = character_by_external_id.get(row['Id_personajes'])
+                if not contact or not character:
+                    links_skipped += 1
+                    continue
+
+                match = NIVEL_RE.match(row['Relación_personajes_contactos'] or '')
+                nivel = max(-5, min(5, int(match.group()))) if match else None
+
+                tipo = (row.get('Tipo_personajes_contactos') or '').strip()
+                tipo_relacion = None
+                if tipo == 'Unter':
+                    contact.es_untersuchung = True
+                elif tipo == 'Otra':
+                    tipo_relacion = ['Otra']
+
+                db.session.add(ContactCharacterLink(
+                    character_id=character.id, contact_id=contact.id,
+                    nivel=nivel, tipo_relacion=tipo_relacion,
+                ))
+                links_created += 1
+
+                content = (row.get('Notas personales_personajes_contactos') or '').strip()
+                if content:
+                    db.session.add(ContactNote(contact_id=contact.id, character_id=character.id, content=content))
+                    notes_created += 1
+
+            db.session.commit()
+            click.echo(f'\nAplicado: {len(contact_by_external_id)} contacto(s), {links_created} vínculo(s), '
+                       f'{notes_created} nota(s). {links_skipped} vínculo(s) omitido(s) por personaje no encontrado.')
