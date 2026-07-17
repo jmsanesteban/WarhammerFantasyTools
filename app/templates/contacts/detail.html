@@ -149,7 +149,7 @@
             <label class="form-label wh-label">Nivel de relación</label>
             <select name="nivel" class="form-select wh-input">
               <option value="" {% if not my_link or my_link.nivel is none %}selected{% endif %}>— Sin evaluar —</option>
-              {% for n in range(-5, 6) %}
+              {% for n in range(5, -6, -1) %}
               <option value="{{ n }}" {% if my_link and my_link.nivel == n %}selected{% endif %}>{{ n }} — {{ nivel_labels[n] }}</option>
               {% endfor %}
             </select>
