@@ -436,6 +436,21 @@ def _register_cli_commands(app):
                         conn.execute(text('ALTER TABLE contact_character_links ADD COLUMN tipo_relacion JSON NULL'))
                         click.echo('  Added contact_character_links.tipo_relacion')
 
+            # Campos de vínculo retirados de la ficha (2026-07-17): apodos,
+            # organización/secta, GM, misión y el checkbox "viene de creación"
+            # se quitan sin sustituto - DROP directo, sin backfill que revisar.
+            if inspector.has_table('contact_character_links'):
+                link_cols_2 = {c['name'] for c in inspector.get_columns('contact_character_links')}
+                with db.engine.begin() as conn:
+                    for col_name in ('organizacion_secta', 'creacion', 'gm', 'mision'):
+                        if col_name in link_cols_2:
+                            conn.execute(text(f'ALTER TABLE contact_character_links DROP COLUMN {col_name}'))
+                            click.echo(f'  Dropped contact_character_links.{col_name}')
+            if inspector.has_table('contact_apodos'):
+                with db.engine.begin() as conn:
+                    conn.execute(text('DROP TABLE contact_apodos'))
+                    click.echo('  Dropped legacy table contact_apodos')
+
             # Incremental column: users.active_character_id (2026-07-17) -
             # persisted "personaje activo" per user, sustituye al viejo
             # patrón de elegir personaje por query-string en cada página.

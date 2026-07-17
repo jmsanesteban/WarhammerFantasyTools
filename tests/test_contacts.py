@@ -1,7 +1,7 @@
 """Tests for the Contacts feature (reworked 2026-07-16): visibility is now a
 single admin-controlled switch (Contact.is_visible, no more per-character
 grants), creation/edition of the contact's global data is admin-only, and
-each character keeps its own private link (nivel/tipo_relacion/apodos/notas/
+each character keeps its own private link (nivel/tipo_relacion/notas/
 salary) on top of it. Admin-only management routes are covered in
 test_admin_contacts.py."""
 from app.models.contact import Contact
@@ -293,13 +293,13 @@ def test_two_characters_have_independent_links_to_same_contact(db, client, make_
     char_a = make_character(user_a, name='Personaje A')
     char_b = make_character(user_b, name='Personaje B')
     contact = make_contact()
-    make_contact_link(char_a, contact, nivel=5, organizacion_secta='Culto de Sigmar')
+    make_contact_link(char_a, contact, nivel=5)
     make_contact_link(char_b, contact, nivel=-2)
 
     link_a = ContactCharacterLink.query.filter_by(character_id=char_a.id, contact_id=contact.id).first()
     link_b = ContactCharacterLink.query.filter_by(character_id=char_b.id, contact_id=contact.id).first()
-    assert link_a.nivel == 5 and link_a.organizacion_secta == 'Culto de Sigmar'
-    assert link_b.nivel == -2 and link_b.organizacion_secta is None
+    assert link_a.nivel == 5
+    assert link_b.nivel == -2
 
 
 # ── Salario ──────────────────────────────────────────────────────────────────

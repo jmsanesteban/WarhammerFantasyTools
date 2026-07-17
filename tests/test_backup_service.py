@@ -475,15 +475,13 @@ def test_contacts_full_round_trip(app, db, make_user, make_character, make_profe
         contact.estado = 'desconocido'
         db.session.commit()
 
-        from app.models.contact_character_link import ContactCharacterLink, ContactApodo, ContactCharacterSalary
+        from app.models.contact_character_link import ContactCharacterLink, ContactCharacterSalary
         from app.models.contact_note import ContactNote
         link = ContactCharacterLink(
             character_id=char.id, contact_id=contact.id, nivel=3, tipo_relacion=['Baza', 'Otra'],
-            gm='GM1', mision='Rescate',
         )
         db.session.add(link)
         db.session.flush()
-        db.session.add(ContactApodo(link_id=link.id, texto='El Gordo'))
         db.session.add(ContactCharacterSalary(link_id=link.id, profession_id=prof.id, tipo_sueldo='Artesanos', estado_habilidad='Buena'))
         db.session.add(ContactNote(contact_id=contact.id, character_id=char.id, content='Le debe un favor a Grimm'))
         db.session.commit()
@@ -501,7 +499,6 @@ def test_contacts_full_round_trip(app, db, make_user, make_character, make_profe
         assert row['links'][0]['character_name'] == 'Grimm'
         assert row['links'][0]['nivel'] == 3
         assert set(row['links'][0]['tipo_relacion']) == {'Baza', 'Otra'}
-        assert row['links'][0]['apodos'] == ['El Gordo']
         assert row['links'][0]['salarios'][0]['profession_name'] == 'Mercader'
         assert row['notes'][0]['content'] == 'Le debe un favor a Grimm'
         assert row['notes'][0]['character_username'] == 'zz_contact_owner'
@@ -528,7 +525,6 @@ def test_contacts_full_round_trip(app, db, make_user, make_character, make_profe
         restored_link = restored.character_links[0]
         assert restored_link.nivel == 3
         assert set(restored_link.tipo_relacion) == {'Baza', 'Otra'}
-        assert restored_link.apodos[0].texto == 'El Gordo'
         assert restored_link.salarios[0].tipo_sueldo == 'Artesanos'
         assert len(restored.notes) == 1
         assert restored.notes[0].content == 'Le debe un favor a Grimm'
@@ -556,8 +552,7 @@ def test_contacts_full_import_warns_on_missing_character(app, db):
         data = [{
             'nombre': 'Sin vinculo', 'es_untersuchung': False, 'is_visible': True, 'profesiones': [],
             'links': [{'character_username': 'no_existe', 'character_name': 'Nadie', 'nivel': 1,
-                       'tipo_relacion': None, 'organizacion_secta': None,
-                       'creacion': False, 'gm': None, 'mision': None, 'apodos': [], 'salarios': []}],
+                       'tipo_relacion': None, 'salarios': []}],
         }]
         summary = bkp.import_contacts_full(data)
         assert summary['created'] == 1

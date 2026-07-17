@@ -139,14 +139,6 @@
               {% endfor %}
             </select>
           </div>
-          <div class="col-md-6">
-            <label class="form-label wh-label">Apodo(s)</label>
-            <input type="text" name="apodos" class="form-control wh-input"
-                   value="{{ my_link.apodos[0].texto if my_link and my_link.apodos|length > 0 else '' }}">
-            <input type="text" name="apodos" class="form-control wh-input mt-1"
-                   value="{{ my_link.apodos[1].texto if my_link and my_link.apodos|length > 1 else '' }}"
-                   placeholder="Otro apodo (opcional)">
-          </div>
           <div class="col-12">
             <label class="form-label wh-label">Tipo de relación</label>
             <div class="d-flex flex-wrap gap-3">
@@ -159,26 +151,6 @@
               </div>
               {% endfor %}
             </div>
-          </div>
-          <div class="col-md-6">
-            <label class="form-label wh-label">Organización / secta (si no es Untersuchung)</label>
-            <input type="text" name="organizacion_secta" class="form-control wh-input" placeholder="No / N/A"
-                   value="{{ my_link.organizacion_secta if my_link else '' }}">
-          </div>
-          <div class="col-md-4">
-            <label class="form-label wh-label">GM</label>
-            <input type="text" name="gm" class="form-control wh-input" value="{{ my_link.gm if my_link else '' }}">
-          </div>
-          <div class="col-md-4">
-            <label class="form-label wh-label">Misión</label>
-            <input type="text" name="mision" class="form-control wh-input" value="{{ my_link.mision if my_link else '' }}">
-          </div>
-          <div class="col-md-4 d-flex align-items-end">
-            <label class="d-flex align-items-center gap-2" style="cursor:pointer">
-              <input type="checkbox" name="creacion" class="form-check-input"
-                     {% if my_link and my_link.creacion %}checked{% endif %}>
-              Viene de la creación del personaje
-            </label>
           </div>
         </div>
         <div class="d-flex gap-2 mt-3">

@@ -67,7 +67,7 @@ from app.models.character import (
 )
 from app.models.equipment import EquipmentItem, CharacterInventoryItem, CharacterPurchase
 from app.models.contact import Contact, ContactProfession
-from app.models.contact_character_link import ContactCharacterLink, ContactApodo, ContactCharacterSalary
+from app.models.contact_character_link import ContactCharacterLink, ContactCharacterSalary
 from app.models.contact_note import ContactNote
 from app.models.food import Recipe, CookingMethod, Ingredient, Drink
 
@@ -722,9 +722,6 @@ def export_contacts_full():
                     'character_username': link.character.owner.username,
                     'character_name': link.character.name,
                     'nivel': link.nivel, 'tipo_relacion': link.tipo_relacion,
-                    'organizacion_secta': link.organizacion_secta,
-                    'creacion': link.creacion, 'gm': link.gm, 'mision': link.mision,
-                    'apodos': [a.texto for a in link.apodos],
                     'salarios': [
                         {
                             'profession_name': s.profession.name,
@@ -799,13 +796,9 @@ def import_contacts_full(data, mode='skip'):
             link = ContactCharacterLink(
                 contact_id=contact.id, character_id=character.id,
                 nivel=link_data.get('nivel'), tipo_relacion=link_data.get('tipo_relacion'),
-                organizacion_secta=link_data.get('organizacion_secta'),
-                creacion=link_data.get('creacion', False), gm=link_data.get('gm'), mision=link_data.get('mision'),
             )
             db.session.add(link)
             db.session.flush()
-            for texto in link_data.get('apodos', []):
-                db.session.add(ContactApodo(link_id=link.id, texto=texto))
             for sal in link_data.get('salarios', []):
                 profession = Profession.query.filter_by(name=sal['profession_name']).first()
                 if profession is None:

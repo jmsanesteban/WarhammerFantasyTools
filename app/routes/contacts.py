@@ -11,7 +11,7 @@ from app.models.untersuchung import (
     UNTERSUCHUNG_GRADOS_CON_MARCA, UNTERSUCHUNG_GRADOS_AGENTE, UNTERSUCHUNG_GRADOS_ADJUNTO, MAX_GRADOS,
 )
 from app.models.contact_character_link import (
-    ContactCharacterLink, ContactApodo, ContactCharacterSalary, NIVEL_LABELS, TIPO_RELACION_CHOICES,
+    ContactCharacterLink, ContactCharacterSalary, NIVEL_LABELS, TIPO_RELACION_CHOICES,
 )
 from app.models.contact_note import ContactNote
 from app.services import salary_service
@@ -295,19 +295,7 @@ def _link_fields_from_form():
     return {
         'nivel': nivel,
         'tipo_relacion': tipo_relacion or None,
-        'organizacion_secta': request.form.get('organizacion_secta', '').strip() or None,
-        'creacion': request.form.get('creacion') == 'on',
-        'gm': request.form.get('gm', '').strip() or None,
-        'mision': request.form.get('mision', '').strip() or None,
     }
-
-
-def _save_apodos_from_form(link):
-    ContactApodo.query.filter_by(link_id=link.id).delete()
-    for texto in request.form.getlist('apodos'):
-        texto = texto.strip()
-        if texto:
-            db.session.add(ContactApodo(link_id=link.id, texto=texto))
 
 
 @contacts_bp.route('/<int:contact_id>')
@@ -391,8 +379,6 @@ def link_save(contact_id):
     else:
         link = ContactCharacterLink(character_id=personaje.id, contact_id=contact.id, **fields)
         db.session.add(link)
-    db.session.flush()
-    _save_apodos_from_form(link)
     db.session.commit()
     flash('Vínculo actualizado.', 'success')
     return redirect(url_for('contacts.detail', contact_id=contact_id, personaje_id=personaje.id))
