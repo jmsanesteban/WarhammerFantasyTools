@@ -148,6 +148,8 @@ def _global_fields_from_form(contact):
     contact.lugar_trabajo = request.form.get('lugar_trabajo', '').strip() or None
     contact.lugar_ocio = request.form.get('lugar_ocio', '').strip() or None
     contact.notas_director = request.form.get('notas_director', '').strip() or None
+    contact.notas_generales = request.form.get('notas_generales', '').strip() or None
+    contact.is_visible = request.form.get('is_visible') == 'on'
 
 
 def _safe_redirect(default_endpoint, **default_kwargs):
@@ -560,7 +562,6 @@ def edit(contact_id):
 
         _global_fields_from_form(contact)
         _save_image_from_form(contact)
-        contact.is_visible = request.form.get('is_visible') == 'on'
 
         ContactProfession.query.filter_by(contact_id=contact.id).delete()
         db.session.flush()

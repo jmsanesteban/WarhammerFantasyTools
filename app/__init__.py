@@ -422,6 +422,7 @@ def _register_cli_commands(app):
                 ('lugar_trabajo', 'TEXT NULL'),
                 ('lugar_ocio', 'TEXT NULL'),
                 ('notas_director', 'TEXT NULL'),
+                ('notas_generales', 'TEXT NULL'),
             ]
             with db.engine.begin() as conn:
                 for col_name, col_def in contact_new_columns_v3:

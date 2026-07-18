@@ -42,6 +42,10 @@ class Contact(db.Model):
     # ContactNote, que es privada POR PERSONAJE; esto es una única nota
     # global del director sobre el contacto.
     notas_director = db.Column(db.Text, nullable=True)
+    # Notas visibles para cualquiera que pueda ver el contacto (a diferencia de
+    # notas_director, que es solo para admin, y ContactNote, que es privada
+    # por personaje).
+    notas_generales = db.Column(db.Text, nullable=True)
     image_path = db.Column(db.String(300), nullable=True)
     is_visible = db.Column(db.Boolean, default=True, nullable=False)
     created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)

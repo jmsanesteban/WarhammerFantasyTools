@@ -102,6 +102,11 @@
             <input type="file" name="image" class="form-control wh-input" accept="image/*">
           </div>
           <div class="col-12">
+            <label class="form-label wh-label">Notas generales</label>
+            <textarea name="notas_generales" class="form-control wh-input" rows="3"
+                      placeholder="Visibles para cualquiera que pueda ver este contacto">{{ contact.notas_generales or '' }}</textarea>
+          </div>
+          <div class="col-12">
             <label class="form-label wh-label">Notas del director</label>
             <textarea name="notas_director" class="form-control wh-input" rows="3"
                       placeholder="Solo visibles para el director de juego">{{ contact.notas_director or '' }}</textarea>
