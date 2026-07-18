@@ -1,10 +1,20 @@
 """Tests for the career pathfinder: graph building, path search, and the
 accumulated-stats computation (max-across-path rule for characteristics,
 deduplication of skills/talents/trappings across the path)."""
+import pytest
+
 from app.services.pathfinder_service import (
     build_graph, find_paths, find_path_with_waypoints, compute_path_stats,
 )
 from app.models.profession import ProfessionSkill, ProfessionTalent, ProfessionTrapping
+
+
+@pytest.fixture
+def client(client, regular_user, login_as):
+    """Every test in this file gets a logged-in client by default - use
+    `anon_client` for tests that need to assert anonymous/logged-out behaviour."""
+    login_as(client, regular_user, 'userpass123')
+    return client
 
 
 def _link_exit(db, source, target):
@@ -225,7 +235,13 @@ def test_compute_path_stats_builds_steps_in_path_order(db, make_profession):
 
 # ── Route-level tests ────────────────────────────────────────────────────────
 
-def test_pathfinder_index_is_public(client):
+def test_pathfinder_index_requires_login(anon_client):
+    resp = anon_client.get('/buscador/')
+    assert resp.status_code == 302
+    assert '/auth/login' in resp.headers['Location']
+
+
+def test_pathfinder_index_visible_to_logged_in_user(client):
     resp = client.get('/buscador/')
     assert resp.status_code == 200
 

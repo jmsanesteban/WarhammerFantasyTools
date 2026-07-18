@@ -16,6 +16,7 @@ professions_bp = Blueprint('professions', __name__, template_folder='../template
 
 
 @professions_bp.route('/')
+@require_permission('professions.view')
 def list_professions():
     type_filter = request.args.get('type', '')
     search = request.args.get('q', '').strip()
@@ -30,6 +31,7 @@ def list_professions():
 
 
 @professions_bp.route('/<int:prof_id>')
+@require_permission('professions.view')
 def detail(prof_id):
     prof = Profession.query.get_or_404(prof_id)
     return render_template('professions/detail.html', prof=prof)

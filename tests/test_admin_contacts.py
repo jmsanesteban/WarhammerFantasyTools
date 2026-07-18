@@ -1,8 +1,9 @@
 """Tests for admin-only Contacts management: contact CRUD/listing/toggle/
-delete, editing global fields (admin-only since the 2026-07-16 rework — no
-more per-character visibility grants, no more creator-can-edit exception),
-and Excel import/export against the fixed-column schema (nombre,
-es_untersuchung, profesiones)."""
+delete, editing global fields (gated by the contacts.edit permission since
+2026-07-18's permission-system rollout — no per-character visibility grants,
+no creator-can-edit exception; a non-admin needs contacts.edit, which admins
+always have), and Excel import/export against the fixed-column schema
+(nombre, es_untersuchung, profesiones)."""
 import io
 import openpyxl
 from app.models.contact import Contact, ContactProfession
@@ -19,9 +20,9 @@ def test_admin_contacts_listing_requires_admin(client, regular_user, login_as):
 
 # ── Editar datos globales (admin-only) ───────────────────────────────────────
 
-def test_edit_contact_requires_admin(client, regular_user, make_contact, login_as):
+def test_edit_contact_requires_permission(client, bare_user, make_contact, login_as):
     contact = make_contact()
-    login_as(client, regular_user, 'userpass123')
+    login_as(client, bare_user, 'userpass123')
     resp = client.get(f'/contactos/{contact.id}/editar')
     assert resp.status_code == 403
 
@@ -82,12 +83,12 @@ def test_edit_contact_toggles_is_visible(db, client, admin_user, make_contact, l
     assert contact.is_visible is False
 
 
-def test_edit_contact_blocks_non_admin_even_if_creator(db, client, regular_user, make_contact, login_as):
-    """Creation/edition of the contact's own global data is admin-only
-    regardless of who registered it - the old creator-can-edit exception is
-    gone since the 2026-07-16 rework."""
-    contact = make_contact(nombre='Contacto propio', created_by=regular_user)
-    login_as(client, regular_user, 'userpass123')
+def test_edit_contact_blocks_non_admin_even_if_creator(db, client, bare_user, make_contact, login_as):
+    """Creation/edition of the contact's own global data requires the
+    contacts.edit permission regardless of who registered it - the old
+    creator-can-edit exception is gone since the 2026-07-16 rework."""
+    contact = make_contact(nombre='Contacto propio', created_by=bare_user)
+    login_as(client, bare_user, 'userpass123')
 
     resp = client.get(f'/contactos/{contact.id}/editar')
     assert resp.status_code == 403
@@ -98,10 +99,10 @@ def test_edit_contact_blocks_non_admin_even_if_creator(db, client, regular_user,
     assert contact.nombre == 'Contacto propio'
 
 
-def test_edit_contact_blocks_non_creator_non_admin(client, regular_user, make_user, make_contact, login_as):
+def test_edit_contact_blocks_non_creator_non_admin(client, bare_user, make_user, make_contact, login_as):
     other = make_user('otro_usuario', 'otropass123')
     contact = make_contact(nombre='De otro usuario', created_by=other)
-    login_as(client, regular_user, 'userpass123')
+    login_as(client, bare_user, 'userpass123')
     resp = client.get(f'/contactos/{contact.id}/editar')
     assert resp.status_code == 403
 

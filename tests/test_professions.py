@@ -1,7 +1,17 @@
 """Tests for professions: listing, detail, CRUD, permission gating,
 and exits/entries (career links)."""
+import pytest
+
 from app.models.profession import Profession
 from app.models.permission import Permission
+
+
+@pytest.fixture
+def client(client, regular_user, login_as):
+    """Every test in this file gets a logged-in client by default - use
+    `anon_client` for tests that need to assert anonymous/logged-out behaviour."""
+    login_as(client, regular_user, 'userpass123')
+    return client
 
 
 def _grant(db, user, code):
@@ -9,7 +19,14 @@ def _grant(db, user, code):
     db.session.commit()
 
 
-def test_list_professions_is_public(client, make_profession):
+def test_list_professions_requires_login(anon_client, make_profession):
+    make_profession(name='Alborotador')
+    resp = anon_client.get('/profesiones/')
+    assert resp.status_code == 302
+    assert '/auth/login' in resp.headers['Location']
+
+
+def test_list_professions_visible_to_logged_in_user(client, make_profession):
     make_profession(name='Alborotador')
     resp = client.get('/profesiones/')
     assert resp.status_code == 200
@@ -32,7 +49,14 @@ def test_list_professions_filters_by_search(client, make_profession):
     assert b'Caballero' not in resp.data
 
 
-def test_detail_is_public(client, make_profession):
+def test_detail_requires_login(anon_client, make_profession):
+    prof = make_profession(name='Alborotador')
+    resp = anon_client.get(f'/profesiones/{prof.id}')
+    assert resp.status_code == 302
+    assert '/auth/login' in resp.headers['Location']
+
+
+def test_detail_visible_to_logged_in_user(client, make_profession):
     prof = make_profession(name='Alborotador')
     resp = client.get(f'/profesiones/{prof.id}')
     assert resp.status_code == 200
@@ -44,15 +68,15 @@ def test_detail_404_for_unknown_profession(client):
     assert resp.status_code == 404
 
 
-def test_create_requires_login(client):
-    resp = client.get('/profesiones/nueva')
+def test_create_requires_login(anon_client):
+    resp = anon_client.get('/profesiones/nueva')
     assert resp.status_code == 302
     assert '/auth/login' in resp.headers['Location']
 
 
-def test_create_requires_permission(client, regular_user, login_as):
-    login_as(client, regular_user, 'userpass123')
-    resp = client.get('/profesiones/nueva')
+def test_create_requires_permission(anon_client, bare_user, login_as):
+    login_as(anon_client, bare_user, 'userpass123')
+    resp = anon_client.get('/profesiones/nueva')
     assert resp.status_code == 403
 
 
@@ -133,10 +157,10 @@ def test_create_profession_with_exits(db, client, admin_user, login_as, make_pro
     assert prof in target.entries
 
 
-def test_edit_requires_permission(client, regular_user, login_as, make_profession):
+def test_edit_requires_permission(anon_client, bare_user, login_as, make_profession):
     prof = make_profession(name='Alborotador')
-    login_as(client, regular_user, 'userpass123')
-    resp = client.get(f'/profesiones/{prof.id}/editar')
+    login_as(anon_client, bare_user, 'userpass123')
+    resp = anon_client.get(f'/profesiones/{prof.id}/editar')
     assert resp.status_code == 403
 
 
@@ -175,10 +199,10 @@ def test_edit_replaces_skills_and_talents(db, client, admin_user, login_as, make
     assert skill_ids == {skill2.id}
 
 
-def test_delete_requires_permission(db, client, regular_user, login_as, make_profession):
+def test_delete_requires_permission(db, anon_client, bare_user, login_as, make_profession):
     prof = make_profession(name='Alborotador')
-    login_as(client, regular_user, 'userpass123')
-    resp = client.post(f'/profesiones/{prof.id}/eliminar')
+    login_as(anon_client, bare_user, 'userpass123')
+    resp = anon_client.post(f'/profesiones/{prof.id}/eliminar')
     assert resp.status_code == 403
     assert db.session.get(Profession, prof.id) is not None
 
@@ -209,9 +233,9 @@ def test_delete_profession_cascades_relations(db, client, admin_user, login_as, 
 
 # ── Backup: exportar/importar ───────────────────────────────────────────────
 
-def test_export_requires_permission(client, regular_user, login_as):
-    login_as(client, regular_user, 'userpass123')
-    resp = client.get('/profesiones/exportar')
+def test_export_requires_permission(anon_client, bare_user, login_as):
+    login_as(anon_client, bare_user, 'userpass123')
+    resp = anon_client.get('/profesiones/exportar')
     assert resp.status_code == 403
 
 
@@ -234,9 +258,9 @@ def test_export_returns_json_with_nested_data(db, client, regular_user, login_as
     assert row['skills'] == [{'skill_name': 'Percepción', 'specialization': None, 'choice_group': None}]
 
 
-def test_import_requires_permission(client, regular_user, login_as):
-    login_as(client, regular_user, 'userpass123')
-    resp = client.get('/profesiones/importar')
+def test_import_requires_permission(anon_client, bare_user, login_as):
+    login_as(anon_client, bare_user, 'userpass123')
+    resp = anon_client.get('/profesiones/importar')
     assert resp.status_code == 403
 
 

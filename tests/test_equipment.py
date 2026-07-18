@@ -5,8 +5,19 @@ import io
 import json
 import os
 
+import pytest
+
 from app.models.equipment import EquipmentItem
 from app.models.permission import Permission
+
+
+@pytest.fixture
+def client(client, regular_user, login_as):
+    """Every test in this file gets a logged-in client by default (matches
+    the pre-permission-system baseline) - use `anon_client` for the specific
+    tests that need to assert anonymous/logged-out behaviour."""
+    login_as(client, regular_user, 'userpass123')
+    return client
 
 
 def _grant(db, user, code):
@@ -16,7 +27,14 @@ def _grant(db, user, code):
 
 # ── Listing / filters ────────────────────────────────────────────────────────
 
-def test_list_is_public(client, make_equipment_item):
+def test_list_requires_login(anon_client, make_equipment_item):
+    make_equipment_item(name='Daga')
+    resp = anon_client.get('/equipamiento/')
+    assert resp.status_code == 302
+    assert '/auth/login' in resp.headers['Location']
+
+
+def test_list_visible_to_logged_in_user(client, make_equipment_item):
     make_equipment_item(name='Daga')
     resp = client.get('/equipamiento/')
     assert resp.status_code == 200
@@ -285,7 +303,14 @@ def test_peso_for_quality_parses_dual_agilidad_values():
 
 # ── Detail ───────────────────────────────────────────────────────────────────
 
-def test_detail_is_public(client, make_equipment_item):
+def test_detail_requires_login(anon_client, make_equipment_item):
+    item = make_equipment_item(name='Daga')
+    resp = anon_client.get(f'/equipamiento/{item.id}')
+    assert resp.status_code == 302
+    assert '/auth/login' in resp.headers['Location']
+
+
+def test_detail_visible_to_logged_in_user(client, make_equipment_item):
     item = make_equipment_item(name='Daga', stats={'daño': '1D6+1'}, description='Lanzable.')
     resp = client.get(f'/equipamiento/{item.id}')
     assert resp.status_code == 200
@@ -308,15 +333,15 @@ def test_detail_shows_base_item_link_for_special_items(client, make_equipment_it
 
 # ── Permission gating ────────────────────────────────────────────────────────
 
-def test_create_requires_login(client):
-    resp = client.get('/equipamiento/nuevo')
+def test_create_requires_login(anon_client):
+    resp = anon_client.get('/equipamiento/nuevo')
     assert resp.status_code == 302
     assert '/auth/login' in resp.headers['Location']
 
 
-def test_create_requires_permission(client, regular_user, login_as):
-    login_as(client, regular_user, 'userpass123')
-    resp = client.get('/equipamiento/nuevo')
+def test_create_requires_permission(anon_client, bare_user, login_as):
+    login_as(anon_client, bare_user, 'userpass123')
+    resp = anon_client.get('/equipamiento/nuevo')
     assert resp.status_code == 403
 
 
@@ -393,10 +418,10 @@ def test_image_ignored_for_clothing(db, client, admin_user, login_as):
     assert item.image_path is None
 
 
-def test_delete_requires_permission(client, regular_user, login_as, make_equipment_item):
+def test_delete_requires_permission(anon_client, bare_user, login_as, make_equipment_item):
     item = make_equipment_item(name='Daga')
-    login_as(client, regular_user, 'userpass123')
-    resp = client.post(f'/equipamiento/{item.id}/eliminar')
+    login_as(anon_client, bare_user, 'userpass123')
+    resp = anon_client.post(f'/equipamiento/{item.id}/eliminar')
     assert resp.status_code == 403
 
 
@@ -410,9 +435,9 @@ def test_delete_item(db, client, admin_user, login_as, make_equipment_item):
 
 # ── Backup: exportar/importar ────────────────────────────────────────────────
 
-def test_export_requires_permission(client, regular_user, login_as):
-    login_as(client, regular_user, 'userpass123')
-    resp = client.get('/equipamiento/exportar')
+def test_export_requires_permission(anon_client, bare_user, login_as):
+    login_as(anon_client, bare_user, 'userpass123')
+    resp = anon_client.get('/equipamiento/exportar')
     assert resp.status_code == 403
 
 
@@ -474,9 +499,9 @@ def test_import_wires_base_item_by_name_and_category(db, client, admin_user, log
 
 # ── Bulk custom_fields editor ────────────────────────────────────────────────
 
-def test_bulk_fields_requires_permission(client, regular_user, login_as):
-    login_as(client, regular_user, 'userpass123')
-    resp = client.get('/equipamiento/campos-en-bloque')
+def test_bulk_fields_requires_permission(anon_client, bare_user, login_as):
+    login_as(anon_client, bare_user, 'userpass123')
+    resp = anon_client.get('/equipamiento/campos-en-bloque')
     assert resp.status_code == 403
 
 

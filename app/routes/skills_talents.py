@@ -43,6 +43,7 @@ def _check_name_collision(model, name_es: str, exclude_id: int = None):
 # ─────────────────────────────────────────────────────────────────────────────
 
 @skills_talents_bp.route('/habilidades')
+@require_permission('skills.view')
 def list_skills():
     search     = request.args.get('q', '').strip()
     search_all = request.args.get('search_all', '0') == '1'
@@ -144,6 +145,7 @@ def _search_by_specialization(assoc_model, catalog_model, catalog_field_name, q)
 
 
 @skills_talents_bp.route('/habilidades/buscar')
+@require_permission('skills.view')
 def search_skills():
     skills = Skill.query.order_by(Skill.name_es).all()
     options = [{'id': s.id, 'name': s.name_es} for s in skills]
@@ -155,6 +157,7 @@ def search_skills():
 
 
 @skills_talents_bp.route('/habilidades/<int:skill_id>')
+@require_permission('skills.view')
 def skill_detail(skill_id):
     skill    = Skill.query.get_or_404(skill_id)
     prof_ids = [ps.profession_id for ps in ProfessionSkill.query.filter_by(skill_id=skill_id).all()]
@@ -333,6 +336,7 @@ def export_skills():
 # ─────────────────────────────────────────────────────────────────────────────
 
 @skills_talents_bp.route('/talentos')
+@require_permission('skills.view')
 def list_talents():
     search     = request.args.get('q', '').strip()
     search_all = request.args.get('search_all', '0') == '1'
@@ -355,6 +359,7 @@ def list_talents():
 
 
 @skills_talents_bp.route('/talentos/buscar')
+@require_permission('skills.view')
 def search_talents():
     talents = Talent.query.order_by(Talent.name_es).all()
     options = [{'id': t.id, 'name': t.name_es} for t in talents]
@@ -366,6 +371,7 @@ def search_talents():
 
 
 @skills_talents_bp.route('/talentos/<int:talent_id>')
+@require_permission('skills.view')
 def talent_detail(talent_id):
     talent   = Talent.query.get_or_404(talent_id)
     prof_ids = [pt.profession_id for pt in ProfessionTalent.query.filter_by(talent_id=talent_id).all()]

@@ -1,9 +1,19 @@
 """Tests for skills and talents: listing/search, CRUD, permission gating,
 and plain-text import/export."""
 import io
+import pytest
+
 from app.models.skill import Skill
 from app.models.talent import Talent
 from app.models.permission import Permission
+
+
+@pytest.fixture
+def client(client, regular_user, login_as):
+    """Every test in this file gets a logged-in client by default - use
+    `anon_client` for tests that need to assert anonymous/logged-out behaviour."""
+    login_as(client, regular_user, 'userpass123')
+    return client
 
 
 def _grant(db, user, code):
@@ -13,7 +23,14 @@ def _grant(db, user, code):
 
 # ── Skills ───────────────────────────────────────────────────────────────────
 
-def test_list_skills_is_public(client, make_skill):
+def test_list_skills_requires_login(anon_client, make_skill):
+    make_skill(name_es='Percepción')
+    resp = anon_client.get('/habilidades')
+    assert resp.status_code == 302
+    assert '/auth/login' in resp.headers['Location']
+
+
+def test_list_skills_visible_to_logged_in_user(client, make_skill):
     make_skill(name_es='Percepción')
     resp = client.get('/habilidades')
     assert resp.status_code == 200
@@ -103,9 +120,9 @@ def test_search_skills_by_text_no_match_reports_empty(client):
     assert 'Sin resultados'.encode('utf-8') in resp.data
 
 
-def test_create_skill_requires_permission(client, regular_user, login_as):
-    login_as(client, regular_user, 'userpass123')
-    resp = client.get('/habilidades/nueva')
+def test_create_skill_requires_permission(anon_client, bare_user, login_as):
+    login_as(anon_client, bare_user, 'userpass123')
+    resp = anon_client.get('/habilidades/nueva')
     assert resp.status_code == 403
 
 
@@ -163,10 +180,10 @@ def test_edit_skill_blocks_rename_into_existing_duplicate(db, client, admin_user
     assert other.name_es == 'Callejeo'
 
 
-def test_delete_skill_requires_permission(client, regular_user, login_as, make_skill):
+def test_delete_skill_requires_permission(anon_client, bare_user, login_as, make_skill):
     skill = make_skill(name_es='Percepción')
-    login_as(client, regular_user, 'userpass123')
-    resp = client.post(f'/habilidades/{skill.id}/eliminar')
+    login_as(anon_client, bare_user, 'userpass123')
+    resp = anon_client.post(f'/habilidades/{skill.id}/eliminar')
     assert resp.status_code == 403
 
 
@@ -261,7 +278,14 @@ def test_export_skills_requires_admin(client, regular_user, login_as):
 
 # ── Talents ──────────────────────────────────────────────────────────────────
 
-def test_list_talents_is_public(client, make_talent):
+def test_list_talents_requires_login(anon_client, make_talent):
+    make_talent(name_es='Ambidiestro')
+    resp = anon_client.get('/talentos')
+    assert resp.status_code == 302
+    assert '/auth/login' in resp.headers['Location']
+
+
+def test_list_talents_visible_to_logged_in_user(client, make_talent):
     make_talent(name_es='Ambidiestro')
     resp = client.get('/talentos')
     assert resp.status_code == 200
@@ -302,9 +326,9 @@ def test_search_talents_by_specialization_text(client, make_talent, make_profess
     assert b'Especialista en armas (Esgrima)' in resp.data
 
 
-def test_create_talent_requires_permission(client, regular_user, login_as):
-    login_as(client, regular_user, 'userpass123')
-    resp = client.get('/talentos/nuevo')
+def test_create_talent_requires_permission(anon_client, bare_user, login_as):
+    login_as(anon_client, bare_user, 'userpass123')
+    resp = anon_client.get('/talentos/nuevo')
     assert resp.status_code == 403
 
 

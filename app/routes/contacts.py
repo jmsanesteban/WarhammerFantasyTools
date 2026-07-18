@@ -15,7 +15,7 @@ from app.models.contact_character_link import (
 )
 from app.models.contact_note import ContactNote
 from app.services import salary_service
-from app.utils import admin_required
+from app.utils import require_permission
 
 contacts_bp = Blueprint('contacts', __name__, template_folder='../templates')
 
@@ -217,7 +217,7 @@ def _active_character():
 
 
 @contacts_bp.route('/')
-@login_required
+@require_permission('contacts.view')
 def index():
     """Global listing (2026-07-17): no more "view as this character" picker
     here - the active character is a persisted per-user setting now, read
@@ -261,7 +261,7 @@ def index():
 
 
 @contacts_bp.route('/vinculos')
-@login_required
+@require_permission('contacts.vinculos')
 def vinculos():
     """All contact<->character links (2026-07-17, moved out of admin.py -
     no longer admin-only). Non-admins default to only their own active
@@ -315,8 +315,7 @@ def vinculos():
 
 
 @contacts_bp.route('/nuevo', methods=['GET', 'POST'])
-@login_required
-@admin_required
+@require_permission('contacts.edit')
 def new():
     """Contact creation is admin-only (2026-07-16 rework) - the admin only
     fills in the contact's global facts here; each character adds their own
@@ -383,7 +382,7 @@ def _link_fields_from_form():
 
 
 @contacts_bp.route('/<int:contact_id>')
-@login_required
+@require_permission('contacts.view')
 def detail(contact_id):
     contact = Contact.query.get_or_404(contact_id)
     characters = _selectable_characters()
@@ -447,7 +446,7 @@ def detail(contact_id):
 # ── Vínculo personaje-contacto ──────────────────────────────────────────────
 
 @contacts_bp.route('/<int:contact_id>/vinculo', methods=['POST'])
-@login_required
+@require_permission('contacts.vinculos')
 def link_save(contact_id):
     contact = Contact.query.get_or_404(contact_id)
     characters = _selectable_characters()
@@ -470,7 +469,7 @@ def link_save(contact_id):
 
 
 @contacts_bp.route('/<int:contact_id>/vinculo/eliminar', methods=['POST'])
-@login_required
+@require_permission('contacts.vinculos')
 def link_delete(contact_id):
     contact = Contact.query.get_or_404(contact_id)
     characters = _selectable_characters()
@@ -493,7 +492,7 @@ def _note_owner_character(note):
 
 
 @contacts_bp.route('/<int:contact_id>/notas', methods=['POST'])
-@login_required
+@require_permission('contacts.vinculos')
 def note_create(contact_id):
     contact = Contact.query.get_or_404(contact_id)
     characters = _selectable_characters()
@@ -512,7 +511,7 @@ def note_create(contact_id):
 
 
 @contacts_bp.route('/<int:contact_id>/notas/<int:note_id>/editar', methods=['POST'])
-@login_required
+@require_permission('contacts.vinculos')
 def note_edit(contact_id, note_id):
     note = ContactNote.query.get_or_404(note_id)
     if note.contact_id != contact_id:
@@ -530,7 +529,7 @@ def note_edit(contact_id, note_id):
 
 
 @contacts_bp.route('/<int:contact_id>/notas/<int:note_id>/eliminar', methods=['POST'])
-@login_required
+@require_permission('contacts.vinculos')
 def note_delete(contact_id, note_id):
     note = ContactNote.query.get_or_404(note_id)
     if note.contact_id != contact_id:
@@ -547,8 +546,7 @@ def note_delete(contact_id, note_id):
 # ── Edición de datos globales (admin) ───────────────────────────────────────
 
 @contacts_bp.route('/<int:contact_id>/editar', methods=['GET', 'POST'])
-@login_required
-@admin_required
+@require_permission('contacts.edit')
 def edit(contact_id):
     contact = Contact.query.get_or_404(contact_id)
     professions = Profession.query.order_by(Profession.name).all()

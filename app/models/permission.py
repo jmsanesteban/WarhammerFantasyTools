@@ -61,22 +61,31 @@ ALL_PERMISSIONS = [
     ('pathfinder.use',     'Buscador de caminos',    'Buscar rutas entre profesiones',                          'pathfinder'),
     ('characters.view',    'Ver personajes',         'Consultar personajes propios',                            'characters'),
     ('characters.edit',    'Editar personajes',      'Crear y editar personajes propios',                       'characters'),
-    ('contacts.view',      'Ver contactos',          'Consultar listado y ficha de contactos',                  'contacts'),
-    ('contacts.edit',      'Editar contactos',       'Crear contactos y editar el propio vínculo de un personaje', 'contacts'),
+    ('contacts.view',      'Ver contactos',          'Consultar listado y ficha de contactos visibles',         'contacts'),
+    ('contacts.edit',      'Editar contactos',       'Crear, editar y eliminar contactos (no incluye el vínculo propio de personaje)', 'contacts'),
     ('contacts.import',    'Importar contactos',     'Importar/exportar contactos desde Excel',                 'contacts'),
+    ('contacts.vinculos',  'Vínculos con contactos', 'Ver/editar el vínculo y notas propias de un personaje con un contacto, y la pantalla Vínculos', 'contacts'),
     ('users.manage',       'Gestionar usuarios',     'Asignar plantillas y permisos a otros usuarios (no convertir en admin)', 'admin'),
     ('equipment.view',     'Ver equipamiento',       'Consultar catálogo de armas, armaduras, ropas y objetos especiales', 'equipment'),
     ('equipment.edit',     'Editar equipamiento',    'Crear, editar y eliminar objetos del catálogo de equipamiento', 'equipment'),
     ('equipment.import',   'Importar equipamiento',  'Importar/exportar el catálogo de equipamiento en JSON',    'equipment'),
+    ('food.view',          'Ver comida y bebida',    'Consultar bebidas, recetas, ingredientes, métodos de cocina y normas', 'food'),
+    ('food.propose',       'Proponer recetas',       'Proponer recetas propias y consultar su estado',          'food'),
 ]
 
 # Default templates seeded on first run.
 DEFAULT_TEMPLATES = [
     # (name, description, [permission_codes])
     (
+        'Jugador',
+        'Plantilla por defecto para usuarios nuevos: personajes propios y contactos visibles',
+        ['characters.view', 'characters.edit', 'contacts.view', 'contacts.vinculos'],
+    ),
+    (
         'Lector',
         'Acceso de solo consulta a todas las secciones públicas',
-        ['professions.view', 'skills.view', 'pathfinder.use', 'characters.view', 'contacts.view', 'equipment.view'],
+        ['professions.view', 'skills.view', 'pathfinder.use', 'characters.view', 'contacts.view',
+         'contacts.vinculos', 'equipment.view', 'food.view'],
     ),
     (
         'Editor',
@@ -84,8 +93,9 @@ DEFAULT_TEMPLATES = [
         ['professions.view', 'professions.edit', 'professions.import',
          'skills.view', 'skills.edit', 'pathfinder.use',
          'characters.view', 'characters.edit',
-         'contacts.view', 'contacts.edit', 'contacts.import',
-         'equipment.view', 'equipment.edit', 'equipment.import'],
+         'contacts.view', 'contacts.edit', 'contacts.import', 'contacts.vinculos',
+         'equipment.view', 'equipment.edit', 'equipment.import',
+         'food.view', 'food.propose'],
     ),
     (
         'Gestor',
@@ -93,26 +103,40 @@ DEFAULT_TEMPLATES = [
         ['professions.view', 'professions.edit', 'professions.import',
          'skills.view', 'skills.edit', 'pathfinder.use',
          'characters.view', 'characters.edit',
-         'contacts.view', 'contacts.edit', 'contacts.import',
-         'equipment.view', 'equipment.edit', 'equipment.import', 'users.manage'],
+         'contacts.view', 'contacts.edit', 'contacts.import', 'contacts.vinculos',
+         'equipment.view', 'equipment.edit', 'equipment.import',
+         'food.view', 'food.propose', 'users.manage'],
     ),
 ]
 
 
 def seed_permissions_and_templates():
-    """Idempotent: insert any missing permissions and create default templates."""
+    """Idempotent: insert any missing permissions, keep existing ones' name/
+    description in sync, create default templates, and backfill newly-added
+    permission codes into already-existing default templates (additive only -
+    never removes a code an admin may have deliberately unchecked)."""
     for code, name, description, module in ALL_PERMISSIONS:
-        if not db.session.get(Permission, code):
+        existing = db.session.get(Permission, code)
+        if not existing:
             db.session.add(Permission(
                 code=code, name=name, description=description, module=module
             ))
+        elif existing.name != name or existing.description != description:
+            existing.name = name
+            existing.description = description
     db.session.flush()
 
     for t_name, t_desc, codes in DEFAULT_TEMPLATES:
-        if not PermissionTemplate.query.filter_by(name=t_name).first():
-            perms = [db.session.get(Permission, c) for c in codes]
-            perms = [p for p in perms if p]
+        template = PermissionTemplate.query.filter_by(name=t_name).first()
+        perms = [db.session.get(Permission, c) for c in codes]
+        perms = [p for p in perms if p]
+        if not template:
             db.session.add(PermissionTemplate(
                 name=t_name, description=t_desc, permissions=perms
             ))
+        else:
+            existing_codes = {p.code for p in template.permissions}
+            for p in perms:
+                if p.code not in existing_codes:
+                    template.permissions.append(p)
     db.session.commit()

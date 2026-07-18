@@ -3,6 +3,7 @@ from flask_login import login_user, logout_user, login_required, current_user
 from app.extensions import db
 from app.models.user import User
 from app.models.character import Character
+from app.models.permission import PermissionTemplate
 
 auth_bp = Blueprint('auth', __name__, template_folder='../templates')
 
@@ -74,6 +75,7 @@ def register():
         else:
             user = User(username=username, email=email, role='user')
             user.set_password(password)
+            user.template = PermissionTemplate.query.filter_by(name='Jugador').first()
             db.session.add(user)
             db.session.commit()
             login_user(user)

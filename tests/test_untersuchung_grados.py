@@ -106,8 +106,8 @@ def test_new_contact_con_marca_grado_auto_sets_es_untersuchung(db, client, admin
     assert contact.grados_untersuchung == ['Gato']
 
 
-def test_new_contact_forbidden_for_non_admin(db, client, regular_user, login_as):
-    login_as(client, regular_user, 'userpass123')
+def test_new_contact_forbidden_for_non_admin(db, client, bare_user, login_as):
+    login_as(client, bare_user, 'userpass123')
 
     resp = client.post('/contactos/nuevo', data={'nombre': 'Intento no-admin'})
     assert resp.status_code == 403
@@ -155,9 +155,9 @@ def test_edit_contact_grados_capped_at_three_slots_within_agente(db, client, adm
     assert contact.grados_untersuchung == ['Escudo', 'Gato', 'Brújula']
 
 
-def test_edit_contact_forbidden_for_non_admin(db, client, regular_user, make_contact, login_as):
+def test_edit_contact_forbidden_for_non_admin(db, client, bare_user, make_contact, login_as):
     contact = make_contact(nombre='No editable')
-    login_as(client, regular_user, 'userpass123')
+    login_as(client, bare_user, 'userpass123')
 
     resp = client.post(f'/contactos/{contact.id}/editar', data={'nombre': 'Hackeado'})
     assert resp.status_code == 403

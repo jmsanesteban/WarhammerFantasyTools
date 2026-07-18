@@ -119,8 +119,8 @@ def test_search_filters_by_nombre(client, regular_user, login_as, make_contact):
 
 # ── Creación/edición de contactos (admin-only desde el rework) ──────────────
 
-def test_new_contact_is_admin_only(db, client, regular_user, login_as):
-    login_as(client, regular_user, 'userpass123')
+def test_new_contact_requires_permission(db, client, bare_user, login_as):
+    login_as(client, bare_user, 'userpass123')
     resp = client.post('/contactos/nuevo', data={'nombre': 'Intento'})
     assert resp.status_code == 403
     assert Contact.query.filter_by(nombre='Intento').first() is None
@@ -165,9 +165,9 @@ def test_new_contact_requires_nombre(db, client, admin_user, login_as):
     assert Contact.query.count() == 0
 
 
-def test_edit_contact_is_admin_only(db, client, regular_user, login_as, make_contact):
+def test_edit_contact_requires_permission(db, client, bare_user, login_as, make_contact):
     contact = make_contact(nombre='Original')
-    login_as(client, regular_user, 'userpass123')
+    login_as(client, bare_user, 'userpass123')
     resp = client.post(f'/contactos/{contact.id}/editar', data={'nombre': 'Hackeado'})
     assert resp.status_code == 403
     db.session.refresh(contact)

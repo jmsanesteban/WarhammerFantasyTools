@@ -9,19 +9,19 @@ def test_admin_has_every_permission(db, admin_user):
     assert admin_user.effective_perm_codes() == {'*'}
 
 
-def test_regular_user_has_no_permission_by_default(db, regular_user):
-    assert not regular_user.has_perm('professions.edit')
-    assert regular_user.effective_perm_codes() == set()
+def test_regular_user_has_no_permission_by_default(db, bare_user):
+    assert not bare_user.has_perm('professions.edit')
+    assert bare_user.effective_perm_codes() == set()
 
 
-def test_direct_permission_grants_access(db, regular_user):
+def test_direct_permission_grants_access(db, bare_user):
     perm = db.session.get(Permission, 'professions.edit')
-    regular_user.direct_permissions.append(perm)
+    bare_user.direct_permissions.append(perm)
     db.session.commit()
 
-    assert regular_user.has_perm('professions.edit')
-    assert not regular_user.has_perm('skills.edit')
-    assert regular_user.effective_perm_codes() == {'professions.edit'}
+    assert bare_user.has_perm('professions.edit')
+    assert not bare_user.has_perm('skills.edit')
+    assert bare_user.effective_perm_codes() == {'professions.edit'}
 
 
 def test_template_permission_grants_access(db, regular_user):
@@ -53,16 +53,16 @@ def test_require_permission_redirects_anonymous_to_login(client):
     assert '/auth/login' in resp.headers['Location']
 
 
-def test_require_permission_blocks_user_without_permission(client, regular_user, login_as):
-    login_as(client, regular_user, 'userpass123')
+def test_require_permission_blocks_user_without_permission(client, bare_user, login_as):
+    login_as(client, bare_user, 'userpass123')
     resp = client.get('/profesiones/nueva')
     assert resp.status_code == 403
 
 
-def test_require_permission_allows_user_with_direct_permission(db, client, regular_user, login_as):
-    regular_user.direct_permissions.append(db.session.get(Permission, 'professions.edit'))
+def test_require_permission_allows_user_with_direct_permission(db, client, bare_user, login_as):
+    bare_user.direct_permissions.append(db.session.get(Permission, 'professions.edit'))
     db.session.commit()
-    login_as(client, regular_user, 'userpass123')
+    login_as(client, bare_user, 'userpass123')
     resp = client.get('/profesiones/nueva')
     assert resp.status_code == 200
 

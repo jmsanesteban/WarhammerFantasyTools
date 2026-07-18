@@ -37,13 +37,34 @@ def client(app):
     return app.test_client()
 
 
+@pytest.fixture
+def anon_client(app):
+    """A definitely-unauthenticated test client - use this (instead of
+    `client`) in test files that override `client` to auto-login a user, for
+    the specific tests that need to assert anonymous/logged-out behaviour."""
+    return app.test_client()
+
+
 # ── Model factories ──────────────────────────────────────────────────────────
+
+_UNSET = object()
+
 
 @pytest.fixture
 def make_user(db):
     def _make(username='user1', email=None, password='password123',
-              role='user', active=True, template=None, **kwargs):
+              role='user', active=True, template=_UNSET, **kwargs):
+        """template defaults to the 'Editor' template (view+edit everything
+        except user management) - matches the pre-permission-system baseline
+        that most of the test suite assumes ("a logged-in user can use every
+        feature"). Pass template=None explicitly for a zero-permission user
+        (see `bare_user`), or a specific PermissionTemplate/name otherwise."""
         from app.models.user import User
+        from app.models.permission import PermissionTemplate
+        if template is _UNSET:
+            template = PermissionTemplate.query.filter_by(name='Editor').first()
+        elif isinstance(template, str):
+            template = PermissionTemplate.query.filter_by(name=template).first()
         user = User(
             username=username,
             email=email or f'{username}@example.com',
@@ -66,7 +87,18 @@ def admin_user(make_user):
 
 @pytest.fixture
 def regular_user(make_user):
+    """A logged-in user with the default (Editor) permission template - see
+    `make_user`. Tests that specifically need a zero-permission user (to test
+    the permission system's deny-by-default behaviour) should use `bare_user`
+    instead - see test_permissions.py."""
     return make_user(username='regular1', role='user', password='userpass123')
+
+
+@pytest.fixture
+def bare_user(make_user):
+    """A logged-in user with zero permissions and no template - for testing
+    the permission system's deny-by-default behavior itself."""
+    return make_user(username='bare1', role='user', password='userpass123', template=None)
 
 
 @pytest.fixture
@@ -175,6 +207,12 @@ def make_contact_note(db):
 # ── Auth helpers ─────────────────────────────────────────────────────────────
 
 def login(client, username, password):
+    # Log out first: the login route redirects away without checking
+    # credentials when the session is already authenticated (see auth.login),
+    # which would silently keep the previous identity if a test (or a
+    # per-file `client` fixture override that auto-logs-in a default user)
+    # tries to switch to a different user mid-test.
+    client.get('/auth/logout')
     return client.post('/auth/login', data={'username': username, 'password': password},
                        follow_redirects=True)
 

@@ -87,6 +87,7 @@ def _render_catalog(category, locked_category):
 
 
 @equipment_bp.route('/')
+@require_permission('equipment.view')
 def list_items():
     """Full catalog: the category dropdown is free to switch/clear."""
     category = request.args.get('category', '').strip()
@@ -99,41 +100,49 @@ def list_items():
 # catalog and the header can say which one you're in (e.g. "Equipamiento —
 # Armas").
 @equipment_bp.route('/armas')
+@require_permission('equipment.view')
 def list_armas():
     return _render_catalog('arma', locked_category=True)
 
 
 @equipment_bp.route('/armaduras')
+@require_permission('equipment.view')
 def list_armaduras():
     return _render_catalog('armadura', locked_category=True)
 
 
 @equipment_bp.route('/municion')
+@require_permission('equipment.view')
 def list_municion():
     return _render_catalog('municion', locked_category=True)
 
 
 @equipment_bp.route('/ropa')
+@require_permission('equipment.view')
 def list_ropa():
     return _render_catalog('ropa', locked_category=True)
 
 
 @equipment_bp.route('/libros')
+@require_permission('equipment.view')
 def list_libros():
     return _render_catalog('libro', locked_category=True)
 
 
 @equipment_bp.route('/otros')
+@require_permission('equipment.view')
 def list_otros():
     return _render_catalog('otros', locked_category=True)
 
 
 @equipment_bp.route('/especiales')
+@require_permission('equipment.view')
 def list_especiales():
     return _render_catalog('especial', locked_category=True)
 
 
 @equipment_bp.route('/<int:item_id>')
+@require_permission('equipment.view')
 def detail(item_id):
     item = EquipmentItem.query.get_or_404(item_id)
     quality = request.args.get('quality', '').strip() or None

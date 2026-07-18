@@ -34,20 +34,27 @@
     </button>
     <div class="collapse navbar-collapse" id="navMain">
       <ul class="navbar-nav me-auto">
+        {% if current_user.is_authenticated %}
+        {% if current_user.has_perm('professions.view') or current_user.has_perm('pathfinder.use') or current_user.has_perm('skills.view') %}
         <li class="nav-item dropdown">
           <a class="nav-link dropdown-toggle {% if request.blueprint in ('professions', 'pathfinder') or request.endpoint in ('skills_talents.search_skills', 'skills_talents.search_talents') %}active{% endif %}"
              href="#" data-bs-toggle="dropdown">
             <i class="bi bi-person-badge me-1"></i>Profesiones
           </a>
           <ul class="dropdown-menu dropdown-menu-dark">
+            {% if current_user.has_perm('professions.view') %}
             <li><a class="dropdown-item {% if request.blueprint == 'professions' %}active{% endif %}"
                    href="{{ url_for('professions.list_professions') }}">
               <i class="bi bi-person-badge me-2"></i>Ver profesiones
             </a></li>
+            {% endif %}
+            {% if current_user.has_perm('pathfinder.use') %}
             <li><a class="dropdown-item {% if request.blueprint == 'pathfinder' %}active{% endif %}"
                    href="{{ url_for('pathfinder.index') }}">
               <i class="bi bi-signpost-split me-2"></i>Buscador de caminos
             </a></li>
+            {% endif %}
+            {% if current_user.has_perm('skills.view') %}
             <li><a class="dropdown-item {% if request.endpoint == 'skills_talents.search_skills' %}active{% endif %}"
                    href="{{ url_for('skills_talents.search_skills') }}">
               <i class="bi bi-search me-2"></i>Buscar por habilidad
@@ -56,8 +63,11 @@
                    href="{{ url_for('skills_talents.search_talents') }}">
               <i class="bi bi-search me-2"></i>Buscar por talento
             </a></li>
+            {% endif %}
           </ul>
         </li>
+        {% endif %}
+        {% if current_user.has_perm('skills.view') %}
         <li class="nav-item">
           <a class="nav-link {% if request.endpoint in ('skills_talents.list_skills', 'skills_talents.skill_detail') %}active{% endif %}"
              href="{{ url_for('skills_talents.list_skills') }}">
@@ -70,6 +80,8 @@
             <i class="bi bi-star me-1"></i>Talentos
           </a>
         </li>
+        {% endif %}
+        {% if current_user.has_perm('equipment.view') %}
         <li class="nav-item dropdown">
           <a class="nav-link dropdown-toggle {% if request.blueprint == 'equipment' %}active{% endif %}"
              href="#" data-bs-toggle="dropdown">
@@ -103,31 +115,41 @@
             </a></li>
           </ul>
         </li>
-        {% if current_user.is_authenticated %}
+        {% endif %}
+        {% if current_user.has_perm('characters.view') %}
         <li class="nav-item">
           <a class="nav-link {% if request.blueprint == 'characters' %}active{% endif %}"
              href="{{ url_for('characters.list_characters') }}">
             <i class="bi bi-people me-1"></i>Personajes
           </a>
         </li>
+        {% endif %}
+        {% if current_user.has_perm('contacts.view') or current_user.has_perm('contacts.vinculos') %}
         <li class="nav-item dropdown">
           <a class="nav-link dropdown-toggle {% if request.blueprint == 'contacts' %}active{% endif %}"
              href="#" data-bs-toggle="dropdown">
             <i class="bi bi-person-lines-fill me-1"></i>Contactos
           </a>
           <ul class="dropdown-menu dropdown-menu-dark">
+            {% if current_user.has_perm('contacts.view') %}
             <li><a class="dropdown-item {% if request.endpoint == 'contacts.index' %}active{% endif %}"
                    href="{{ url_for('contacts.index') }}">Contactos</a></li>
+            {% endif %}
+            {% if current_user.has_perm('contacts.vinculos') %}
             <li><a class="dropdown-item {% if request.endpoint == 'contacts.vinculos' %}active{% endif %}"
                    href="{{ url_for('contacts.vinculos') }}">Vínculos</a></li>
+            {% endif %}
           </ul>
         </li>
+        {% endif %}
+        {% if current_user.has_perm('food.view') or current_user.has_perm('food.propose') %}
         <li class="nav-item dropdown">
           <a class="nav-link dropdown-toggle {% if request.blueprint == 'food' %}active{% endif %}"
              href="#" data-bs-toggle="dropdown">
             <i class="bi bi-cup-straw me-1"></i>Comida y bebida
           </a>
           <ul class="dropdown-menu dropdown-menu-dark">
+            {% if current_user.has_perm('food.view') %}
             <li><a class="dropdown-item {% if request.endpoint == 'food.drinks' %}active{% endif %}"
                    href="{{ url_for('food.drinks') }}">
               <i class="bi bi-cup-straw me-2"></i>Bebidas
@@ -136,6 +158,8 @@
                    href="{{ url_for('food.recipes') }}">
               <i class="bi bi-egg-fried me-2"></i>Recetas
             </a></li>
+            {% endif %}
+            {% if current_user.has_perm('food.propose') %}
             <li><a class="dropdown-item {% if request.endpoint == 'food.propose_recipe' %}active{% endif %}"
                    href="{{ url_for('food.propose_recipe') }}">
               <i class="bi bi-plus-circle me-2"></i>Proponer receta
@@ -144,6 +168,8 @@
                    href="{{ url_for('food.my_recipes') }}">
               <i class="bi bi-person-lines-fill me-2"></i>Mis recetas
             </a></li>
+            {% endif %}
+            {% if current_user.has_perm('food.view') %}
             <li><a class="dropdown-item {% if request.endpoint == 'food.ingredients' %}active{% endif %}"
                    href="{{ url_for('food.ingredients') }}">
               <i class="bi bi-basket me-2"></i>Ingredientes
@@ -156,8 +182,10 @@
                    href="{{ url_for('food.normas') }}">
               <i class="bi bi-journal-text me-2"></i>Normas
             </a></li>
+            {% endif %}
           </ul>
         </li>
+        {% endif %}
         {% endif %}
       </ul>
       <ul class="navbar-nav ms-auto">

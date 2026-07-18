@@ -13,6 +13,7 @@ from app.models.shop import apply_markup, current_markup_pct
 from app.models.user import User
 from app.services.currency_service import format_peniques
 from app.services.recipe_calc_service import validate_and_calculate, RecipeCompositionError
+from app.utils import require_permission
 
 food_bp = Blueprint('food', __name__, template_folder='../templates')
 
@@ -111,7 +112,7 @@ def _save_recipe_image(recipe, file_storage):
 
 
 @food_bp.route('/bebidas')
-@login_required
+@require_permission('food.view')
 def drinks():
     search = request.args.get('q', '').strip()
     origen = request.args.get('origen', '').strip()
@@ -154,7 +155,7 @@ def drinks():
 
 
 @food_bp.route('/bebidas/<int:drink_id>')
-@login_required
+@require_permission('food.view')
 def drink_detail(drink_id):
     drink = Drink.query.get_or_404(drink_id)
     return render_template('food/drink_detail.html', drink=drink,
@@ -163,7 +164,7 @@ def drink_detail(drink_id):
 
 
 @food_bp.route('/bebidas/<int:drink_id>/comprar', methods=['POST'])
-@login_required
+@require_permission('food.view')
 def comprar_bebida(drink_id):
     drink = Drink.query.get_or_404(drink_id)
     char, error = _process_food_purchase(
@@ -176,7 +177,7 @@ def comprar_bebida(drink_id):
 
 
 @food_bp.route('/recetas')
-@login_required
+@require_permission('food.view')
 def recipes():
     search = request.args.get('q', '').strip()
     metodo = request.args.get('metodo', '').strip()
@@ -213,7 +214,7 @@ def recipes():
 
 
 @food_bp.route('/recetas/<int:recipe_id>')
-@login_required
+@require_permission('food.view')
 def recipe_detail(recipe_id):
     recipe = Recipe.query.get_or_404(recipe_id)
     if recipe.status != 'aprobada' and not current_user.is_admin and recipe.created_by_id != current_user.id:
@@ -224,7 +225,7 @@ def recipe_detail(recipe_id):
 
 
 @food_bp.route('/recetas/<int:recipe_id>/comprar', methods=['POST'])
-@login_required
+@require_permission('food.view')
 def comprar_receta(recipe_id):
     recipe = Recipe.query.get_or_404(recipe_id)
     if recipe.status != 'aprobada' and not current_user.is_admin and recipe.created_by_id != current_user.id:
@@ -239,7 +240,7 @@ def comprar_receta(recipe_id):
 
 
 @food_bp.route('/recetas/nueva', methods=['GET', 'POST'])
-@login_required
+@require_permission('food.propose')
 def propose_recipe():
     cooking_methods_list = CookingMethod.query.order_by(CookingMethod.id).all()
     ingredients_list = Ingredient.query.filter(Ingredient.nombre != 'Nada').order_by(Ingredient.nombre).all()
@@ -307,14 +308,14 @@ def propose_recipe():
 
 
 @food_bp.route('/recetas/mias')
-@login_required
+@require_permission('food.propose')
 def my_recipes():
     items = Recipe.query.filter_by(created_by_id=current_user.id).order_by(Recipe.requested_at.desc()).all()
     return render_template('food/my_recipes.html', recipes=items)
 
 
 @food_bp.route('/ingredientes')
-@login_required
+@require_permission('food.view')
 def ingredients():
     items = Ingredient.query.order_by(Ingredient.nombre).all()
     compat = {}
@@ -324,13 +325,13 @@ def ingredients():
 
 
 @food_bp.route('/metodos')
-@login_required
+@require_permission('food.view')
 def cooking_methods():
     items = CookingMethod.query.order_by(CookingMethod.id).all()
     return render_template('food/cooking_methods.html', methods=items)
 
 
 @food_bp.route('/normas')
-@login_required
+@require_permission('food.view')
 def normas():
     return render_template('food/normas.html')

@@ -3,11 +3,13 @@ from app.models.profession import Profession
 from app.services.pathfinder_service import (
     build_graph, find_paths, find_path_with_waypoints, compute_path_stats,
 )
+from app.utils import require_permission
 
 pathfinder_bp = Blueprint('pathfinder', __name__, template_folder='../templates')
 
 
 @pathfinder_bp.route('/', methods=['GET', 'POST'])
+@require_permission('pathfinder.use')
 def index():
     professions = Profession.query.order_by(Profession.name).all()
     results = None

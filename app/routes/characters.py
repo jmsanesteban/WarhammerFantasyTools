@@ -24,7 +24,7 @@ from app.services import character_creation_service as ccs
 from app.services import salary_service
 from app.services import encumbrance_service
 from app.services.currency_service import format_peniques, to_peniques
-from app.utils import admin_required
+from app.utils import admin_required, require_permission
 
 characters_bp = Blueprint('characters', __name__, template_folder='../templates')
 
@@ -101,6 +101,7 @@ def _professions_picker_context(professions):
 
 @characters_bp.route('/')
 @login_required
+@require_permission('characters.view')
 def list_characters():
     if current_user.is_admin:
         characters = (
@@ -124,6 +125,7 @@ def _safe_redirect(default_endpoint, **default_kwargs):
 
 @characters_bp.route('/<int:char_id>/activar', methods=['POST'])
 @login_required
+@require_permission('characters.edit')
 def activate(char_id):
     """Marks one of the current user's own characters as their persisted
     "personaje activo" (2026-07-17) - you can only activate a character you
@@ -140,6 +142,7 @@ def activate(char_id):
 
 @characters_bp.route('/<int:char_id>')
 @login_required
+@require_permission('characters.view')
 def detail(char_id):
     char = Character.query.get_or_404(char_id)
     if char.user_id != current_user.id and not current_user.is_admin:
@@ -170,6 +173,7 @@ def _rebuild_professions(char_id):
 
 @characters_bp.route('/nuevo', methods=['GET', 'POST'])
 @login_required
+@require_permission('characters.edit')
 def create():
     professions = Profession.query.order_by(Profession.name).all()
     picker_ctx = _professions_picker_context(professions)
@@ -211,6 +215,7 @@ def create():
 
 @characters_bp.route('/<int:char_id>/editar', methods=['GET', 'POST'])
 @login_required
+@require_permission('characters.edit')
 def edit(char_id):
     char = Character.query.get_or_404(char_id)
     if char.user_id != current_user.id and not current_user.is_admin:
@@ -245,6 +250,7 @@ def edit(char_id):
 
 @characters_bp.route('/<int:char_id>/eliminar', methods=['POST'])
 @login_required
+@require_permission('characters.edit')
 def delete(char_id):
     char = Character.query.get_or_404(char_id)
     if char.user_id != current_user.id and not current_user.is_admin:
@@ -277,6 +283,7 @@ def _cart_count_and_total(char):
 
 @characters_bp.route('/<int:char_id>/tienda')
 @login_required
+@require_permission('characters.view')
 def tienda(char_id):
     char = _get_owned_character(char_id)
 
@@ -307,6 +314,7 @@ def tienda(char_id):
 
 @characters_bp.route('/<int:char_id>/tienda/<int:item_id>/anadir-carrito', methods=['GET'])
 @login_required
+@require_permission('characters.edit')
 def anadir_carrito_confirmar(char_id, item_id):
     char = _get_owned_character(char_id)
     item = EquipmentItem.query.get_or_404(item_id)
@@ -357,6 +365,7 @@ def _resolve_cart_line(item):
 
 @characters_bp.route('/<int:char_id>/tienda/<int:item_id>/anadir-carrito', methods=['POST'])
 @login_required
+@require_permission('characters.edit')
 def anadir_carrito(char_id, item_id):
     char = _get_owned_character(char_id)
     item = EquipmentItem.query.get_or_404(item_id)
@@ -379,6 +388,7 @@ def anadir_carrito(char_id, item_id):
 
 @characters_bp.route('/<int:char_id>/tienda/<int:item_id>/anadir-sin-coste', methods=['POST'])
 @login_required
+@require_permission('characters.edit')
 def anadir_sin_coste(char_id, item_id):
     """Regularizes equipment a character already owned before this shop
     existed: straight to inventory, no cart, no money touched. Gated by the
@@ -416,6 +426,7 @@ def anadir_sin_coste(char_id, item_id):
 
 @characters_bp.route('/<int:char_id>/carrito')
 @login_required
+@require_permission('characters.view')
 def carrito(char_id):
     char = _get_owned_character(char_id)
     cart_count, cart_total = _cart_count_and_total(char)
@@ -425,6 +436,7 @@ def carrito(char_id):
 
 @characters_bp.route('/<int:char_id>/carrito/<int:cart_item_id>/eliminar', methods=['POST'])
 @login_required
+@require_permission('characters.edit')
 def eliminar_del_carrito(char_id, cart_item_id):
     char = _get_owned_character(char_id)
     cart_item = CharacterCartItem.query.filter_by(id=cart_item_id, character_id=char.id).first_or_404()
@@ -436,6 +448,7 @@ def eliminar_del_carrito(char_id, cart_item_id):
 
 @characters_bp.route('/<int:char_id>/carrito/checkout', methods=['POST'])
 @login_required
+@require_permission('characters.edit')
 def checkout_carrito(char_id):
     char = _get_owned_character(char_id)
     cart_items = char.cart_items
@@ -485,6 +498,7 @@ def checkout_carrito(char_id):
 
 @characters_bp.route('/<int:char_id>/inventario')
 @login_required
+@require_permission('characters.view')
 def inventario(char_id):
     char = _get_owned_character(char_id)
     items_by_location = {loc: [] for loc in CharacterInventoryItem.LOCATIONS}
@@ -528,6 +542,7 @@ def inventario(char_id):
 
 @characters_bp.route('/<int:char_id>/inventario/contenedor', methods=['POST'])
 @login_required
+@require_permission('characters.edit')
 def set_contenedor_inventario(char_id):
     char = _get_owned_character(char_id)
     contenedor = request.form.get('mochila_o_saco', '').strip()
@@ -557,6 +572,7 @@ def _move_full_stack(char, inv_item, destino):
 
 @characters_bp.route('/<int:char_id>/inventario/<int:inv_item_id>/mover', methods=['POST'])
 @login_required
+@require_permission('characters.edit')
 def mover_inventario(char_id, inv_item_id):
     char = _get_owned_character(char_id)
     inv_item = CharacterInventoryItem.query.filter_by(id=inv_item_id, character_id=char.id).first_or_404()
@@ -598,6 +614,7 @@ def mover_inventario(char_id, inv_item_id):
 
 @characters_bp.route('/<int:char_id>/inventario/mover-multiples', methods=['POST'])
 @login_required
+@require_permission('characters.edit')
 def mover_inventario_multiple(char_id):
     """Bulk version of mover_inventario: moves the FULL stack of each
     selected item to one destination (no per-item partial quantity - use the
@@ -632,6 +649,7 @@ def mover_inventario_multiple(char_id):
 
 @characters_bp.route('/<int:char_id>/historial-compras')
 @login_required
+@require_permission('characters.view')
 def historial_compras(char_id):
     char = _get_owned_character(char_id)
     return render_template('characters/historial_compras.html', char=char)
@@ -722,6 +740,7 @@ def conceder_dinero(char_id):
 
 @characters_bp.route('/generador')
 @login_required
+@require_permission('characters.view')
 def generator():
     professions = Profession.query.order_by(Profession.name).all()
     return render_template(
@@ -737,6 +756,7 @@ def generator():
 
 @characters_bp.route('/generador/tirar', methods=['POST'])
 @login_required
+@require_permission('characters.edit')
 def generator_roll():
     payload = request.get_json(silent=True) or {}
     step = payload.get('paso')
@@ -791,6 +811,7 @@ def _roll_profesion_step(ctx):
 
 @characters_bp.route('/generador/guardar', methods=['POST'])
 @login_required
+@require_permission('characters.edit')
 def generator_save():
     name = request.form.get('name', '').strip()
     if not name:
