@@ -1022,7 +1022,9 @@ Hay dos formas de crear un personaje desde **Personajes**:
 
 Ve a **Personajes → Generador de personaje**. Implementa las reglas caseras de creación de personajes jugadores (raza, profesión, características, trasfondo). Cada sección tiene un botón **Tirar** (🎲, lo hace la web) y un botón **Ver tabla** (para partidas con dados físicos: muestra todas las opciones posibles con su rango, y al hacer clic en la tuya se resalta en dorado y rellena los campos exactamente igual que si se hubiera tirado en la web). Todos los campos son editables a mano en cualquier momento.
 
-> **Registro de tiradas:** en la parte superior de la página hay un panel que anota **todas** las tiradas (o elecciones manuales de tabla) hechas durante la creación, con el resultado exacto de cada dado — aunque el proceso sea automático, nada queda oculto. Se puede limpiar con el botón "Limpiar registro" si quieres empezar de cero.
+> **Registro de tiradas:** en la parte superior de la página hay un panel que anota **todas** las tiradas (o elecciones manuales de tabla) hechas durante la creación, con el resultado exacto de cada dado — aunque el proceso sea automático, nada queda oculto. Se puede limpiar con el botón "Limpiar registro" si quieres empezar de cero (esto sí borra el panel sin dejar rastro, a diferencia de lo siguiente).
+>
+> **Eliminar una tirada o campo concreto (2026-07-19):** cada entrada del registro tiene su propio botón de papelera — pide confirmación, revierte exactamente lo que esa tirada trajo (campo vaciado, característica reseteada, objeto quitado de rasgos/posesiones/objetos mágicos/contactos/talentos raciales, coste en Puntos de Historial devuelto y su botón reactivado para poder repetirlo, dinero de una posesión reembolsado si lo hubo) y **no borra la entrada original**: la tacha y añade una línea nueva con la etiqueta "eliminado", así el histórico siempre deja constancia de qué se quitó y cuándo. Las listas (rasgos, posesiones, objetos mágicos, contactos, sucesos de juventud, talentos raciales, carrera profesional) tienen además su propia "×" por fila, con la misma confirmación y registro.
 
 Pasos del asistente, en orden:
 
