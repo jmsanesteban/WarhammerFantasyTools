@@ -1343,6 +1343,8 @@ Los permisos se implementan en tres niveles:
 
 Los permisos efectivos de un usuario son la unión de los que vienen de su plantilla y los directos. La comprobación se realiza con `user.has_perm(code)` en el backend y con el decorador `@require_permission(code)` en las rutas que lo necesitan.
 
+**El navbar y la página de inicio reflejan siempre los permisos reales** (2026-07-19): cada sección de la barra de navegación se oculta si `current_user.has_perm(...)` no lo confirma, y la landing (`/`) muestra una tarjeta de acceso rápido por cada módulo al que el usuario tiene permiso (Buscador de caminos, Personajes, Contactos, Equipamiento, Comida y bebida), además de los contadores de Profesiones/Habilidades/Talentos si aplica — así un jugador con permisos mínimos (p. ej. la plantilla "Jugador": solo Personajes y Contactos) ve un panel de inicio acorde a lo suyo en vez de una página vacía o enlaces a secciones a las que no puede entrar. Un usuario sin sesión iniciada no ve ninguna tarjeta, solo el mensaje de bienvenida.
+
 ---
 
 ## Estructura del proyecto
