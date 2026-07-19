@@ -953,6 +953,12 @@ Desde el mismo menú desplegable con tu nombre de usuario, en la sección **Tema
 
 La preferencia se guarda en el propio navegador (no en tu cuenta), así que hay que volver a elegirla si cambias de dispositivo o navegador. Por defecto, todo el mundo empieza en modo oscuro. La barra de navegación y el pie de página cambian de color igual que el resto de la app; la única excepción es la banda de "entorno de preproducción" (teal), que se queda fija en ambos modos a propósito — su función es destacar y avisar, así que no debe camuflarse por elegir un tema u otro.
 
+**Icono del menú móvil (2026-07-19)**: el botón hamburguesa que abre el menú en pantallas estrechas se repinta a oscuro en modo claro — antes venía fijo en blanco (heredado de la clase Bootstrap `navbar-dark`, siempre activa) y era casi invisible sobre el fondo crema del modo claro. La banda de preproducción, al quedarse fija en oscuro en ambos temas, conserva su propio icono claro.
+
+### Cabeceras de página en móvil
+
+El patrón de cabecera repetido en la mayoría de listados y fichas (título a la izquierda, botones de acción a la derecha) envuelve en pantallas ≤768px en vez de apretujar los botones: si no caben en una fila, cada botón que sobra cae entero a la línea siguiente en lugar de encogerse o partir su propio texto en varias líneas.
+
 ---
 
 ### Explorar profesiones
