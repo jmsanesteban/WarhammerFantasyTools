@@ -75,6 +75,18 @@ class User(UserMixin, db.Model):
             codes |= {p.code for p in self.template.permissions}
         return codes
 
+    # ── Lookup helpers ───────────────────────────────────────────────────────
+
+    @staticmethod
+    def find_by_username(username: str):
+        """Case-insensitive username lookup - usernames are stored with
+        whatever casing the user typed (for display), but "Juanma", "juanma"
+        and "JUANMA" must all resolve to the same account for login,
+        registration, and admin user-creation duplicate checks."""
+        if not username:
+            return None
+        return User.query.filter(db.func.lower(User.username) == username.lower()).first()
+
     # ── Auth helpers ──────────────────────────────────────────────────────────
 
     def set_password(self, password):

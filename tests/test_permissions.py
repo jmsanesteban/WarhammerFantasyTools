@@ -59,6 +59,21 @@ def test_require_permission_blocks_user_without_permission(client, bare_user, lo
     assert resp.status_code == 403
 
 
+def test_require_permission_403_page_names_the_missing_permission(client, bare_user, login_as):
+    login_as(client, bare_user, 'userpass123')
+    resp = client.get('/profesiones/nueva')
+    assert resp.status_code == 403
+    assert 'Editar profesiones'.encode('utf-8') in resp.data
+    assert 'administrador'.encode('utf-8') in resp.data
+
+
+def test_admin_required_403_page_explains_admin_only(client, bare_user, login_as):
+    login_as(client, bare_user, 'userpass123')
+    resp = client.get('/admin/')
+    assert resp.status_code == 403
+    assert 'administradores'.encode('utf-8') in resp.data
+
+
 def test_require_permission_allows_user_with_direct_permission(db, client, bare_user, login_as):
     bare_user.direct_permissions.append(db.session.get(Permission, 'professions.edit'))
     db.session.commit()

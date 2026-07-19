@@ -169,7 +169,7 @@ def user_new():
 
         if not username or not email:
             flash('Usuario y email son obligatorios.', 'danger')
-        elif User.query.filter_by(username=username).first():
+        elif User.find_by_username(username):
             flash('El nombre de usuario ya existe.', 'danger')
         elif User.query.filter_by(email=email).first():
             flash('El email ya está en uso.', 'danger')

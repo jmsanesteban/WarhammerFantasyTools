@@ -33,7 +33,7 @@ def index():
 
 @main_bp.app_errorhandler(403)
 def forbidden(e):
-    return render_template('errors/403.html'), 403
+    return render_template('errors/403.html', error=e), 403
 
 
 @main_bp.app_errorhandler(404)

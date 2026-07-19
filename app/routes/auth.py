@@ -18,7 +18,7 @@ def login():
         password = request.form.get('password', '')
         remember = bool(request.form.get('remember'))
 
-        user = User.query.filter_by(username=username).first()
+        user = User.find_by_username(username)
         if user and user.check_password(password) and user.active:
             login_user(user, remember=remember)
             next_page = request.args.get('next')
@@ -65,7 +65,7 @@ def register():
             error = 'La contraseña debe tener al menos 6 caracteres.'
         elif password != confirm:
             error = 'Las contraseñas no coinciden.'
-        elif User.query.filter_by(username=username).first():
+        elif User.find_by_username(username):
             error = 'Ese nombre de usuario ya está en uso.'
         elif User.query.filter_by(email=email).first():
             error = 'Ese email ya está registrado.'

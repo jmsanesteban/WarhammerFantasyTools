@@ -20,6 +20,12 @@ def test_login_with_unknown_username_fails(client):
     assert b'incorrectos' in resp.data
 
 
+def test_login_is_case_insensitive_on_username(client, regular_user):
+    resp = client.post('/auth/login', data={'username': 'REGULAR1', 'password': 'userpass123'})
+    assert resp.status_code == 302
+    assert resp.headers['Location'] == '/'
+
+
 def test_login_redirects_to_next_page(client, regular_user):
     resp = client.post('/auth/login?next=/personajes/', data={'username': 'regular1', 'password': 'userpass123'})
     assert resp.status_code == 302
@@ -62,6 +68,14 @@ def test_register_creates_user_and_logs_in(db, client):
 def test_register_rejects_duplicate_username(client, regular_user):
     resp = client.post('/auth/register', data={
         'username': 'regular1', 'email': 'other@example.com',
+        'password': 'secret123', 'confirm_password': 'secret123',
+    }, follow_redirects=True)
+    assert 'ya está en uso'.encode('utf-8') in resp.data
+
+
+def test_register_rejects_duplicate_username_different_case(client, regular_user):
+    resp = client.post('/auth/register', data={
+        'username': 'REGULAR1', 'email': 'other@example.com',
         'password': 'secret123', 'confirm_password': 'secret123',
     }, follow_redirects=True)
     assert 'ya está en uso'.encode('utf-8') in resp.data

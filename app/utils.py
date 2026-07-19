@@ -11,8 +11,11 @@ from markupsafe import Markup
 def admin_required(f):
     @wraps(f)
     def decorated_function(*args, **kwargs):
-        if not current_user.is_authenticated or not current_user.is_admin:
-            abort(403)
+        if not current_user.is_authenticated:
+            return redirect(url_for('auth.login', next=request.url))
+        if not current_user.is_admin:
+            abort(403, description='Esta sección es solo para administradores. Si crees que deberías tener '
+                                    'acceso, pide a un administrador que te lo confirme.')
         return f(*args, **kwargs)
     return decorated_function
 
@@ -20,6 +23,9 @@ def admin_required(f):
 def require_permission(code: str):
     """Decorator: allow access only if the user has the given permission code.
     Admins bypass all permission checks. Unauthenticated users are redirected to login.
+    On denial, aborts with a description naming the missing permission so the
+    403 page can tell the user exactly what to ask an administrator for,
+    instead of a bare "access denied".
     """
     def decorator(f):
         @wraps(f)
@@ -27,10 +33,22 @@ def require_permission(code: str):
             if not current_user.is_authenticated:
                 return redirect(url_for('auth.login', next=request.url))
             if not current_user.has_perm(code):
-                abort(403)
+                perm = db_session_get_permission(code)
+                label = perm.name if perm else code
+                abort(403, description=(
+                    f'Te falta el permiso "{label}" para acceder a esta página. '
+                    'Pide a un administrador que te lo asigne (por plantilla de permisos o de forma directa) '
+                    'desde Admin → Usuarios.'
+                ))
             return f(*args, **kwargs)
         return decorated
     return decorator
+
+
+def db_session_get_permission(code: str):
+    from app.extensions import db
+    from app.models.permission import Permission
+    return db.session.get(Permission, code)
 
 
 def generate_secure_password(length=16):

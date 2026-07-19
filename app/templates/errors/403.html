@@ -4,6 +4,9 @@
 <div class="container mt-5 text-center">
   <h1 class="wh-title display-1">403</h1>
   <p class="lead">No tienes permiso para acceder a esta página.</p>
+  {% if error and error.description %}
+  <div class="alert wh-alert mx-auto" style="max-width:600px">{{ error.description }}</div>
+  {% endif %}
   <a href="{{ url_for('main.index') }}" class="btn btn-wh">Volver al inicio</a>
 </div>
 {% endblock %}
