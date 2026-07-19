@@ -1007,6 +1007,22 @@ mark { background: rgba(212, 168, 48, .28); color: var(--wh-gold-light); padding
 @media (max-width: 768px) {
   .wh-stat-number { font-size: 1.8rem; }
   .wh-stat-table th, .wh-stat-table td { padding: 2px 3px; font-size: 0.7rem; min-width: 28px; }
+
+  /* Cabeceras de página (título + botones de acción, mismo patrón repetido
+     en ~30 plantillas: `.d-flex.justify-content-between.align-items-center.mb-3`
+     con un `h2` y, o un botón suelto, o un `.d-flex.gap-2` con varios). En
+     móvil no caben en una sola fila - sin esto, los botones se apretujaban
+     hasta partir su propio texto en 2-3 líneas y `align-items: stretch`
+     igualaba su altura con la del hermano, dejando huecos vacíos. Al
+     envolver, cada botón que no cabe cae a su propia línea entero en vez de
+     deformarse. */
+  .d-flex.justify-content-between.align-items-center.mb-3 {
+    flex-wrap: wrap;
+    row-gap: 0.5rem;
+  }
+  .d-flex.justify-content-between.align-items-center.mb-3 > .d-flex {
+    flex-wrap: wrap;
+  }
 }
 
 /* =============================================
@@ -1029,6 +1045,18 @@ mark { background: rgba(212, 168, 48, .28); color: var(--wh-gold-light); padding
 
 /* Superficies con fondo propio (no cubiertas por las variables) */
 [data-theme="light"] .wh-navbar { background: linear-gradient(180deg, #fffaf0 0%, #f0e2b8 100%); }
+/* Icono hamburguesa (menú móvil): el navbar siempre lleva la clase Bootstrap
+   `navbar-dark`, así que por defecto su SVG viene fijo en blanco - invisible
+   sobre el fondo crema del modo claro. Repintado a oscuro aquí; excluido de
+   `.wh-navbar-prepro` porque esa banda se queda fija en oscuro en los dos
+   temas (ver el bloque `.wh-navbar-prepro` más arriba), así que su icono
+   debe seguir siendo blanco. */
+[data-theme="light"] .wh-navbar:not(.wh-navbar-prepro) .navbar-toggler {
+  border-color: rgba(43, 32, 19, .35);
+}
+[data-theme="light"] .wh-navbar:not(.wh-navbar-prepro) .navbar-toggler-icon {
+  background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 30 30'%3e%3cpath stroke='rgba(43, 32, 19, 0.85)' stroke-linecap='round' stroke-miterlimit='10' stroke-width='2' d='M4 7h22M4 15h22M4 23h22'/%3e%3c/svg%3e");
+}
 [data-theme="light"] .wh-card-header { background: linear-gradient(90deg, #f0e6c0 0%, var(--wh-bg-card) 100%); }
 [data-theme="light"] .wh-input,
 [data-theme="light"] .wh-input.form-control,
