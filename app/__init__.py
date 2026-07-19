@@ -324,19 +324,13 @@ def _register_cli_commands(app):
                     click.echo('  Added character_professions.estado_habilidad')
 
             # Contactos: rediseño de esquema (de EAV genérico a columnas fijas).
-            # nombre/es_untersuchung son nuevas en `contacts`; se rellenan a partir
-            # de los datos EAV antiguos si existían, y las tablas EAV/persona,
-            # ya sin uso, se eliminan.
+            # nombre es nueva en `contacts`; se rellena a partir de los datos EAV
+            # antiguos si existían, y las tablas EAV/persona, ya sin uso, se eliminan.
             contact_cols = {c['name'] for c in inspector.get_columns('contacts')}
             with db.engine.begin() as conn:
                 if 'nombre' not in contact_cols:
                     conn.execute(text('ALTER TABLE contacts ADD COLUMN nombre VARCHAR(150) NULL'))
                     click.echo('  Added contacts.nombre')
-                if 'es_untersuchung' not in contact_cols:
-                    conn.execute(text(
-                        'ALTER TABLE contacts ADD COLUMN es_untersuchung BOOLEAN NOT NULL DEFAULT FALSE'
-                    ))
-                    click.echo('  Added contacts.es_untersuchung')
 
             if inspector.has_table('field_definitions') and inspector.has_table('contact_values'):
                 with db.engine.begin() as conn:
@@ -380,18 +374,19 @@ def _register_cli_commands(app):
                     click.echo('  Dropped legacy-shape contact_notes (recreating with character_id)')
                 db.create_all()
 
-            # Incremental columns: contacts.estado/grados_untersuchung/image_path
-            # ("vivo" boolean replaced by "estado", originally vivo/muerto/
-            # corrompido + a "paradero" side column - paradero is NOT listed
-            # here on purpose (2026-07-17): it was folded into estado's 3
-            # values by the migrate-contacts-rework cleanup and then DROPped;
-            # re-adding it here on every boot would silently resurrect a
-            # column the cleanup deliberately removed, exactly the bug this
-            # comment is warning against re-introducing.
+            # Incremental columns: contacts.estado/image_path ("vivo" boolean
+            # replaced by "estado", originally vivo/muerto/corrompido + a
+            # "paradero" side column - paradero is NOT listed here on purpose
+            # (2026-07-17): it was folded into estado's 3 values by the
+            # migrate-contacts-rework cleanup and then DROPped; re-adding it
+            # here on every boot would silently resurrect a column the cleanup
+            # deliberately removed, exactly the bug this comment is warning
+            # against re-introducing. grados_untersuchung is likewise NOT
+            # listed here (2026-07-19): dropped by migrate-untersuchung-to-link,
+            # same reasoning.
             contact_cols_2 = {c['name'] for c in inspector.get_columns('contacts')}
             contact_new_columns = [
                 ('estado', "VARCHAR(20) NOT NULL DEFAULT 'vivo'"),
-                ('grados_untersuchung', 'JSON NULL'),
                 ('image_path', 'VARCHAR(300) NULL'),
             ]
             with db.engine.begin() as conn:
@@ -933,6 +928,84 @@ def _register_cli_commands(app):
 
             click.echo('Migration applied.')
 
+    @app.cli.command('migrate-untersuchung-to-link')
+    @click.option('--apply', 'do_apply', is_flag=True,
+                  help='Write changes and drop the legacy columns. Without this flag, only reports what would happen.')
+    def migrate_untersuchung_to_link_cmd(do_apply):
+        """One-off data migration for the 2026-07-19 director's call: Untersuchung
+        membership stops being a global fact of the Contact (`es_untersuchung`/
+        `grados_untersuchung`) and becomes a per-link `tipo_relacion` value
+        ('Unter') instead - two different characters can now disagree about
+        whether a given NPC is Untersuchung. For every Contact currently flagged
+        `es_untersuchung=True`, adds 'Unter' to `tipo_relacion` on every one of
+        its existing `ContactCharacterLink` rows (skips it if already present).
+        The old grado/marca data (`grados_untersuchung`) has no equivalent on
+        the link and is simply discarded - the director only asked to keep the
+        Unter tag, not the specific marks.
+
+        A flagged contact with no links yet has nothing to carry the fact to -
+        reported separately, since --apply would otherwise silently lose it.
+
+        Sin --apply solo IMPRIME un informe (dry-run, no escribe nada). Con
+        --apply escribe los vínculos y por último hace DROP de
+        contacts.es_untersuchung y contacts.grados_untersuchung. Re-ejecutar
+        con --apply tras ya haber migrado es un no-op seguro (detecta que las
+        columnas legadas ya no existen)."""
+        from sqlalchemy import text, inspect as sa_inspect
+        from app.models.contact import Contact
+        from app.models.contact_character_link import ContactCharacterLink
+
+        with app.app_context():
+            inspector = sa_inspect(db.engine)
+            contact_cols = {c['name'] for c in inspector.get_columns('contacts')}
+            if 'es_untersuchung' not in contact_cols:
+                click.echo('Nothing to migrate: contacts.es_untersuchung already gone.')
+                return
+
+            flagged = db.session.execute(
+                text('SELECT id, nombre FROM contacts WHERE es_untersuchung = 1')
+            ).fetchall()
+
+            updated_links = []
+            orphaned_contacts = []
+            for contact_id, nombre in flagged:
+                links = ContactCharacterLink.query.filter_by(contact_id=contact_id).all()
+                if not links:
+                    orphaned_contacts.append((contact_id, nombre))
+                    continue
+                for link in links:
+                    current = link.tipo_relacion or []
+                    if 'Unter' in current:
+                        continue
+                    updated_links.append((contact_id, nombre, link.id))
+                    if do_apply:
+                        link.tipo_relacion = current + ['Unter']
+
+            click.echo(f'Contactos marcados es_untersuchung=True: {len(flagged)}.')
+            click.echo(f'Vínculos que recibirán tipo_relacion += "Unter": {len(updated_links)}.')
+            for contact_id, nombre, link_id in updated_links[:20]:
+                click.echo(f'    Contacto #{contact_id} {nombre}: vínculo #{link_id}')
+            if orphaned_contacts:
+                click.echo(f'Contactos marcados sin ningún vínculo (el dato se perderá, no hay dónde migrarlo): '
+                           f'{len(orphaned_contacts)}.')
+                for contact_id, nombre in orphaned_contacts:
+                    click.echo(f'    #{contact_id} {nombre}')
+
+            if not do_apply:
+                click.echo('\nDry-run only - nada escrito. Ejecuta con --apply tras revisar este informe.')
+                return
+
+            db.session.commit()
+
+            with db.engine.begin() as conn:
+                conn.execute(text('ALTER TABLE contacts DROP COLUMN es_untersuchung'))
+                click.echo('  Dropped contacts.es_untersuchung')
+                if 'grados_untersuchung' in contact_cols:
+                    conn.execute(text('ALTER TABLE contacts DROP COLUMN grados_untersuchung'))
+                    click.echo('  Dropped contacts.grados_untersuchung')
+
+            click.echo('Migration applied.')
+
     @app.cli.command('import-legacy-contacts')
     @click.option('--apply', 'do_apply', is_flag=True,
                   help='Write changes (delete existing contacts, load the CSVs). Without this flag, only reports what would happen.')
@@ -950,10 +1023,10 @@ def _register_cli_commands(app):
 
         Raza codes and the external-character-id map were confirmed by the user
         (2026-07-17), not inferred: 1=Humano, 2=Enano, 3=Alto elfo, 4=Elfo oscuro,
-        5=Halfling, 6=Ogro, 11=Criatura. 'Unter' tipo -> Contact.es_untersuchung
-        True on that contact (no grado - the source data doesn't specify one),
-        never a tipo_relacion value (that concept moved off the link entirely,
-        see TIPO_RELACION_CHOICES). Estado Vivo/Muerto/Desconocido and the nivel
+        5=Halfling, 6=Ogro, 11=Criatura. 'Unter' tipo -> tipo_relacion=['Unter']
+        on that link (2026-07-19: Untersuchung membership moved back to
+        tipo_relacion, see TIPO_RELACION_CHOICES - it's no longer a fact of the
+        Contact itself). Estado Vivo/Muerto/Desconocido and the nivel
         label ("-2 Antipatía", "5 Amigo Incondicional"...) already match this
         app's own values 1:1 - only the leading number is used for nivel, the
         label text itself is derived (NIVEL_LABELS), not stored.
@@ -1071,7 +1144,6 @@ def _register_cli_commands(app):
                     lugar_ocio=_clean(row['Ocio_contactos']),
                     notas_director=_clean(row.get('Notas_DJ_contactos')),
                     is_visible=True,
-                    es_untersuchung=False,
                 )
                 src_filename = row['Imagen_contactos'].split('/')[-1]
                 real_filename = images_on_disk.get(src_filename.lower())
@@ -1101,7 +1173,7 @@ def _register_cli_commands(app):
                 tipo = (row.get('Tipo_personajes_contactos') or '').strip()
                 tipo_relacion = None
                 if tipo == 'Unter':
-                    contact.es_untersuchung = True
+                    tipo_relacion = ['Unter']
                 elif tipo == 'Otra':
                     tipo_relacion = ['Otra']
 

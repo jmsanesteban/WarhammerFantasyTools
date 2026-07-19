@@ -695,17 +695,16 @@ def import_characters(data, mode='skip'):
 
 # ---------------------------------------------------------------------------
 # Contactos + Vínculos (la exportación Excel existente de Contactos, limitada
-# a nombre/Untersuchung/profesiones, se deja intacta - esto es un backup
-# nuevo y más completo que además incluye los vínculos por personaje)
+# a nombre/profesiones, se deja intacta - esto es un backup nuevo y más
+# completo que además incluye los vínculos por personaje)
 # ---------------------------------------------------------------------------
 
 def export_contacts_full():
     result = []
     for contact in Contact.query.order_by(Contact.nombre).all():
         result.append({
-            'nombre': contact.nombre, 'raza': contact.raza, 'es_untersuchung': contact.es_untersuchung,
+            'nombre': contact.nombre, 'raza': contact.raza,
             'estado': contact.estado,
-            'grados_untersuchung': contact.grados_untersuchung,
             'lugar_descanso': contact.lugar_descanso, 'lugar_trabajo': contact.lugar_trabajo,
             'lugar_ocio': contact.lugar_ocio, 'notas_director': contact.notas_director,
             'image_path': contact.image_path,
@@ -762,9 +761,7 @@ def import_contacts_full(data, mode='skip'):
             summary['created'] += 1
 
         contact.raza = row.get('raza')
-        contact.es_untersuchung = row.get('es_untersuchung', False)
         contact.estado = row.get('estado') or ('vivo' if row.get('vivo', True) else 'muerto')
-        contact.grados_untersuchung = row.get('grados_untersuchung')
         contact.lugar_descanso = row.get('lugar_descanso')
         contact.lugar_trabajo = row.get('lugar_trabajo')
         contact.lugar_ocio = row.get('lugar_ocio')

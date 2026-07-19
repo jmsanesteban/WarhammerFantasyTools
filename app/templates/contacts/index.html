@@ -44,7 +44,6 @@
           <th></th>
           <th>Nombre</th>
           <th>Raza</th>
-          <th>Unter</th>
           <th>Estado</th>
           <th>Personajes</th>
           <th style="width:5rem"></th>
@@ -67,11 +66,6 @@
             {% endif %}
           </td>
           <td class="small text-muted">{{ contact.raza or '—' }}</td>
-          <td>
-            {% if current_user.is_admin or (current_user.active_character and current_user.active_character.es_untersuchung) %}
-              {{ 'Sí' if contact.es_untersuchung else 'No' }}
-            {% else %}—{% endif %}
-          </td>
           <td>
             {% if contact.estado != 'vivo' %}
             <span class="badge {% if contact.estado == 'muerto' %}bg-dark{% else %}bg-warning text-dark{% endif %}" style="font-size:.65rem">

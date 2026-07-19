@@ -8,18 +8,12 @@ from app.extensions import db
 from app.models.contact import Contact, ContactProfession
 from app.models.profession import Profession
 
-_TRUE_VALUES = {'si', 'sí', 'true', '1', 'yes', 'x'}
-
-
-def _parse_bool(value) -> bool:
-    return str(value or '').strip().lower() in _TRUE_VALUES
-
 
 def import_contacts_from_excel(file_stream, update_existing: bool, created_by_id: int):
-    """Import contacts from a fixed-column spreadsheet: nombre, es_untersuchung,
-    profesiones (comma-separated profession names, matched against the
-    existing catalog - unmatched names are ignored, same convention as
-    everywhere else in this app: never invent catalog entries on import).
+    """Import contacts from a fixed-column spreadsheet: nombre, profesiones
+    (comma-separated profession names, matched against the existing catalog -
+    unmatched names are ignored, same convention as everywhere else in this
+    app: never invent catalog entries on import).
     Returns (created, updated). Caller commits."""
     df = pd.read_excel(file_stream, dtype=str)
     df = df.where(pd.notna(df), None)
@@ -46,7 +40,6 @@ def import_contacts_from_excel(file_stream, update_existing: bool, created_by_id
             created += 1
 
         contact.nombre = nombre
-        contact.es_untersuchung = _parse_bool(row.get('es_untersuchung'))
         db.session.flush()
 
         ContactProfession.query.filter_by(contact_id=contact.id).delete()
@@ -59,8 +52,8 @@ def import_contacts_from_excel(file_stream, update_existing: bool, created_by_id
 
 
 def export_contacts_to_excel(contacts):
-    """Build an Excel workbook (nombre, untersuchung, profesiones) from a
-    list of Contact rows. Returns a BytesIO buffer ready to send as download."""
+    """Build an Excel workbook (nombre, profesiones) from a list of Contact
+    rows. Returns a BytesIO buffer ready to send as download."""
     wb = openpyxl.Workbook()
     ws = wb.active
     ws.title = 'Contactos'
@@ -73,7 +66,7 @@ def export_contacts_to_excel(contacts):
     thin = Side(style='thin', color='DEE2E6')
     border = Border(left=thin, right=thin, top=thin, bottom=thin)
 
-    headers = ['Nombre', 'Es Untersuchung', 'Profesiones']
+    headers = ['Nombre', 'Profesiones']
     for col_idx, label in enumerate(headers, start=1):
         cell = ws.cell(row=1, column=col_idx, value=label)
         cell.font = header_font
@@ -87,7 +80,6 @@ def export_contacts_to_excel(contacts):
     for row_idx, contact in enumerate(contacts, start=2):
         values = [
             contact.nombre,
-            'Sí' if contact.es_untersuchung else 'No',
             ', '.join(cp.profession.name for cp in contact.professions),
         ]
         for col_idx, value in enumerate(values, start=1):

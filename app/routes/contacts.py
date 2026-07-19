@@ -5,11 +5,7 @@ from werkzeug.utils import secure_filename
 from app.extensions import db
 from app.models.character import Character
 from app.models.profession import Profession
-from app.models.contact import Contact, ContactProfession, UNTERSUCHUNG_GRADOS, ESTADO_CHOICES, ESTADO_LABELS, RAZA_CHOICES
-from app.models.untersuchung import (
-    clamp_grados, has_marca, marca_image_path, grados_display,
-    UNTERSUCHUNG_GRADOS_CON_MARCA, UNTERSUCHUNG_GRADOS_AGENTE, UNTERSUCHUNG_GRADOS_ADJUNTO, MAX_GRADOS,
-)
+from app.models.contact import Contact, ContactProfession, ESTADO_CHOICES, ESTADO_LABELS, RAZA_CHOICES
 from app.models.contact_character_link import (
     ContactCharacterLink, NIVEL_LABELS, TIPO_RELACION_CHOICES, TIPO_RELACION_EXCLUSIVE_PAIRS,
 )
@@ -22,36 +18,11 @@ contacts_bp = Blueprint('contacts', __name__, template_folder='../templates')
 _ALLOWED_IMAGE_EXTENSIONS = {'png', 'jpg', 'jpeg', 'webp', 'gif'}
 
 
-def _grados_from_form():
-    """Reads 3 independent single-select slots (grado_1/2/3) rather than one
-    multi-select - a <select multiple> can't have the same option chosen
-    twice, but an Agente can genuinely hold the same grado twice over (a
-    senior/veteran double mark). Tier exclusivity (Agente vs Adjunto) and the
-    1-mark cap for Adjunto are enforced server-side by clamp_grados()."""
-    values = [request.form.get(f'grado_{i}', '').strip() for i in range(1, MAX_GRADOS + 1)]
-    return clamp_grados(values)
-
-
-def _marca_images():
-    """{grado: uploaded-file-url} for every grado - passed to every contact
-    form/detail template so it can show the mark image live as grados are
-    picked (JS) or read-only (ficha)."""
-    images = {}
-    for g in UNTERSUCHUNG_GRADOS:
-        path = marca_image_path(g)
-        if path:
-            images[g] = url_for('main.uploaded_file', filename=path)
-    return images
-
-
-def _grado_form_context():
+def _contact_form_context():
     """Shared template kwargs for every contact form render (new/edit, both
     the happy path and each validation-error re-render)."""
     return dict(
-        grados=UNTERSUCHUNG_GRADOS, grados_con_marca=UNTERSUCHUNG_GRADOS_CON_MARCA,
-        grados_agente=UNTERSUCHUNG_GRADOS_AGENTE, grados_adjunto=UNTERSUCHUNG_GRADOS_ADJUNTO,
         estado_choices=ESTADO_CHOICES, estado_labels=ESTADO_LABELS, raza_choices=RAZA_CHOICES,
-        marca_images=_marca_images(),
     )
 
 
@@ -136,14 +107,6 @@ def _global_fields_from_form(contact):
     contact.nombre = request.form.get('nombre', '').strip()
     contact.raza = _raza_from_form()
     contact.estado = _estado_from_form()
-    grados = _grados_from_form()
-    contact.grados_untersuchung = grados
-    # es_untersuchung (2026-07-17): hecho del propio contacto, no del vínculo
-    # (ver TIPO_RELACION_CHOICES) - se marca a mano con el checkbox, o solo
-    # (el checkbox se auto-marca en cliente al asignar una marca - ver
-    # initGradoPicker en main.js), pero desmarcar el checkbox sin quitar
-    # también las marcas no lo desactiva (has_marca manda).
-    contact.es_untersuchung = request.form.get('es_untersuchung') == 'on' or has_marca(grados)
     contact.lugar_descanso = request.form.get('lugar_descanso', '').strip() or None
     contact.lugar_trabajo = request.form.get('lugar_trabajo', '').strip() or None
     contact.lugar_ocio = request.form.get('lugar_ocio', '').strip() or None
@@ -321,7 +284,7 @@ def new():
     fills in the contact's global facts here; each character adds their own
     link/notes/salary afterwards from the contact's own ficha (link_save)."""
     professions = Profession.query.order_by(Profession.name).all()
-    form_context = {**_grado_form_context(), **_professions_picker_context(professions)}
+    form_context = {**_contact_form_context(), **_professions_picker_context(professions)}
 
     if request.method == 'POST':
         contact = Contact(created_by_id=current_user.id)
@@ -437,8 +400,6 @@ def detail(contact_id):
         nivel_labels=NIVEL_LABELS,
         tipo_relacion_choices=TIPO_RELACION_CHOICES,
         tipo_relacion_groups=_tipo_relacion_groups(),
-        marca_images=_marca_images(),
-        grados_display=grados_display,
         compute_sueldo=salary_service.compute_sueldo,
     )
 
@@ -550,7 +511,7 @@ def note_delete(contact_id, note_id):
 def edit(contact_id):
     contact = Contact.query.get_or_404(contact_id)
     professions = Profession.query.order_by(Profession.name).all()
-    form_context = {**_grado_form_context(), **_professions_picker_context(professions)}
+    form_context = {**_contact_form_context(), **_professions_picker_context(professions)}
 
     if request.method == 'POST':
         nombre = request.form.get('nombre', '').strip()

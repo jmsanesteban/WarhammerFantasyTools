@@ -1,12 +1,15 @@
-"""Tests for Untersuchung grados/marcas, shared between Contact (NPCs) and
-Character (player characters who are themselves Untersuchung agents):
+"""Tests for Untersuchung grados/marcas - since 2026-07-19 exclusive to
+Character (player characters who are themselves Untersuchung agents);
+Contact/ContactCharacterLink no longer has any grado/marca concept at all
+(Untersuchung membership on a contact is now a plain tipo_relacion='Unter'
+value on the link - see test_contacts.py):
 - app/models/untersuchung.py: clamp_grados enforces two exclusive tiers
   (Agente: up to 3 marks, duplicates allowed = double mark/veterancy;
   Adjunto: exactly 1 mark, never combined with Agente marks), has_marca
   (true whenever any grado is set - the old "sin marca" tier is gone),
   marca_image_path, grados_display.
-- Setting any grado auto-flags es_untersuchung=True on both Contact and
-  Character, even if the checkbox wasn't posted.
+- Setting any grado auto-flags es_untersuchung=True on Character, even if
+  the checkbox wasn't posted.
 - The grado picker is 3 independent single-select slots (grado_1/2/3), not
   one multi-select - the same grado can be assigned to two slots at once
   (a "double mark" representing veterancy), which a <select multiple>
@@ -15,7 +18,6 @@ from app.models.untersuchung import (
     clamp_grados, has_marca, marca_image_path, grados_display,
     UNTERSUCHUNG_GRADOS, UNTERSUCHUNG_GRADOS_AGENTE, UNTERSUCHUNG_GRADOS_ADJUNTO, MAX_GRADOS,
 )
-from app.models.contact import Contact
 from app.models.character import Character
 
 
@@ -88,115 +90,6 @@ def test_grados_display_collapses_duplicates():
     assert grados_display(['Gato', 'Gato', 'Brújula']) == 'Gato x2, Brújula'
     assert grados_display(None) == ''
     assert grados_display([]) == ''
-
-
-# ── Contact routes ───────────────────────────────────────────────────────────
-
-def test_new_contact_con_marca_grado_auto_sets_es_untersuchung(db, client, admin_user, login_as):
-    """Contact creation is admin-only since the 2026-07-16 rework."""
-    login_as(client, admin_user, 'adminpass123')
-
-    client.post('/contactos/nuevo', data={
-        'nombre': 'Agente Gato', 'grado_1': 'Gato',
-    }, follow_redirects=True)
-
-    contact = Contact.query.filter_by(nombre='Agente Gato').first()
-    assert contact is not None
-    assert contact.es_untersuchung is True
-    assert contact.grados_untersuchung == ['Gato']
-
-
-def test_new_contact_forbidden_for_non_admin(db, client, bare_user, login_as):
-    login_as(client, bare_user, 'userpass123')
-
-    resp = client.post('/contactos/nuevo', data={'nombre': 'Intento no-admin'})
-    assert resp.status_code == 403
-    assert Contact.query.filter_by(nombre='Intento no-admin').first() is None
-
-
-def test_new_contact_adjunto_grado_rejects_mixed_tier(db, client, admin_user, login_as):
-    login_as(client, admin_user, 'adminpass123')
-
-    client.post('/contactos/nuevo', data={
-        'nombre': 'Adjunto Carro', 'grado_1': 'Carro', 'grado_2': 'Escudo',
-    }, follow_redirects=True)
-
-    contact = Contact.query.filter_by(nombre='Adjunto Carro').first()
-    assert contact is not None
-    assert contact.grados_untersuchung == ['Carro']
-    assert contact.es_untersuchung is True
-
-
-def test_edit_contact_can_hold_the_same_grado_twice(db, client, admin_user, make_contact, login_as):
-    """The actual feature request: an agent can have a double mark of the
-    same grado (represents veterancy) - the 3 independent slots allow this,
-    unlike the old single <select multiple>."""
-    contact = make_contact(nombre='Veterana')
-    login_as(client, admin_user, 'adminpass123')
-
-    client.post(f'/contactos/{contact.id}/editar', data={
-        'nombre': 'Veterana', 'grado_1': 'Gato', 'grado_2': 'Gato',
-    }, follow_redirects=True)
-
-    db.session.refresh(contact)
-    assert contact.grados_untersuchung == ['Gato', 'Gato']
-    assert contact.es_untersuchung is True
-
-
-def test_edit_contact_grados_capped_at_three_slots_within_agente(db, client, admin_user, make_contact, login_as):
-    contact = make_contact(nombre='Multimarca')
-    login_as(client, admin_user, 'adminpass123')
-
-    client.post(f'/contactos/{contact.id}/editar', data={
-        'nombre': 'Multimarca', 'grado_1': 'Escudo', 'grado_2': 'Gato', 'grado_3': 'Brújula',
-    }, follow_redirects=True)
-
-    db.session.refresh(contact)
-    assert contact.grados_untersuchung == ['Escudo', 'Gato', 'Brújula']
-
-
-def test_edit_contact_forbidden_for_non_admin(db, client, bare_user, make_contact, login_as):
-    contact = make_contact(nombre='No editable')
-    login_as(client, bare_user, 'userpass123')
-
-    resp = client.post(f'/contactos/{contact.id}/editar', data={'nombre': 'Hackeado'})
-    assert resp.status_code == 403
-    db.session.refresh(contact)
-    assert contact.nombre == 'No editable'
-
-
-def test_detail_shows_marca_image_for_con_marca_grado(client, regular_user, login_as, make_character, make_contact):
-    """Since the rework, whether a contact can be seen at all is a single
-    admin-controlled switch (Contact.is_visible) - but the Untersuchung facts
-    within it are still gated on the viewing character being a member
-    themselves (or the viewer being admin), same rule as before."""
-    make_character(regular_user, es_untersuchung=True)
-    contact = make_contact(nombre='Con marca', es_untersuchung=True, grados_untersuchung=['Escudo'])
-    login_as(client, regular_user, 'userpass123')
-
-    resp = client.get(f'/contactos/{contact.id}')
-    assert resp.status_code == 200
-    assert b'escudo.jpg' in resp.data
-
-
-def test_detail_shows_marca_image_twice_for_double_mark(client, regular_user, login_as, make_character, make_contact):
-    make_character(regular_user, es_untersuchung=True)
-    contact = make_contact(nombre='Doble marca', es_untersuchung=True, grados_untersuchung=['Gato', 'Gato'])
-    login_as(client, regular_user, 'userpass123')
-
-    resp = client.get(f'/contactos/{contact.id}')
-    assert resp.status_code == 200
-    assert resp.data.count(b'gato.jpg') == 2
-    assert b'Gato x2' in resp.data
-
-
-def test_detail_hidden_contact_redirects_non_admin(client, regular_user, login_as, make_contact):
-    contact = make_contact(nombre='Oculto', is_visible=False)
-    login_as(client, regular_user, 'userpass123')
-
-    resp = client.get(f'/contactos/{contact.id}', follow_redirects=False)
-    assert resp.status_code == 302
-    assert resp.headers['Location'].endswith('/contactos/')
 
 
 # ── Character routes ─────────────────────────────────────────────────────────

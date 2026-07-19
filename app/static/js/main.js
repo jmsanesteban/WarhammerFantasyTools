@@ -67,19 +67,17 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
-  // Untersuchung grado picker (contacts/new.html, contacts/edit.html,
-  // characters/form.html): 3 independent slots. Was duplicated verbatim in
-  // all 3 templates; consolidated here (2026-07-17) since it needed a
-  // second real change (disabling slots 2/3 when slot 1 is Adjunto) and
-  // three hand-edited copies are how that kind of rule silently drifts.
+  // Untersuchung grado picker (characters/form.html, propia pertenencia del
+  // personaje a la Untersuchung - separado de Contactos desde 2026-07-19,
+  // ver TIPO_RELACION_CHOICES): 3 independent slots.
   initGradoPicker();
 
   // Tipo de relación (contacts/detail.html): checkboxes marcados con el
-  // mismo data-exclusive-group son mutuamente excluyentes (p.ej. Baza/
-  // Contacto, Súbdito/Señor - ver TIPO_RELACION_EXCLUSIVE_PAIRS) - marcar
-  // uno desmarca su pareja. El servidor aplica la misma regla igualmente
-  // (_dedupe_tipo_relacion), esto es solo para no dejar que el usuario
-  // marque ambos y luego se sorprenda al ver que uno desaparece al guardar.
+  // mismo data-exclusive-group son mutuamente excluyentes (Súbdito/Señor -
+  // ver TIPO_RELACION_EXCLUSIVE_PAIRS) - marcar uno desmarca su pareja. El
+  // servidor aplica la misma regla igualmente (_dedupe_tipo_relacion), esto
+  // es solo para no dejar que el usuario marque ambos y luego se sorprenda
+  // al ver que uno desaparece al guardar.
   document.querySelectorAll('.wh-exclusive-cb[data-exclusive-group]').forEach(cb => {
     cb.addEventListener('change', () => {
       if (!cb.checked) return;

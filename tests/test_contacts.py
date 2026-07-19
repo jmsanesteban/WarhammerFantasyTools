@@ -185,38 +185,6 @@ def test_edit_contact_toggles_is_visible(db, client, admin_user, login_as, make_
     assert contact.is_visible is True
 
 
-# ── Untersuchung visibility gate (unchanged: admin o personaje miembro) ────
-
-_UNTERSUCHUNG_FACT = b'<dt class="col-sm-4 wh-label">Untersuchung</dt>'
-
-
-def test_untersuchung_hidden_from_non_member_character(client, regular_user, make_character, make_contact, login_as):
-    char = make_character(regular_user, name='Civil', es_untersuchung=False)
-    contact = make_contact(nombre='Agente secreto', es_untersuchung=True)
-    login_as(client, regular_user, 'userpass123')
-
-    resp = client.get(f'/contactos/{contact.id}?personaje_id={char.id}')
-    assert resp.status_code == 200
-    assert _UNTERSUCHUNG_FACT not in resp.data
-
-
-def test_untersuchung_visible_to_member_character(client, regular_user, make_character, make_contact, login_as):
-    char = make_character(regular_user, name='Agente', es_untersuchung=True)
-    contact = make_contact(nombre='Agente secreto', es_untersuchung=True)
-    login_as(client, regular_user, 'userpass123')
-
-    resp = client.get(f'/contactos/{contact.id}?personaje_id={char.id}')
-    assert _UNTERSUCHUNG_FACT in resp.data
-
-
-def test_untersuchung_visible_to_admin_regardless(client, admin_user, make_contact, login_as):
-    contact = make_contact(nombre='Agente secreto', es_untersuchung=True)
-    login_as(client, admin_user, 'adminpass123')
-
-    resp = client.get(f'/contactos/{contact.id}')
-    assert _UNTERSUCHUNG_FACT in resp.data
-
-
 _PROFESIONES_FACT = b'<dt class="col-sm-4 wh-label">Profesiones</dt>'
 
 
@@ -265,33 +233,34 @@ def test_link_save_ignores_unknown_tipo_relacion(db, client, regular_user, make_
     assert link.tipo_relacion == ['Baza']
 
 
-def test_link_save_ignores_retired_unter_untersuchung_choice(db, client, regular_user, make_character,
-                                                               make_contact, login_as):
-    """2026-07-17: Untersuchung membership moved to Contact.es_untersuchung -
-    'Unter/Untersuchung' is no longer a valid tipo_relacion choice."""
+def test_link_save_accepts_unter_tipo_relacion(db, client, regular_user, make_character, make_contact, login_as):
+    """2026-07-19: Untersuchung membership moved back to tipo_relacion='Unter'
+    (off Contact.es_untersuchung, which no longer exists)."""
     char = make_character(regular_user)
     contact = make_contact()
     login_as(client, regular_user, 'userpass123')
 
     client.post(f'/contactos/{contact.id}/vinculo', data={
-        'personaje_id': str(char.id), 'tipo_relacion': ['Unter/Untersuchung', 'Otra'],
+        'personaje_id': str(char.id), 'tipo_relacion': ['Unter', 'Otra'],
     }, follow_redirects=True)
 
     link = ContactCharacterLink.query.filter_by(character_id=char.id, contact_id=contact.id).first()
-    assert link.tipo_relacion == ['Otra']
+    assert set(link.tipo_relacion) == {'Unter', 'Otra'}
 
 
-def test_link_save_deduplicates_baza_contacto_pair(db, client, regular_user, make_character, make_contact, login_as):
+def test_link_save_baza_and_unter_are_not_exclusive(db, client, regular_user, make_character, make_contact, login_as):
+    """Only Súbdito/Señor are mutually exclusive now - Baza and Unter can both
+    apply to the same link (an asset who's also Untersuchung)."""
     char = make_character(regular_user)
     contact = make_contact()
     login_as(client, regular_user, 'userpass123')
 
     client.post(f'/contactos/{contact.id}/vinculo', data={
-        'personaje_id': str(char.id), 'tipo_relacion': ['Baza', 'Contacto'],
+        'personaje_id': str(char.id), 'tipo_relacion': ['Baza', 'Unter'],
     }, follow_redirects=True)
 
     link = ContactCharacterLink.query.filter_by(character_id=char.id, contact_id=contact.id).first()
-    assert link.tipo_relacion == ['Baza']
+    assert set(link.tipo_relacion) == {'Baza', 'Unter'}
 
 
 def test_link_save_deduplicates_subdito_senor_pair(db, client, regular_user, make_character, make_contact, login_as):
@@ -321,10 +290,9 @@ def test_detail_own_row_shows_create_form_when_no_link_yet(db, client, regular_u
     assert resp.status_code == 200
     assert 'Crear vínculo'.encode() in resp.data
     assert 'name="tipo_relacion" value="Súbdito"'.encode() in resp.data
-    assert 'name="tipo_relacion" value="Contacto"'.encode() in resp.data
-    assert 'name="tipo_relacion" value="Unter/Untersuchung"'.encode() not in resp.data
+    assert 'name="tipo_relacion" value="Unter"'.encode() in resp.data
+    assert 'name="tipo_relacion" value="Contacto"'.encode() not in resp.data
     assert b'data-exclusive-group="tipo-relacion-pair-0"' in resp.data
-    assert b'data-exclusive-group="tipo-relacion-pair-1"' in resp.data
     assert b'own-link-panel' in resp.data
 
 

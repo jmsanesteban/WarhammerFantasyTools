@@ -469,7 +469,7 @@ def test_contacts_full_round_trip(app, db, make_user, make_character, make_profe
         char = make_character(user, name='Grimm')
         prof = make_profession(name='Mercader')
         contact = make_contact(
-            nombre='Hans', es_untersuchung=True, professions=[prof], created_by=user,
+            nombre='Hans', professions=[prof], created_by=user,
             raza='Humano', lugar_descanso='Un carromato', notas_director='Doble agente',
         )
         contact.estado = 'desconocido'
@@ -488,7 +488,6 @@ def test_contacts_full_round_trip(app, db, make_user, make_character, make_profe
 
         data = bkp.export_contacts_full()
         row = next(r for r in data if r['nombre'] == 'Hans')
-        assert row['es_untersuchung'] is True
         assert row['estado'] == 'desconocido'
         assert row['raza'] == 'Humano'
         assert row['lugar_descanso'] == 'Un carromato'
@@ -515,7 +514,6 @@ def test_contacts_full_round_trip(app, db, make_user, make_character, make_profe
         summary = bkp.import_contacts_full(data)
         assert summary['created'] == 1
         restored = Contact.query.filter_by(nombre='Hans').first()
-        assert restored.es_untersuchung is True
         assert restored.estado == 'desconocido'
         assert restored.raza == 'Humano'
         assert restored.lugar_descanso == 'Un carromato'

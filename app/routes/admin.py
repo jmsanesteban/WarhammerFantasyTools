@@ -1612,7 +1612,7 @@ def contacts_delete_selected():
 
 # ---------------------------------------------------------------------------
 # Contactos: importación / exportación Excel (columnas fijas: nombre,
-# es_untersuchung, profesiones separadas por coma)
+# profesiones separadas por coma)
 # ---------------------------------------------------------------------------
 
 @admin_bp.route('/contactos/importar', methods=['GET', 'POST'])

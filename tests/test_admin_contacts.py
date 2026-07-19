@@ -3,7 +3,7 @@ delete, editing global fields (gated by the contacts.edit permission since
 2026-07-18's permission-system rollout — no per-character visibility grants,
 no creator-can-edit exception; a non-admin needs contacts.edit, which admins
 always have), and Excel import/export against the fixed-column schema
-(nombre, es_untersuchung, profesiones)."""
+(nombre, profesiones)."""
 import io
 import openpyxl
 from app.models.contact import Contact, ContactProfession
@@ -28,42 +28,24 @@ def test_edit_contact_requires_permission(client, bare_user, make_contact, login
 
 
 def test_edit_contact_updates_global_fields(db, client, admin_user, make_contact, make_profession, login_as):
-    contact = make_contact(nombre='Nombre original', es_untersuchung=False)
+    contact = make_contact(nombre='Nombre original')
     prof = make_profession(name='Herrero')
     login_as(client, admin_user, 'adminpass123')
 
     resp = client.post(f'/contactos/{contact.id}/editar', data={
-        'nombre': 'Nombre corregido', 'es_untersuchung': 'on', 'estado': 'desconocido',
+        'nombre': 'Nombre corregido', 'estado': 'desconocido',
         'raza_choice': 'Elfo Silvano', 'lugar_descanso': 'Un carromato', 'notas_director': 'Nota confidencial',
-        'grado_1': 'Paloma', 'profession_ids': [str(prof.id)],
+        'profession_ids': [str(prof.id)],
     }, follow_redirects=True)
     assert resp.status_code == 200
 
     db.session.refresh(contact)
     assert contact.nombre == 'Nombre corregido'
-    assert contact.es_untersuchung is True
     assert contact.estado == 'desconocido'
     assert contact.raza == 'Elfo Silvano'
     assert contact.lugar_descanso == 'Un carromato'
     assert contact.notas_director == 'Nota confidencial'
-    assert contact.grados_untersuchung == ['Paloma']
     assert ContactProfession.query.filter_by(contact_id=contact.id, profession_id=prof.id).first() is not None
-
-
-def test_edit_contact_checkbox_alone_sets_es_untersuchung_without_grado(db, client, admin_user, make_contact, login_as):
-    """2026-07-17: es_untersuchung is manually toggleable again (not only
-    derived from grados) - a contact can be a member with no assigned mark
-    yet."""
-    contact = make_contact(nombre='Miembro sin marca', es_untersuchung=False)
-    login_as(client, admin_user, 'adminpass123')
-
-    client.post(f'/contactos/{contact.id}/editar', data={
-        'nombre': 'Miembro sin marca', 'es_untersuchung': 'on',
-    }, follow_redirects=True)
-
-    db.session.refresh(contact)
-    assert contact.es_untersuchung is True
-    assert contact.grados_untersuchung is None
 
 
 def test_edit_contact_toggles_is_visible(db, client, admin_user, make_contact, login_as):
@@ -161,7 +143,7 @@ def test_admin_can_save_link_for_any_characters_contact(db, client, admin_user, 
 
 # ── Excel import/export ──────────────────────────────────────────────────────
 
-def _build_xlsx(rows, headers=('Nombre', 'Es_Untersuchung', 'Profesiones')):
+def _build_xlsx(rows, headers=('Nombre', 'Profesiones')):
     wb = openpyxl.Workbook()
     ws = wb.active
     ws.append(list(headers))
@@ -189,7 +171,7 @@ def test_contacts_import_rejects_non_excel(client, admin_user, login_as):
 
 def test_contacts_import_creates_contacts(db, client, admin_user, login_as, make_profession):
     prof = make_profession(name='Herrero')
-    xlsx = _build_xlsx([['Gotrek Gurnisson', 'Si', 'Herrero']])
+    xlsx = _build_xlsx([['Gotrek Gurnisson', 'Herrero']])
     login_as(client, admin_user, 'adminpass123')
 
     resp = client.post('/admin/contactos/importar',
@@ -199,12 +181,11 @@ def test_contacts_import_creates_contacts(db, client, admin_user, login_as, make
 
     contact = Contact.query.filter_by(nombre='Gotrek Gurnisson').first()
     assert contact is not None
-    assert contact.es_untersuchung is True
     assert ContactProfession.query.filter_by(contact_id=contact.id, profession_id=prof.id).first() is not None
 
 
 def test_contacts_import_ignores_unknown_profession_names(db, client, admin_user, login_as):
-    xlsx = _build_xlsx([['Gotrek Gurnisson', 'No', 'Profesión Inventada']])
+    xlsx = _build_xlsx([['Gotrek Gurnisson', 'Profesión Inventada']])
     login_as(client, admin_user, 'adminpass123')
 
     client.post('/admin/contactos/importar',
@@ -219,7 +200,7 @@ def test_contacts_import_ignores_unknown_profession_names(db, client, admin_user
 def test_contacts_import_update_existing_matches_by_nombre(db, client, admin_user, login_as, make_contact):
     make_contact(nombre='Gotrek Gurnisson')
 
-    xlsx = _build_xlsx([['Gotrek Gurnisson', 'Si', '']])
+    xlsx = _build_xlsx([['Gotrek Gurnisson', '']])
     login_as(client, admin_user, 'adminpass123')
 
     client.post('/admin/contactos/importar',
@@ -227,7 +208,6 @@ def test_contacts_import_update_existing_matches_by_nombre(db, client, admin_use
                content_type='multipart/form-data', follow_redirects=True)
 
     assert Contact.query.count() == 1
-    assert Contact.query.first().es_untersuchung is True
 
 
 def test_contacts_export_requires_admin(client, regular_user, login_as):

@@ -158,11 +158,11 @@ def make_character(db):
 
 @pytest.fixture
 def make_contact(db):
-    def _make(nombre='Contacto de prueba', is_visible=True, es_untersuchung=False, created_by=None,
+    def _make(nombre='Contacto de prueba', is_visible=True, created_by=None,
               professions=None, **kwargs):
         from app.models.contact import Contact, ContactProfession
         contact = Contact(
-            nombre=nombre, is_visible=is_visible, es_untersuchung=es_untersuchung,
+            nombre=nombre, is_visible=is_visible,
             created_by_id=created_by.id if created_by else None, **kwargs
         )
         db.session.add(contact)

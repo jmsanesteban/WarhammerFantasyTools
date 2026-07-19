@@ -1,16 +1,18 @@
-"""Shared Untersuchung grado/marca data - used by both Contact (NPCs) and
-Character (player characters who are themselves Untersuchung agents). Source:
-the user's "untersuchung.pdf" (uploads/). Two tiers now (reworked 2026-07-16,
-replacing the old flat 10-value con-marca/sin-marca split):
+"""Untersuchung grado/marca data - used by Character (player characters who
+are themselves Untersuchung agents). Source: the user's "untersuchung.pdf"
+(uploads/). Two tiers now (reworked 2026-07-16, replacing the old flat
+10-value con-marca/sin-marca split):
 - Agente: full members, hold 1-MAX_GRADOS marks, may repeat the same grado
   twice (represents a senior/veteran double mark).
 - Adjunto: helpers/assistants of the agents, hold exactly ONE mark, never
   combined with an Agente mark in the same set - Carro and Paloma used to
   live in the same flat list as the 6 Agente grados with no exclusivity at
   all; that's the actual behavior change here.
-The old "sin marca" tier (Bazas, Contactos) is gone - a person related to the
-organization without a mark is now expressed as Contacto/ContactCharacterLink
-tipo_relacion='Baza', a per-character fact, not a global grado."""
+Contact (NPCs) used to have this same grado/marca system (2026-07-16 through
+2026-07-19), but the director asked for it to be dropped from Contacts
+entirely - a contact's Untersuchung membership is now just a plain
+tipo_relacion='Unter' value on ContactCharacterLink (per-character fact, no
+grado/marca), see app/models/contact_character_link.py."""
 
 UNTERSUCHUNG_GRADOS_AGENTE = ['Escudo', 'Estilete', 'Gato', 'Brújula', 'Pluma', 'Corona']
 UNTERSUCHUNG_GRADOS_ADJUNTO = ['Carro', 'Paloma']

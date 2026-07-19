@@ -1,6 +1,5 @@
 from datetime import datetime
 from app.extensions import db
-from app.models.untersuchung import UNTERSUCHUNG_GRADOS  # noqa: F401 (re-exported for existing importers)
 
 # Simplificado a un único campo de 3 valores (2026-07-16 rework, sustituye al
 # antiguo par estado+paradero) - "corrompido" y los distintos paraderos
@@ -29,9 +28,7 @@ class Contact(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     nombre = db.Column(db.String(150), nullable=False)
     raza = db.Column(db.String(100), nullable=True)
-    es_untersuchung = db.Column(db.Boolean, default=False, nullable=False)
     estado = db.Column(db.String(20), nullable=False, default='vivo')
-    grados_untersuchung = db.Column(db.JSON, nullable=True)  # lista de UNTERSUCHUNG_GRADOS (ver app/models/untersuchung.py)
     # Hechos globales del contacto (2026-07-16 rework) - antes vivían por
     # personaje en ContactCharacterLink (lugar_residencia/lugar_contacto);
     # dónde vive/trabaja/se relaja un NPC no depende de quién pregunta.

@@ -37,7 +37,6 @@
             <th style="width:3rem">#</th>
             <th>Nombre</th>
             <th>Profesiones</th>
-            <th>Untersuchung</th>
             <th style="width:6rem">Visible</th>
             <th style="width:7rem"></th>
           </tr>
@@ -49,7 +48,6 @@
             <td class="text-muted small">{{ contact.id }}</td>
             <td><strong>{{ contact.nombre }}</strong></td>
             <td class="small text-muted">{{ contact.professions|map(attribute='profession.name')|join(', ') or '—' }}</td>
-            <td>{{ 'Sí' if contact.es_untersuchung else 'No' }}</td>
             <td>
               <button type="button"
                       class="btn btn-sm {% if contact.is_visible %}btn-outline-secondary{% else %}btn-outline-warning{% endif %} contact-toggle-btn"
