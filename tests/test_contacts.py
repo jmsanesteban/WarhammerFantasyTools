@@ -243,7 +243,7 @@ def test_edit_contact_toggles_is_visible(db, client, admin_user, login_as, make_
     assert contact.is_visible is True
 
 
-_PROFESIONES_FACT = b'<dt class="col-sm-4 wh-label">Profesiones</dt>'
+_PROFESIONES_FACT = b'<div class="wh-field-label">Profesiones</div>'
 
 
 # ── Visibilidad/edición de la carrera profesional (2026-07-19): admin-only

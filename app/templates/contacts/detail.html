@@ -51,32 +51,49 @@
           {% endif %}
         </div>
         <div class="col-md-7">
-          <dl class="row mb-0">
-            <dt class="col-sm-4 wh-label">Raza</dt><dd class="col-sm-8">{{ contact.raza or '—' }}</dd>
-            <dt class="col-sm-4 wh-label">Estado</dt><dd class="col-sm-8">{{ estado_labels[contact.estado] }}</dd>
-            <dt class="col-sm-4 wh-label">Lugar de descanso</dt><dd class="col-sm-8">{{ contact.lugar_descanso or '—' }}</dd>
-            <dt class="col-sm-4 wh-label">Lugar de trabajo</dt><dd class="col-sm-8">{{ contact.lugar_trabajo or '—' }}</dd>
-            <dt class="col-sm-4 wh-label">Lugar de ocio</dt><dd class="col-sm-8">{{ contact.lugar_ocio or '—' }}</dd>
+          <div class="wh-contact-fields-grid">
+            <div class="wh-contact-field">
+              <div class="wh-field-label">Raza</div>
+              <div class="wh-field-value">{{ contact.raza or '—' }}</div>
+            </div>
+            <div class="wh-contact-field">
+              <div class="wh-field-label">Estado</div>
+              <div class="wh-field-value">{{ estado_labels[contact.estado] }}</div>
+            </div>
+            <div class="wh-contact-field">
+              <div class="wh-field-label">Lugar de descanso</div>
+              <div class="wh-field-value">{{ contact.lugar_descanso or '—' }}</div>
+            </div>
+            <div class="wh-contact-field">
+              <div class="wh-field-label">Lugar de trabajo</div>
+              <div class="wh-field-value">{{ contact.lugar_trabajo or '—' }}</div>
+            </div>
+            <div class="wh-contact-field">
+              <div class="wh-field-label">Lugar de ocio</div>
+              <div class="wh-field-value">{{ contact.lugar_ocio or '—' }}</div>
+            </div>
             {% if can_view_career %}
-            <dt class="col-sm-4 wh-label">Profesiones</dt>
-            <dd class="col-sm-8">
-              {% if contact.professions %}
-              <ul class="list-unstyled mb-0">
-                {% for cp in contact.professions %}
-                <li>
-                  <strong>{{ cp.profession.name }}</strong>
-                  <span class="text-muted small">
-                    — {{ cp.tipo_sueldo or '—' }} / {{ cp.estado_habilidad or '—' }}
-                    {% set sueldo = compute_sueldo(cp.tipo_sueldo, cp.estado_habilidad) %}
-                    {% if sueldo %}· {{ sueldo }}/semana{% endif %}
-                  </span>
-                </li>
-                {% endfor %}
-              </ul>
-              {% else %}—{% endif %}
-            </dd>
+            <div class="wh-contact-field wh-contact-field-wide">
+              <div class="wh-field-label">Profesiones</div>
+              <div class="wh-field-value">
+                {% if contact.professions %}
+                <ul class="list-unstyled mb-0">
+                  {% for cp in contact.professions %}
+                  <li>
+                    <strong>{{ cp.profession.name }}</strong>
+                    <span class="text-muted" style="font-size:.85em">
+                      — {{ cp.tipo_sueldo or '—' }} / {{ cp.estado_habilidad or '—' }}
+                      {% set sueldo = compute_sueldo(cp.tipo_sueldo, cp.estado_habilidad) %}
+                      {% if sueldo %}· {{ sueldo }}/semana{% endif %}
+                    </span>
+                  </li>
+                  {% endfor %}
+                </ul>
+                {% else %}—{% endif %}
+              </div>
+            </div>
             {% endif %}
-          </dl>
+          </div>
         </div>
       </div>
     </div>

@@ -639,6 +639,35 @@ a:hover { color: var(--wh-gold-light); }
   color: var(--wh-border-gold);
 }
 
+/* Ficha de detalle de contacto (2026-07-19) - unos pocos campos (Raza,
+   Estado, Lugares...) quedaban apilados en dt/dd estrecho arriba a la
+   izquierda, dejando vacío el resto de la columna. auto-fill + minmax
+   reparte los campos en varias columnas cuando hay espacio y cae a una
+   sola en móvil/tablet estrecho sin media queries. */
+.wh-contact-fields-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
+  column-gap: 2rem;
+  row-gap: 1.75rem;
+  height: 100%;
+  /* space-between (not start) - with the image column stretched to its
+     full height (Bootstrap row default), this spreads the field rows down
+     the whole box instead of bunching them all at the top. */
+  align-content: space-between;
+}
+.wh-contact-field-wide { grid-column: 1 / -1; }
+.wh-contact-fields-grid .wh-field-label {
+  color: var(--wh-gold-light);
+  font-family: 'Cinzel', serif;
+  font-size: 0.85rem;
+  letter-spacing: 0.5px;
+  margin-bottom: 0.35rem;
+}
+.wh-contact-fields-grid .wh-field-value {
+  font-size: 1.15rem;
+  line-height: 1.4;
+}
+
 /* Small round avatar, e.g. next to a character's name in a list card -
    unlike .wh-prof-thumb (full-width card-top image), this stays inline.
    Same hover-zoom + click-to-lightbox as .wh-card-img-left (see main.js and
