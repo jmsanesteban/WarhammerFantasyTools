@@ -14,6 +14,8 @@
 .picker-row:disabled { opacity: .35; }
 #roll-log { max-height: 240px; overflow-y: auto; font-size: .82rem; }
 #roll-log .log-entry { border-bottom: 1px solid var(--wh-border, #444); padding: 2px 0; }
+#roll-log .log-entry.log-entry-deleted { opacity: .5; text-decoration: line-through; }
+.log-delete-btn { padding: 0 5px; line-height: 1.3; font-size: .75rem; }
 .wh-formula-hint { color: var(--wh-gold, #caa53d); font-style: italic; background: transparent; }
 </style>
 {% endblock %}
@@ -558,7 +560,7 @@
   const RACE_COL = { 'Humano': 'humano', 'Halfling': 'halfling', 'Enano': 'enano', 'Elfo Silvano': 'elfo', 'Alto Elfo': 'elfo' };
   const RACE_GROUP = TABLES.razas_caracteristicas_group;
 
-  async function rollStep(paso, contexto) {
+  async function rollStep(paso, contexto, undoFn) {
     const resp = await fetch(ROLL_URL, {
       method: 'POST',
       headers: {
@@ -575,7 +577,7 @@
       throw new Error('Respuesta inesperada del servidor (¿sesión caducada? recarga la página).');
     }
     if (!resp.ok) throw new Error(data.error || 'Error en la tirada');
-    logRoll(paso, contexto, data.result, false);
+    logRoll(paso, contexto, data.result, false, undoFn);
     return data.result;
   }
 
@@ -718,21 +720,58 @@
     }
   }
 
-  function logRoll(paso, contexto, result, manual) {
-    if (!STEP_LABELS[paso]) return; // info_racial/horas_sueno son consultas, no tiradas
-    rollLogSeq += 1;
+  /* A petición del director de juego: cualquier campo/tirada tiene que poder
+   * eliminarse, y esa eliminación debe quedar registrada en el histórico (no
+   * un "deshacer" silencioso). Por eso `undoFn`, cuando se pasa, no borra la
+   * entrada original - la marca como tachada/"eliminado" y añade una entrada
+   * NUEVA (logDeletion) dejando constancia de quién se quitó y cuándo. */
+  function appendLogEntry(innerHtml, undoFn, label, detailForDeletion) {
     const entry = document.createElement('div');
     entry.className = 'log-entry';
-    const tag = manual
-      ? '<span class="badge bg-secondary me-1">elegido a mano</span>'
-      : '<span class="badge bg-warning text-dark me-1">tirada web</span>';
-    entry.innerHTML = '<strong>' + rollLogSeq + '.</strong> ' + tag +
-      '<strong>' + (STEP_LABELS[paso] || paso) + ':</strong> ' + formatRollDetail(paso, result);
+    entry.innerHTML = innerHtml;
+    if (undoFn) {
+      const delBtn = document.createElement('button');
+      delBtn.type = 'button';
+      delBtn.className = 'btn btn-outline-danger btn-sm ms-2 log-delete-btn';
+      delBtn.title = 'Eliminar';
+      delBtn.innerHTML = '<i class="bi bi-trash"></i>';
+      delBtn.addEventListener('click', () => {
+        if (!confirm('¿Eliminar «' + label + '»? Quedará registrado en el histórico de tiradas.')) return;
+        undoFn();
+        entry.classList.add('log-entry-deleted');
+        delBtn.remove();
+        logDeletion(label, detailForDeletion);
+      });
+      entry.appendChild(delBtn);
+    }
     rollLogEl.insertBefore(entry, rollLogEmpty);
     rollLogEmpty.style.display = 'none';
   }
 
+  function logRoll(paso, contexto, result, manual, undoFn) {
+    if (!STEP_LABELS[paso]) return; // info_racial/horas_sueno son consultas, no tiradas
+    rollLogSeq += 1;
+    const tag = manual
+      ? '<span class="badge bg-secondary me-1">elegido a mano</span>'
+      : '<span class="badge bg-warning text-dark me-1">tirada web</span>';
+    const label = STEP_LABELS[paso] || paso;
+    const detail = formatRollDetail(paso, result);
+    appendLogEntry('<strong>' + rollLogSeq + '.</strong> ' + tag +
+      '<strong>' + label + ':</strong> ' + detail, undoFn, label, detail);
+  }
+
+  /* Deja constancia de una eliminación (de un campo o de un elemento de una
+   * lista) como una entrada de histórico más, con su propia numeración -
+   * nunca borra ni reescribe la entrada original que la motivó. */
+  function logDeletion(label, detail) {
+    rollLogSeq += 1;
+    appendLogEntry('<strong>' + rollLogSeq + '.</strong> ' +
+      '<span class="badge bg-danger me-1">eliminado</span>' +
+      '<strong>' + label + ':</strong> ' + detail);
+  }
+
   document.getElementById('btn-clear-log').addEventListener('click', () => {
+    if (!confirm('Esto borra el registro completo sin dejar rastro (a diferencia de eliminar una entrada suelta, que sí queda anotada). ¿Continuar?')) return;
     rollLogEl.querySelectorAll('.log-entry').forEach(el => el.remove());
     rollLogEmpty.style.display = '';
     rollLogSeq = 0;
@@ -741,15 +780,11 @@
   /* Entrada de registro ad-hoc para selecciones manuales que no encajan en
    * el formateador de un paso completo (p.ej. elegir solo el tramo de
    * Heridas dentro de Características). */
-  function logManualPick(label, detail) {
+  function logManualPick(label, detail, undoFn) {
     rollLogSeq += 1;
-    const entry = document.createElement('div');
-    entry.className = 'log-entry';
-    entry.innerHTML = '<strong>' + rollLogSeq + '.</strong> ' +
+    appendLogEntry('<strong>' + rollLogSeq + '.</strong> ' +
       '<span class="badge bg-secondary me-1">elegido a mano</span>' +
-      '<strong>' + label + ':</strong> ' + detail;
-    rollLogEl.insertBefore(entry, rollLogEmpty);
-    rollLogEmpty.style.display = 'none';
+      '<strong>' + label + ':</strong> ' + detail, undoFn, label, detail);
   }
 
   /* ── Selector genérico de tabla para tiradas físicas ──
@@ -855,6 +890,10 @@
   function phButtonsFor(id) {
     return Array.from(document.querySelectorAll('.ph-opt-btn[data-id="' + id + '"]'));
   }
+  /* Idempotente a propósito (siempre resetea el estilo antes de reaplicarlo):
+   * al poder deshacerse un uso (ver unregisterPHUsage), `used` puede tanto
+   * subir como bajar, y el botón tiene que poder volver a su aspecto
+   * "disponible" igual de bien que a su aspecto "usado". */
   function updatePHButtonVisuals(id) {
     const btns = phButtonsFor(id);
     if (!btns.length) return;
@@ -863,28 +902,45 @@
     btns.forEach(btn => {
       const badge = btn.querySelector('.ph-usage-badge');
       if (badge) badge.textContent = used > 0 ? (' ✓ usado ' + used + '/' + max) : '';
-      if (used >= max) {
-        btn.disabled = true;
-        btn.style.opacity = '0.5';
-        btn.style.textDecoration = 'line-through';
-      } else if (used > 0) {
-        btn.style.borderColor = '#5cb85c';
-        btn.style.color = '#5cb85c';
-      }
+      btn.disabled = used >= max;
+      btn.style.opacity = used >= max ? '0.5' : '';
+      btn.style.textDecoration = used >= max ? 'line-through' : '';
+      btn.style.borderColor = (used > 0 && used < max) ? '#5cb85c' : '';
+      btn.style.color = (used > 0 && used < max) ? '#5cb85c' : '';
     });
   }
   function registerPHUsage(id) {
     phUsageCounts[id] = (phUsageCounts[id] || 0) + 1;
     updatePHButtonVisuals(id);
   }
+  function unregisterPHUsage(id) {
+    phUsageCounts[id] = Math.max(0, (phUsageCounts[id] || 0) - 1);
+    updatePHButtonVisuals(id);
+  }
+  function unapplyHistoryCost(coste) {
+    if (coste < 0) {
+      phSpentInp.value = Math.max(0, parseInt(phSpentInp.value || 0) - Math.abs(coste));
+    } else if (coste > 0) {
+      phTotalInp.value = Math.max(0, parseInt(phTotalInp.value || 0) - coste);
+    }
+    refreshPH();
+  }
   refreshPH();
 
-  /* ── Generic JSON-backed list widget ── */
-  function makeListWidget(containerId, hiddenId, renderItem) {
+  /* ── Generic JSON-backed list widget ──
+   * opts.label/describeFn (optional): when given, the row's own "x" button
+   * asks for confirmation and logs the removal via logDeletion - same rule
+   * as everything else here, nothing disappears from the roll history
+   * without a trace. removeItem() (used by roll-log "eliminar" buttons,
+   * whose undo already logs its own deletion entry) removes silently to
+   * avoid double-logging the same removal. */
+  function makeListWidget(containerId, hiddenId, renderItem, opts) {
+    opts = opts || {};
     const container = document.getElementById(containerId);
     const hidden = document.getElementById(hiddenId);
     let items = [];
     function sync() { hidden.value = JSON.stringify(items); }
+    function removeAt(idx) { items.splice(idx, 1); render(); sync(); }
     function render() {
       container.innerHTML = '';
       items.forEach((item, idx) => {
@@ -896,29 +952,42 @@
       });
       container.querySelectorAll('.rm-item').forEach(btn => {
         btn.addEventListener('click', () => {
-          items.splice(parseInt(btn.dataset.idx), 1);
-          render(); sync();
+          const idx = parseInt(btn.dataset.idx);
+          const item = items[idx];
+          const detail = opts.describeFn ? opts.describeFn(item) : '';
+          if (opts.label && !confirm('¿Eliminar «' + opts.label + ': ' + detail + '»? Quedará registrado en el histórico de tiradas.')) return;
+          removeAt(idx);
+          if (opts.label) logDeletion(opts.label, detail);
         });
       });
     }
     return {
-      add(item) { items.push(item); render(); sync(); },
+      add(item) { items.push(item); render(); sync(); return item; },
       all() { return items; },
+      removeItem(item) {
+        const idx = items.indexOf(item);
+        if (idx !== -1) removeAt(idx);
+      },
     };
   }
 
   const traitsWidget = makeListWidget('traits-list', 'f-traits-json',
-    t => '<span class="badge wh-badge-skill">' + t.category + '</span><span class="flex-grow-1">' + t.description + '</span>');
+    t => '<span class="badge wh-badge-skill">' + t.category + '</span><span class="flex-grow-1">' + t.description + '</span>',
+    { label: 'Rasgo', describeFn: t => t.category + ': ' + t.description });
   const acquaintancesWidget = makeListWidget('acquaintances-list', 'f-acquaintances-json',
     a => '<span class="badge wh-badge-prof">' + a.kind + '</span>' +
          '<input type="text" class="form-control form-control-sm wh-input flex-grow-1" value="' +
-         (a.description || '').replace(/"/g, '&quot;') + '" disabled>');
+         (a.description || '').replace(/"/g, '&quot;') + '" disabled>',
+    { label: 'Contacto', describeFn: a => a.kind + ': ' + (a.description || '') });
   const possessionsWidget = makeListWidget('possessions-list', 'f-possessions-json',
-    p => '<span class="flex-grow-1">' + (p.name || p) + '</span>');
+    p => '<span class="flex-grow-1">' + (p.name || p) + '</span>',
+    { label: 'Posesión', describeFn: p => (p.name || p) });
   const magicItemsWidget = makeListWidget('magic-items-list', 'f-magic-items-json',
-    m => '<span class="badge wh-badge-skill-opt">' + m.category + '</span><span class="flex-grow-1">' + m.description + '</span>');
+    m => '<span class="badge wh-badge-skill-opt">' + m.category + '</span><span class="flex-grow-1">' + m.description + '</span>',
+    { label: 'Objeto mágico', describeFn: m => m.category + ': ' + m.description });
   const sucesosWidget = makeListWidget('sucesos-list', 'f-sucesos-json',
-    e => '<span class="flex-grow-1">' + (e.grupo || e.value) + '</span>');
+    e => '<span class="flex-grow-1">' + (e.grupo || e.value) + '</span>',
+    { label: 'Suceso de juventud', describeFn: e => (e.grupo || e.value) });
 
   /* ── Raza ── */
   const onRaceChanged = safe(async () => {
@@ -989,6 +1058,11 @@
         batchBtns.forEach(b => { b.disabled = true; });
         setPHCredit('raza', 1);
         onRaceChanged();
+        logRoll('raza', {}, { roll: r.roll, race: r.race }, false, () => {
+          document.getElementById('f-race').value = '';
+          setPHCredit('raza', 0);
+          onRaceChanged();
+        });
       });
       batchBtns.push(btn);
       box.appendChild(btn);
@@ -1003,7 +1077,11 @@
           document.getElementById('f-race').value = r.race;
           setPHCredit('raza', 0);
           onRaceChanged();
-          logRoll('raza', {}, { roll: r.min + '-' + r.max, race: r.race }, true);
+          logRoll('raza', {}, { roll: r.min + '-' + r.max, race: r.race }, true, () => {
+            document.getElementById('f-race').value = '';
+            setPHCredit('raza', 0);
+            onRaceChanged();
+          });
         },
       });
     });
@@ -1037,11 +1115,21 @@
         }
         batchBtns.forEach(b => { b.disabled = true; });
         setPHCredit('profesion', 1);
+        logRoll('profesion', { raza: race }, { roll: r.roll, profession_name: r.profession_name }, false, () => {
+          clearProfessionPicker();
+          setPHCredit('profesion', 0);
+        });
       });
       batchBtns.push(btn);
       box.appendChild(btn);
     });
   }));
+
+  function clearProfessionPicker() {
+    const picker = document.getElementById('matched-profession-picker');
+    picker.querySelector('.prof-picker-hidden').value = '';
+    picker.querySelector('.prof-picker-input').value = '';
+  }
 
   function renderProfesionTable() {
     const race = currentRace();
@@ -1057,7 +1145,10 @@
           alert('«' + row.name + '» no está en el catálogo todavía. Créala desde Profesiones y luego selecciónala en el desplegable.');
         }
         setPHCredit('profesion', 0);
-        logRoll('profesion', { raza: race }, { roll: row[col], profession_name: row.name }, true);
+        logRoll('profesion', { raza: race }, { roll: row[col], profession_name: row.name }, true, () => {
+          clearProfessionPicker();
+          setPHCredit('profesion', 0);
+        });
       },
     });
   }
@@ -1067,13 +1158,18 @@
   });
 
   /* ── Características ── */
+  const CARACT_FIELDS = ['ws','bs','s_char','t_char','ag','int_char','wp','fel',
+    'attacks','wounds','strength_bonus','toughness_bonus','movement','magic','insanity_points','fate_points'];
   document.getElementById('btn-roll-caracteristicas').addEventListener('click', safe(async () => {
     const race = currentRace();
     if (!race) { alert('Elige primero una raza.'); return; }
-    const r = await rollStep('caracteristicas', { raza: race });
-    ['ws','bs','s_char','t_char','ag','int_char','wp','fel',
-     'attacks','wounds','strength_bonus','toughness_bonus','movement','magic','insanity_points','fate_points'
-    ].forEach(f => { document.getElementById('f-' + f).value = r[f]; });
+    const r = await rollStep('caracteristicas', { raza: race }, () => {
+      CARACT_FIELDS.forEach(f => { document.getElementById('f-' + f).value = ''; });
+      setPHCredit('historial_caracteristicas', 0);
+      updateHorasSueno();
+      renderFinalCaracteristicas();
+    });
+    CARACT_FIELDS.forEach(f => { document.getElementById('f-' + f).value = r[f]; });
     setPHCredit('historial_caracteristicas', r.history_points || 0);
     updateHorasSueno();
     renderFinalCaracteristicas();
@@ -1089,21 +1185,21 @@
   document.getElementById('btn-roll-heridas').addEventListener('click', safe(async () => {
     const race = currentRace();
     if (!race) { alert('Elige primero una raza.'); return; }
-    const r = await rollStep('heridas', { raza: race });
+    const r = await rollStep('heridas', { raza: race }, () => { document.getElementById('f-wounds').value = ''; });
     document.getElementById('f-wounds').value = r.value;
     selectPickerRowByRoll(TABLES.razas_caracteristicas[raceGroup(race)].wounds_table, r.roll);
   }));
   document.getElementById('btn-roll-destino').addEventListener('click', safe(async () => {
     const race = currentRace();
     if (!race) { alert('Elige primero una raza.'); return; }
-    const r = await rollStep('destino', { raza: race });
+    const r = await rollStep('destino', { raza: race }, () => { document.getElementById('f-fate_points').value = ''; });
     document.getElementById('f-fate_points').value = r.value;
     selectPickerRowByRoll(TABLES.razas_caracteristicas[raceGroup(race)].fate_points_table, r.roll);
   }));
   document.getElementById('btn-roll-historial').addEventListener('click', safe(async () => {
     const race = currentRace();
     if (!race) { alert('Elige primero una raza.'); return; }
-    const r = await rollStep('historial', { raza: race });
+    const r = await rollStep('historial', { raza: race }, () => setPHCredit('historial_caracteristicas', 0));
     setPHCredit('historial_caracteristicas', r.value || 0);
     selectPickerRowByRoll(TABLES.razas_caracteristicas[raceGroup(race)].history_points_table, r.roll);
   }));
@@ -1146,21 +1242,24 @@
       labelFn: r => r.min + '-' + r.max + ': ' + r.value,
       onSelect: r => {
         document.getElementById('f-wounds').value = r.value;
-        logManualPick('Heridas', 'tirada ' + r.min + '-' + r.max + ' → ' + r.value);
+        logManualPick('Heridas', 'tirada ' + r.min + '-' + r.max + ' → ' + r.value,
+          () => { document.getElementById('f-wounds').value = ''; });
       },
     });
     renderPicker('picker-destino', spec.fate_points_table, {
       labelFn: r => r.min + '-' + r.max + ': ' + r.value,
       onSelect: r => {
         document.getElementById('f-fate_points').value = r.value;
-        logManualPick('Puntos de Destino', 'tirada ' + r.min + '-' + r.max + ' → ' + r.value);
+        logManualPick('Puntos de Destino', 'tirada ' + r.min + '-' + r.max + ' → ' + r.value,
+          () => { document.getElementById('f-fate_points').value = ''; });
       },
     });
     renderPicker('picker-historial', spec.history_points_table, {
       labelFn: r => r.min + '-' + r.max + ': ' + r.value,
       onSelect: r => {
         setPHCredit('historial_caracteristicas', r.value);
-        logManualPick('Puntos de Historial (perfil)', 'tirada ' + r.min + '-' + r.max + ' → +' + r.value + ' PH');
+        logManualPick('Puntos de Historial (perfil)', 'tirada ' + r.min + '-' + r.max + ' → +' + r.value + ' PH',
+          () => setPHCredit('historial_caracteristicas', 0));
       },
     });
   }
@@ -1179,8 +1278,15 @@
   }
 
   /* ── Signo astral ── */
+  function clearSignoAstral() {
+    document.getElementById('f-signo').value = '';
+    document.getElementById('f-rasgo-signo').value = '';
+    document.getElementById('signo-modificadores').textContent = '';
+    setPHCredit('signo_omitido', 0);
+    setCharModCredit('signo_astral', '');
+  }
   document.getElementById('btn-roll-signo').addEventListener('click', safe(async () => {
-    const r = await rollStep('signo_astral');
+    const r = await rollStep('signo_astral', {}, clearSignoAstral);
     document.getElementById('f-signo').value = r.signo;
     document.getElementById('f-rasgo-signo').value = r.rasgo;
     document.getElementById('signo-modificadores').textContent = 'Modificadores: ' + r.modificadores;
@@ -1197,7 +1303,7 @@
           document.getElementById('signo-modificadores').textContent = 'Modificadores: ' + r.modificadores;
           setPHCredit('signo_omitido', 0);
           setCharModCredit('signo_astral', r.modificadores);
-          logRoll('signo_astral', {}, { roll: r.min + '-' + r.max, signo: r.signo, rasgo: r.rasgo }, true);
+          logRoll('signo_astral', {}, { roll: r.min + '-' + r.max, signo: r.signo, rasgo: r.rasgo }, true, clearSignoAstral);
         },
       });
     });
@@ -1208,13 +1314,20 @@
     document.getElementById('signo-modificadores').textContent = 'Omitido.';
     setPHCredit('signo_omitido', 1);
     setCharModCredit('signo_astral', '');
+    logManualPick('Signo astral', 'omitido (+1 PH)', () => {
+      document.getElementById('signo-modificadores').textContent = '';
+      setPHCredit('signo_omitido', 0);
+    });
   });
 
   /* ── Altura / Peso / Edad ── */
   document.getElementById('btn-roll-altura').addEventListener('click', safe(async () => {
     const race = currentRace();
     if (!race) { alert('Elige primero una raza.'); return; }
-    const r = await rollStep('altura', { raza: race, genero: currentGender() });
+    const r = await rollStep('altura', { raza: race, genero: currentGender() }, () => {
+      document.getElementById('f-altura').value = '';
+      setCharModCredit('altura', '');
+    });
     document.getElementById('f-altura').value = r.cm;
     setCharModCredit('altura', r.modificadores);
   }));
@@ -1222,14 +1335,23 @@
     const race = currentRace();
     const altura = document.getElementById('f-altura').value;
     if (!race || !altura) { alert('Necesitas raza y altura primero.'); return; }
-    const r = await rollStep('peso', { raza: race, altura_cm: altura });
+    const r = await rollStep('peso', { raza: race, altura_cm: altura }, () => {
+      document.getElementById('f-peso').value = '';
+      setCharModCredit('peso', '');
+    });
     document.getElementById('f-peso').value = r.kg;
     setCharModCredit('peso', r.modificadores);
   }));
   document.getElementById('btn-roll-edad').addEventListener('click', safe(async () => {
     const race = currentRace();
     if (!race) { alert('Elige primero una raza.'); return; }
-    const r = await rollStep('edad', { raza: race });
+    const r = await rollStep('edad', { raza: race }, () => {
+      document.getElementById('f-edad').value = '';
+      document.getElementById('f-edad-grado').value = '';
+      document.getElementById('edad-modificadores').textContent = '';
+      document.getElementById('f-num-sucesos').value = 1;
+      setCharModCredit('edad', '');
+    });
     document.getElementById('f-edad').value = r.edad;
     document.getElementById('f-edad-grado').value = r.grado;
     document.getElementById('edad-modificadores').textContent = r.modificadores ? ('Modificadores: ' + r.modificadores) : '';
@@ -1276,7 +1398,11 @@
 
   /* ── Apariencia ── */
   document.getElementById('btn-roll-apariencia').addEventListener('click', safe(async () => {
-    const r = await rollStep('apariencia');
+    const r = await rollStep('apariencia', {}, () => {
+      document.getElementById('f-pelo').value = '';
+      document.getElementById('f-ojos').value = '';
+      document.getElementById('f-mano').value = '';
+    });
     document.getElementById('f-pelo').value = r.pelo;
     document.getElementById('f-ojos').value = r.ojos;
     document.getElementById('f-mano').value = r.mano_dominante;
@@ -1285,24 +1411,40 @@
     toggleBox('apariencia-tables', () => {
       renderPicker('picker-pelo', TABLES.apariencia.pelo, {
         labelFn: r => r.min + '-' + r.max + ': ' + r.value,
-        onSelect: r => { document.getElementById('f-pelo').value = r.value; },
+        onSelect: r => {
+          document.getElementById('f-pelo').value = r.value;
+          logManualPick('Pelo', 'tirada ' + r.min + '-' + r.max + ' → ' + r.value,
+            () => { document.getElementById('f-pelo').value = ''; });
+        },
       });
       renderPicker('picker-ojos', TABLES.apariencia.ojos, {
         labelFn: r => r.min + '-' + r.max + ': ' + r.value,
-        onSelect: r => { document.getElementById('f-ojos').value = r.value; },
+        onSelect: r => {
+          document.getElementById('f-ojos').value = r.value;
+          logManualPick('Ojos', 'tirada ' + r.min + '-' + r.max + ' → ' + r.value,
+            () => { document.getElementById('f-ojos').value = ''; });
+        },
       });
       renderPicker('picker-mano', TABLES.apariencia.mano_dominante, {
         labelFn: r => r.min + '-' + r.max + ': ' + r.value,
-        onSelect: r => { document.getElementById('f-mano').value = r.value; },
+        onSelect: r => {
+          document.getElementById('f-mano').value = r.value;
+          logManualPick('Mano dominante', 'tirada ' + r.min + '-' + r.max + ' → ' + r.value,
+            () => { document.getElementById('f-mano').value = ''; });
+        },
       });
     });
   });
 
   /* ── Procedencia ── */
+  function clearProcedencia() {
+    document.getElementById('f-procedencia').value = '';
+    onRaceChanged();
+  }
   document.getElementById('btn-roll-procedencia').addEventListener('click', safe(async () => {
     const race = currentRace();
     if (!race) { alert('Elige primero una raza.'); return; }
-    const r = await rollStep('procedencia', { raza: race });
+    const r = await rollStep('procedencia', { raza: race }, clearProcedencia);
     document.getElementById('f-procedencia').value = r.procedencia;
   }));
 
@@ -1323,7 +1465,7 @@
             onSelect: p => {
               document.getElementById('f-procedencia').value = r.provincia + ' - ' + p.value;
               onRaceChanged();
-              logRoll('procedencia', { raza: race }, { procedencia: r.provincia + ' - ' + p.value }, true);
+              logRoll('procedencia', { raza: race }, { procedencia: r.provincia + ' - ' + p.value }, true, clearProcedencia);
             },
           });
         },
@@ -1338,7 +1480,7 @@
         onSelect: r => {
           if (r.value === '__imperio__') { t1.innerHTML = ''; pickHumanoImperio('procedencia-table-1'); return; }
           document.getElementById('f-procedencia').value = r.value;
-          logRoll('procedencia', { raza: race }, { procedencia: r.value }, true);
+          logRoll('procedencia', { raza: race }, { procedencia: r.value }, true, clearProcedencia);
         },
       });
     } else if (race === 'Enano') {
@@ -1347,7 +1489,7 @@
         onSelect: r => {
           if (r.value === '__imperio__') { t1.innerHTML = ''; pickHumanoImperio('procedencia-table-1'); return; }
           document.getElementById('f-procedencia').value = r.value;
-          logRoll('procedencia', { raza: race }, { procedencia: r.value }, true);
+          logRoll('procedencia', { raza: race }, { procedencia: r.value }, true, clearProcedencia);
         },
       });
     } else if (race === 'Elfo Silvano') {
@@ -1355,7 +1497,7 @@
         labelFn: r => r.min + '-' + r.max + ': ' + r.value,
         onSelect: r => {
           document.getElementById('f-procedencia').value = r.value;
-          logRoll('procedencia', { raza: race }, { procedencia: r.value }, true);
+          logRoll('procedencia', { raza: race }, { procedencia: r.value }, true, clearProcedencia);
         },
       });
     } else if (race === 'Alto Elfo') {
@@ -1364,7 +1506,7 @@
         onSelect: r => {
           if (r.value === '__imperio__') { t1.innerHTML = ''; pickHumanoImperio('procedencia-table-1'); return; }
           document.getElementById('f-procedencia').value = r.value;
-          logRoll('procedencia', { raza: race }, { procedencia: r.value }, true);
+          logRoll('procedencia', { raza: race }, { procedencia: r.value }, true, clearProcedencia);
         },
       });
     }
@@ -1378,7 +1520,9 @@
   document.getElementById('btn-roll-familia').addEventListener('click', safe(async () => {
     const race = currentRace();
     if (!race) { alert('Elige primero una raza.'); return; }
-    const r = await rollStep('situacion_familiar', { raza: race });
+    const r = await rollStep('situacion_familiar', { raza: race }, () => {
+      document.getElementById('f-situacion-familiar').value = '';
+    });
     document.getElementById('f-situacion-familiar').value = r.situacion;
     (r.hermanos || []).forEach(h => acquaintancesWidget.add({ kind: 'hermano', description: h }));
   }));
@@ -1388,7 +1532,9 @@
         labelFn: r => r.min + '-' + r.max + ': ' + r.label,
         onSelect: r => {
           document.getElementById('f-situacion-familiar').value = r.label;
-          logRoll('situacion_familiar', {}, { roll: r.min + '-' + r.max, situacion: r.label }, true);
+          logRoll('situacion_familiar', {}, { roll: r.min + '-' + r.max, situacion: r.label }, true, () => {
+            document.getElementById('f-situacion-familiar').value = '';
+          });
         },
       });
     });
@@ -1400,11 +1546,14 @@
   }
   document.getElementById('btn-roll-sucesos').addEventListener('click', safe(async () => {
     const n = parseInt(document.getElementById('f-num-sucesos').value || 1);
-    const r = await rollStep('sucesos_juventud', { num_rolls: n, excluir: narrativosYaOcurridos() });
+    const r = await rollStep('sucesos_juventud', { num_rolls: n, excluir: narrativosYaOcurridos() }, () => {
+      addedItems.forEach(({ widget, item }) => widget.removeItem(item));
+    });
+    const addedItems = [];
     r.eventos.forEach(ev => {
-      sucesosWidget.add(ev);
+      addedItems.push({ widget: sucesosWidget, item: sucesosWidget.add(ev) });
       if (ev.categoria === 'relacion') {
-        acquaintancesWidget.add({ kind: ev.tipo, description: ev.grupo });
+        addedItems.push({ widget: acquaintancesWidget, item: acquaintancesWidget.add({ kind: ev.tipo, description: ev.grupo }) });
       }
     });
   }));
@@ -1418,9 +1567,13 @@
             alert('Ese suceso ya ha ocurrido, no puede repetirse.');
             return;
           }
-          sucesosWidget.add(r);
-          if (r.categoria === 'relacion') acquaintancesWidget.add({ kind: r.tipo, description: r.grupo });
-          logRoll('sucesos_juventud', {}, { eventos: [{ roll: r.min + '-' + r.max, grupo: r.grupo, value: r.value }] }, true);
+          const sucesoItem = sucesosWidget.add(r);
+          let acqItem = null;
+          if (r.categoria === 'relacion') acqItem = acquaintancesWidget.add({ kind: r.tipo, description: r.grupo });
+          logRoll('sucesos_juventud', {}, { eventos: [{ roll: r.min + '-' + r.max, grupo: r.grupo, value: r.value }] }, true, () => {
+            sucesosWidget.removeItem(sucesoItem);
+            if (acqItem) acquaintancesWidget.removeItem(acqItem);
+          });
         },
       });
     });
@@ -1431,18 +1584,47 @@
     const hidden = document.getElementById('f-racial-talents-json');
     return hidden.value ? JSON.parse(hidden.value) : [];
   }
+  /* A diferencia del resto de listas (que usan makeListWidget), estos
+   * talentos se acumulan como badges sueltos porque conviven con los
+   * talentos fijos de la raza en el mismo bloque informativo - por eso
+   * llevan su propia mini gestión de alta/baja en vez del widget genérico,
+   * pero con el mismo contrato: quitar uno pide confirmación y lo deja
+   * anotado en el histórico. */
+  function addRacialTalent(talento) {
+    const box = document.getElementById('racial-talentos-aleatorios');
+    const span = document.createElement('span');
+    span.className = 'badge wh-badge-skill me-1 mb-1';
+    span.textContent = talento + ' ';
+    const rm = document.createElement('button');
+    rm.type = 'button';
+    rm.className = 'btn-close btn-close-white';
+    rm.style.fontSize = '.55rem';
+    rm.title = 'Eliminar';
+    rm.addEventListener('click', () => {
+      if (!confirm('¿Eliminar el talento «' + talento + '»? Quedará registrado en el histórico de tiradas.')) return;
+      removeRacialTalent(talento);
+      logDeletion('Talento aleatorio', talento);
+    });
+    span.appendChild(rm);
+    box.appendChild(span);
+    const arr = racialTalentsArr();
+    arr.push(talento);
+    document.getElementById('f-racial-talents-json').value = JSON.stringify(arr);
+    return span;
+  }
+  function removeRacialTalent(talento) {
+    const arr = racialTalentsArr().filter(t => t !== talento);
+    document.getElementById('f-racial-talents-json').value = JSON.stringify(arr);
+    const box = document.getElementById('racial-talentos-aleatorios');
+    const span = Array.from(box.children).find(el => el.textContent.trim() === talento);
+    if (span) span.remove();
+  }
   document.getElementById('btn-roll-talento-racial').addEventListener('click', safe(async () => {
     const race = currentRace();
     if (!race) return;
     const arr = racialTalentsArr();
-    const r = await rollStep('talento_aleatorio', { raza: race, excluir: arr });
-    const box = document.getElementById('racial-talentos-aleatorios');
-    const span = document.createElement('div');
-    span.className = 'badge wh-badge-skill me-1 mb-1';
-    span.textContent = r.talento;
-    box.appendChild(span);
-    arr.push(r.talento);
-    document.getElementById('f-racial-talents-json').value = JSON.stringify(arr);
+    const r = await rollStep('talento_aleatorio', { raza: race, excluir: arr }, () => removeRacialTalent(r.talento));
+    addRacialTalent(r.talento);
   }));
 
   function talentGroup(race) {
@@ -1460,14 +1642,9 @@
           alert('Ese talento ya se ha obtenido, no puede repetirse.');
           return;
         }
-        const box = document.getElementById('racial-talentos-aleatorios');
-        const span = document.createElement('div');
-        span.className = 'badge wh-badge-skill me-1 mb-1';
-        span.textContent = r.value;
-        box.appendChild(span);
-        arr.push(r.value);
-        document.getElementById('f-racial-talents-json').value = JSON.stringify(arr);
-        logRoll('talento_aleatorio', { raza: race }, { roll: r.min + '-' + r.max, talento: r.value }, true);
+        addRacialTalent(r.value);
+        logRoll('talento_aleatorio', { raza: race }, { roll: r.min + '-' + r.max, talento: r.value }, true,
+          () => removeRacialTalent(r.value));
       },
     });
   }
@@ -1480,8 +1657,9 @@
   document.querySelectorAll('[data-roll-trait]').forEach(btn => {
     btn.addEventListener('click', safe(async () => {
       const cat = btn.dataset.rollTrait;
-      const r = await rollStep(cat);
-      traitsWidget.add({ category: cat, description: r.value });
+      let item;
+      const r = await rollStep(cat, {}, () => traitsWidget.removeItem(item));
+      item = traitsWidget.add({ category: cat, description: r.value });
     }));
   });
   document.getElementById('btn-toggle-rasgos-tables').addEventListener('click', () => {
@@ -1491,8 +1669,8 @@
           multi: true,
           labelFn: r => r.min + '-' + r.max + ': ' + r.value,
           onSelect: r => {
-            traitsWidget.add({ category: cat, description: r.value });
-            logRoll(cat, {}, { roll: r.min + '-' + r.max, value: r.value }, true);
+            const item = traitsWidget.add({ category: cat, description: r.value });
+            logRoll(cat, {}, { roll: r.min + '-' + r.max, value: r.value }, true, () => traitsWidget.removeItem(item));
           },
         });
       });
@@ -1520,6 +1698,12 @@
     buildBody(btnsWrap, close);
     box.style.display = 'block';
   }
+  /* onDone(label, detail, undoFn): a diferencia del resto de tiradas, estas
+   * opciones no se registran en el momento de elegir la característica -
+   * finish() añade siempre el coste en PH y (si aplica) la tirada de peaje
+   * por encima, así que el registro se hace una sola vez al final, con un
+   * único botón de eliminar que deshace TODO lo que trajo esta opción
+   * concreta (característica/heridas modificadas, coste en PH y peaje). */
   function openMisericordiaChooser(onDone) {
     const race = currentRace();
     if (!race) { alert('Elige primero una raza.'); return; }
@@ -1534,9 +1718,9 @@
           const base = parseInt(String(spec[field]).split('+')[0]) || 0;
           const nuevoValor = base + 11;
           document.getElementById('f-' + field).value = nuevoValor;
-          logManualPick('Misericordia de Shallya', label + ' sustituida por la media: ' + base + '+11 = ' + nuevoValor);
           close();
-          onDone();
+          onDone('Misericordia de Shallya', label + ' sustituida por la media: ' + base + '+11 = ' + nuevoValor,
+            () => { document.getElementById('f-' + field).value = ''; });
         });
         wrap.appendChild(btnMedia);
 
@@ -1547,9 +1731,9 @@
         btnReroll.addEventListener('click', safe(async () => {
           const r = await rollStep('formula', { formula: spec[field] });
           document.getElementById('f-' + field).value = r.value;
-          logManualPick('Misericordia de Shallya', label + ' vuelta a tirar (' + spec[field] + ') = ' + r.value);
           close();
-          onDone();
+          onDone('Misericordia de Shallya', label + ' vuelta a tirar (' + spec[field] + ') = ' + r.value,
+            () => { document.getElementById('f-' + field).value = ''; });
         }));
         wrap.appendChild(btnReroll);
       });
@@ -1566,9 +1750,9 @@
           const inp = document.getElementById('f-' + field);
           const nuevoValor = parseInt(inp.value || 0) + 2;
           inp.value = nuevoValor;
-          logManualPick('Bono de Historial', '+2% a ' + label + ' → ' + nuevoValor);
           close();
-          onDone();
+          onDone('Bono de Historial', '+2% a ' + label + ' → ' + nuevoValor,
+            () => { inp.value = parseInt(inp.value || 0) - 2; });
         });
         wrap.appendChild(btn);
       });
@@ -1580,15 +1764,21 @@
         const inp = document.getElementById('f-wounds');
         const nuevoValor = parseInt(inp.value || 0) + 1;
         inp.value = nuevoValor;
-        logManualPick('Bono de Historial', '+1 PV a Heridas → ' + nuevoValor);
         close();
-        onDone();
+        onDone('Bono de Historial', '+1 PV a Heridas → ' + nuevoValor,
+          () => { inp.value = parseInt(inp.value || 0) - 1; });
       });
       wrap.appendChild(btnHeridas);
     });
   }
 
-  /* ── Puntos de Historial: opciones ── */
+  /* ── Puntos de Historial: opciones ──
+   * Cada opción cuesta/otorga PH y puede además exigir una tirada de "peaje"
+   * (un rasgo de estética/personalidad/desventaja) - undoParts acumula, en
+   * orden, todo lo que hay que deshacer si el jugador o el director eliminan
+   * esta elección completa más tarde: el efecto principal (característica
+   * tocada, objeto/rasgo/posesión/contacto añadido...), el peaje si lo hubo,
+   * y siempre el coste en PH + el contador de usos al final. */
   document.querySelectorAll('.ph-opt-btn').forEach(btn => {
     btn.addEventListener('click', safe(async () => {
       const id = btn.dataset.id;
@@ -1606,41 +1796,52 @@
       }
 
       const peaje = btn.dataset.peaje;
-      async function finish() {
+      const defaultLabel = btn.textContent.replace(/\s*✓ usado.*$/s, '').trim();
+      async function finish(primaryLabel, primaryDetail, primaryUndo) {
+        const undoParts = primaryUndo ? [primaryUndo] : [];
         if (peaje) {
-          const r = await rollStep(peaje);
-          traitsWidget.add({ category: peaje, description: r.value });
+          const peajeItem = traitsWidget.add({ category: peaje, description: (await rollStep(peaje)).value });
+          undoParts.push(() => traitsWidget.removeItem(peajeItem));
         }
         applyHistoryCost(coste);
         registerPHUsage(id);
+        undoParts.push(() => { unapplyHistoryCost(coste); unregisterPHUsage(id); });
+        logManualPick(primaryLabel || defaultLabel, primaryDetail || ('coste ' + coste + ' PH'),
+          () => undoParts.forEach(fn => fn()));
       }
 
       if (id === 'objeto_magico') {
         const r = await rollStep('objeto_magico');
-        magicItemsWidget.add({
+        const item = magicItemsWidget.add({
           category: r.categoria,
           description: r.descripcion + ' (tirada tipo: ' + r.tipo_roll + ', tirada propiedad: ' + r.detail_roll + ')',
         });
-        await finish();
+        await finish(defaultLabel, item.category + ': ' + item.description, () => magicItemsWidget.removeItem(item));
       } else if (id === 'talento_aleatorio') {
         const race = currentRace() || 'Humano';
         const extraArr = traitsWidget.all().filter(t => t.category === 'talento_extra')
           .map(t => t.description.replace(/\s*\(tirada.*\)$/, ''));
         const excluir = racialTalentsArr().concat(extraArr);
         const r = await rollStep('talento_aleatorio', { raza: race, excluir: excluir });
-        traitsWidget.add({ category: 'talento_extra', description: r.talento + ' (tirada ' + r.roll + ')' });
-        await finish();
+        const item = traitsWidget.add({ category: 'talento_extra', description: r.talento + ' (tirada ' + r.roll + ')' });
+        await finish(defaultLabel, item.description, () => traitsWidget.removeItem(item));
       } else if (id === 'posesiones') {
         const bonus = coste === -2 ? 2 : 0;
         const r = await rollStep('posesiones', { bonus: bonus });
-        possessionsWidget.add({
+        const item = possessionsWidget.add({
           name: r.descripcion + (r.co ? (' (+' + r.co + ' Co)') : '') + ' (tirada ' + r.roll + ')',
         });
         if (r.co) {
           const dineroInp = document.getElementById('f-dinero');
           dineroInp.value = parseInt(dineroInp.value || 0) + r.co;
         }
-        await finish();
+        await finish(defaultLabel, item.name, () => {
+          possessionsWidget.removeItem(item);
+          if (r.co) {
+            const dineroInp = document.getElementById('f-dinero');
+            dineroInp.value = Math.max(0, parseInt(dineroInp.value || 0) - r.co);
+          }
+        });
       } else if (id === 'misericordia_shallya') {
         openMisericordiaChooser(safe(finish));
       } else if (id === 'mas_caracteristica') {
@@ -1648,8 +1849,8 @@
       } else if (id === 'contacto_elegido') {
         const desc = prompt('Describe el contacto añadido:');
         if (!desc) return;
-        acquaintancesWidget.add({ kind: 'contacto', description: desc });
-        await finish();
+        const item = acquaintancesWidget.add({ kind: 'contacto', description: desc });
+        await finish(defaultLabel, desc, () => acquaintancesWidget.removeItem(item));
       } else {
         await finish();
       }
@@ -1663,17 +1864,24 @@
         labelFn: r => r.min + '-' + r.max + ': ' + r.value,
         onSelect: r => {
           let extra = '';
+          let coNum = 0;
           if (r.tipo === 'dinero') {
             const co = prompt('Tirada de dinero: ' + r.value + '\n¿Cuántas Co has sacado en esa tirada adicional?', '0');
-            const coNum = parseInt(co || 0) || 0;
+            coNum = parseInt(co || 0) || 0;
             extra = coNum ? (' (+' + coNum + ' Co)') : '';
             if (coNum) {
               const dineroInp = document.getElementById('f-dinero');
               dineroInp.value = parseInt(dineroInp.value || 0) + coNum;
             }
           }
-          possessionsWidget.add({ name: r.value + extra + ' (tramo ' + r.min + '-' + r.max + ')' });
-          logRoll('posesiones', {}, { roll: r.min + '-' + r.max, descripcion: r.value }, true);
+          const item = possessionsWidget.add({ name: r.value + extra + ' (tramo ' + r.min + '-' + r.max + ')' });
+          logRoll('posesiones', {}, { roll: r.min + '-' + r.max, descripcion: r.value }, true, () => {
+            possessionsWidget.removeItem(item);
+            if (coNum) {
+              const dineroInp = document.getElementById('f-dinero');
+              dineroInp.value = Math.max(0, parseInt(dineroInp.value || 0) - coNum);
+            }
+          });
         },
       });
     });
@@ -1701,11 +1909,12 @@
           renderPicker('objeto-magico-table-2', detailTable, {
             labelFn: p => p.min + '-' + p.max + ': ' + p.value,
             onSelect: p => {
-              magicItemsWidget.add({
+              const item = magicItemsWidget.add({
                 category: r.value,
                 description: p.value + ' (tirada tipo: ' + r.min + '-' + r.max + ', tirada propiedad: ' + p.min + '-' + p.max + ')',
               });
-              logRoll('objeto_magico', {}, { tipo_roll: r.min + '-' + r.max, categoria: r.value, detail_roll: p.min + '-' + p.max, descripcion: p.value }, true);
+              logRoll('objeto_magico', {}, { tipo_roll: r.min + '-' + r.max, categoria: r.value, detail_roll: p.min + '-' + p.max, descripcion: p.value }, true,
+                () => magicItemsWidget.removeItem(item));
             },
           });
         },
@@ -1733,7 +1942,13 @@
     wireProfPickers(profList);
   });
   profList.addEventListener('click', e => {
-    if (e.target.closest('.remove-prof')) { e.target.closest('.prof-row').remove(); reindex(); }
+    if (!e.target.closest('.remove-prof')) return;
+    const row = e.target.closest('.prof-row');
+    const profName = (row.querySelector('.prof-picker-input') || {}).value || '';
+    if (profName && !confirm('¿Eliminar «' + profName + '» de la carrera profesional? Quedará registrado en el histórico de tiradas.')) return;
+    row.remove();
+    reindex();
+    if (profName) logDeletion('Carrera profesional', profName);
   });
   wireProfPickers(profList);
   // Profesión inicial: sin resaltado de salidas (no tiene profesión previa),
