@@ -85,6 +85,47 @@
       </div>
     </div>
     {% endif %}
+    {% if current_user.has_perm('contacts.view') or current_user.has_perm('contacts.vinculos') %}
+    <div class="col-md-6">
+      <div class="card wh-card h-100">
+        <div class="card-body">
+          <h5 class="card-title wh-heading"><i class="bi bi-person-lines-fill me-2"></i>Contactos</h5>
+          <p class="card-text">Consulta los NPC conocidos y tu vínculo con cada uno: relación, notas y carrera profesional.</p>
+          {% if current_user.has_perm('contacts.view') %}
+          <a href="{{ url_for('contacts.index') }}" class="btn btn-wh">Ver contactos</a>
+          {% else %}
+          <a href="{{ url_for('contacts.vinculos') }}" class="btn btn-wh">Ver vínculos</a>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+    {% endif %}
+    {% if current_user.has_perm('equipment.view') %}
+    <div class="col-md-6">
+      <div class="card wh-card h-100">
+        <div class="card-body">
+          <h5 class="card-title wh-heading"><i class="bi bi-shield-shaded me-2"></i>Equipamiento</h5>
+          <p class="card-text">Catálogo de armas, armaduras, munición, ropa, libros y objetos especiales.</p>
+          <a href="{{ url_for('equipment.list_items') }}" class="btn btn-wh">Ver catálogo</a>
+        </div>
+      </div>
+    </div>
+    {% endif %}
+    {% if current_user.has_perm('food.view') or current_user.has_perm('food.propose') %}
+    <div class="col-md-6">
+      <div class="card wh-card h-100">
+        <div class="card-body">
+          <h5 class="card-title wh-heading"><i class="bi bi-cup-straw me-2"></i>Comida y bebida</h5>
+          <p class="card-text">Bebidas, recetas, ingredientes y métodos de cocina del Imperio y sus vecinos.</p>
+          {% if current_user.has_perm('food.view') %}
+          <a href="{{ url_for('food.drinks') }}" class="btn btn-wh">Ver catálogo</a>
+          {% else %}
+          <a href="{{ url_for('food.propose_recipe') }}" class="btn btn-wh">Proponer receta</a>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+    {% endif %}
   </div>
 
   <!-- Recent professions -->
