@@ -611,6 +611,34 @@ a:hover { color: var(--wh-gold-light); }
   color: var(--wh-border-gold);
 }
 
+/* Fixed-size photo box for the contact edit/new forms (2026-07-19) - unlike
+   .wh-prof-image (ficha display, height driven by the image itself),
+   this box's height is fixed so the "Visible" checkbox beneath it always
+   lines up with the bottom of "Notas del director" in the column next to
+   it, regardless of each contact's own photo dimensions. object-fit:contain
+   keeps every photo undistorted and uncropped (letterboxed if its ratio
+   doesn't match the box) rather than stretching it to fill. */
+.wh-contact-photo-box {
+  height: 434px;
+  width: 100%;
+  background: var(--wh-bg-card);
+  border: 1px solid var(--wh-border-gold);
+  border-radius: 4px;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.wh-contact-photo-box img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+.wh-contact-photo-box .wh-contact-photo-placeholder {
+  font-size: 4rem;
+  color: var(--wh-border-gold);
+}
+
 /* Small round avatar, e.g. next to a character's name in a list card -
    unlike .wh-prof-thumb (full-width card-top image), this stays inline.
    Same hover-zoom + click-to-lightbox as .wh-card-img-left (see main.js and
