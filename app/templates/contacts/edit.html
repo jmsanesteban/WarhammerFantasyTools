@@ -13,7 +13,7 @@
   <form method="POST" enctype="multipart/form-data">
     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
 
-    <div class="card wh-card mb-4" style="max-width:900px">
+    <div class="card wh-card mb-4">
       <div class="card-header wh-card-header">Datos del contacto</div>
       <div class="card-body">
         <div class="row g-3">
@@ -44,28 +44,32 @@
           </div>
 
           <div class="col-md-4">
-            <label class="form-label wh-label">Lugar de descanso</label>
-            <textarea name="lugar_descanso" class="form-control wh-input" rows="2">{{ contact.lugar_descanso or '' }}</textarea>
-          </div>
-          <div class="col-md-4">
-            <label class="form-label wh-label">Lugar de trabajo</label>
-            <textarea name="lugar_trabajo" class="form-control wh-input" rows="2">{{ contact.lugar_trabajo or '' }}</textarea>
-          </div>
-          <div class="col-md-4">
-            <label class="form-label wh-label">Lugar de ocio</label>
-            <textarea name="lugar_ocio" class="form-control wh-input" rows="2">{{ contact.lugar_ocio or '' }}</textarea>
-          </div>
-
-          <div class="col-md-4">
             <label class="form-label wh-label">Foto/imagen</label>
             {% if contact.image_path %}
             <div class="mb-2">
-              <img src="{{ url_for('main.uploaded_file', filename=contact.image_path) }}" style="max-height:120px" class="rounded">
+              <img src="{{ url_for('main.uploaded_file', filename=contact.image_path) }}" style="max-height:220px" class="rounded">
             </div>
             {% endif %}
             <input type="file" name="image" class="form-control wh-input" accept="image/*">
           </div>
-          <div class="col-md-8 d-flex align-items-center">
+          <div class="col-md-8">
+            <div class="row g-3">
+              <div class="col-12">
+                <label class="form-label wh-label">Lugar de descanso</label>
+                <textarea name="lugar_descanso" class="form-control wh-input" rows="2">{{ contact.lugar_descanso or '' }}</textarea>
+              </div>
+              <div class="col-12">
+                <label class="form-label wh-label">Lugar de trabajo</label>
+                <textarea name="lugar_trabajo" class="form-control wh-input" rows="2">{{ contact.lugar_trabajo or '' }}</textarea>
+              </div>
+              <div class="col-12">
+                <label class="form-label wh-label">Lugar de ocio</label>
+                <textarea name="lugar_ocio" class="form-control wh-input" rows="2">{{ contact.lugar_ocio or '' }}</textarea>
+              </div>
+            </div>
+          </div>
+
+          <div class="col-12">
             <label class="d-flex align-items-center gap-2" style="cursor:pointer">
               <input type="checkbox" name="is_visible" class="form-check-input" {% if contact.is_visible %}checked{% endif %}>
               Visible (si se desmarca, queda oculto para todos los jugadores — útil para precargar contactos de
