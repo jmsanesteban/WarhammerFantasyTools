@@ -10,6 +10,7 @@ from app.models.contact_character_link import (
     ContactCharacterLink, NIVEL_LABELS, TIPO_RELACION_CHOICES, TIPO_RELACION_EXCLUSIVE_PAIRS,
 )
 from app.models.contact_note import ContactNote
+from app.models.contact_career_visibility import ContactCareerVisibility
 from app.services import salary_service
 from app.utils import require_permission
 
@@ -146,6 +147,24 @@ def _can_view(contact):
     logged-in user can see any visible contact, and can add their own
     per-character link/notes/salary to it."""
     return current_user.is_admin or contact.is_visible
+
+
+def _can_view_career(contact, active_character):
+    """Whether the "Carrera Profesional" (Profesiones) section of a contact's
+    ficha is visible to the current viewer (2026-07-19, director's request):
+    admin-only by default, opened up per-character either globally
+    (Character.puede_ver_carreras_contactos) or for specific contacts
+    (ContactCareerVisibility), both admin-granted from the character's own
+    edit form - see app/routes/characters.py."""
+    if current_user.is_admin:
+        return True
+    if not active_character:
+        return False
+    if active_character.puede_ver_carreras_contactos:
+        return True
+    return ContactCareerVisibility.query.filter_by(
+        character_id=active_character.id, contact_id=contact.id,
+    ).first() is not None
 
 
 def _active_character():
@@ -396,6 +415,7 @@ def detail(contact_id):
         links=links,
         note_counts=note_counts,
         can_edit=current_user.is_admin,
+        can_view_career=_can_view_career(contact, active_character),
         estado_labels=ESTADO_LABELS,
         nivel_labels=NIVEL_LABELS,
         tipo_relacion_choices=TIPO_RELACION_CHOICES,

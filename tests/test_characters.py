@@ -238,6 +238,85 @@ def test_edit_replaces_profession_history(db, client, regular_user, login_as, ma
     assert prof_ids == [prof2.id]
 
 
+# ── Visibilidad de la carrera de contactos (2026-07-19, admin-only) ────────
+
+def test_admin_can_grant_global_career_visibility(db, client, admin_user, regular_user, make_character, login_as):
+    char = make_character(regular_user, name='Gotrek')
+    login_as(client, admin_user, 'adminpass123')
+
+    client.post(f'/personajes/{char.id}/editar', data={
+        'name': 'Gotrek', 'puede_ver_carreras_contactos': 'on',
+    }, follow_redirects=True)
+
+    db.session.refresh(char)
+    assert char.puede_ver_carreras_contactos is True
+
+
+def test_admin_can_grant_specific_contact_career_visibility(db, client, admin_user, regular_user, make_character,
+                                                             make_contact, login_as):
+    from app.models.contact_career_visibility import ContactCareerVisibility
+    char = make_character(regular_user, name='Gotrek')
+    contact = make_contact(nombre='Alexius')
+    login_as(client, admin_user, 'adminpass123')
+
+    client.post(f'/personajes/{char.id}/editar', data={
+        'name': 'Gotrek', 'career_contact_ids': [str(contact.id)],
+    }, follow_redirects=True)
+
+    grants = ContactCareerVisibility.query.filter_by(character_id=char.id).all()
+    assert [g.contact_id for g in grants] == [contact.id]
+
+
+def test_edit_replaces_career_visibility_grants(db, client, admin_user, regular_user, make_character,
+                                                 make_contact, login_as):
+    from app.models.contact_career_visibility import ContactCareerVisibility
+    char = make_character(regular_user, name='Gotrek')
+    old_contact = make_contact(nombre='Viejo')
+    new_contact = make_contact(nombre='Nuevo')
+    db.session.add(ContactCareerVisibility(character_id=char.id, contact_id=old_contact.id))
+    db.session.commit()
+    login_as(client, admin_user, 'adminpass123')
+
+    client.post(f'/personajes/{char.id}/editar', data={
+        'name': 'Gotrek', 'career_contact_ids': [str(new_contact.id)],
+    }, follow_redirects=True)
+
+    grants = ContactCareerVisibility.query.filter_by(character_id=char.id).all()
+    assert [g.contact_id for g in grants] == [new_contact.id]
+
+
+def test_non_admin_cannot_grant_own_career_visibility(db, client, regular_user, make_character, login_as):
+    """A non-admin editing their OWN character can't sneak the admin-only
+    fields through, even by crafting the POST directly - the section isn't
+    even shown to them in the form."""
+    char = make_character(regular_user, name='Gotrek')
+    login_as(client, regular_user, 'userpass123')
+
+    client.post(f'/personajes/{char.id}/editar', data={
+        'name': 'Gotrek', 'puede_ver_carreras_contactos': 'on',
+    }, follow_redirects=True)
+
+    db.session.refresh(char)
+    assert char.puede_ver_carreras_contactos is False
+
+
+def test_edit_form_hides_career_visibility_section_from_non_admin(client, regular_user, make_character, login_as):
+    char = make_character(regular_user, name='Gotrek')
+    login_as(client, regular_user, 'userpass123')
+
+    resp = client.get(f'/personajes/{char.id}/editar')
+    assert b'Visibilidad de la carrera profesional de los contactos' not in resp.data
+
+
+def test_edit_form_shows_career_visibility_section_to_admin(client, admin_user, regular_user, make_character,
+                                                             login_as):
+    char = make_character(regular_user, name='Gotrek')
+    login_as(client, admin_user, 'adminpass123')
+
+    resp = client.get(f'/personajes/{char.id}/editar')
+    assert b'Visibilidad de la carrera profesional de los contactos' in resp.data
+
+
 def test_delete_blocks_non_owner(db, client, make_user, make_character, login_as):
     owner = make_user(username='owner1', password='ownerpass123')
     other = make_user(username='other1', password='otherpass123')

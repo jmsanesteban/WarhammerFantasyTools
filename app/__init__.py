@@ -304,6 +304,12 @@ def _register_cli_commands(app):
                 if 'grados_untersuchung' not in char_cols:
                     conn.execute(text('ALTER TABLE characters ADD COLUMN grados_untersuchung JSON NULL'))
                     click.echo('  Added characters.grados_untersuchung')
+                if 'puede_ver_carreras_contactos' not in char_cols:
+                    conn.execute(text(
+                        'ALTER TABLE characters ADD COLUMN puede_ver_carreras_contactos '
+                        'BOOLEAN NOT NULL DEFAULT FALSE'
+                    ))
+                    click.echo('  Added characters.puede_ver_carreras_contactos')
 
             # Incremental column: characters.image_path (retrato del personaje)
             char_cols = {c['name'] for c in inspector.get_columns('characters')}

@@ -153,6 +153,51 @@
       </div>
     </div>
 
+    {# ── Visibilidad de la carrera de contactos (2026-07-19, admin-only):
+         "Profesiones" en la ficha de un contacto es admin-only por defecto
+         (ver Contact detail + contacts._can_view_career) - desde aquí un
+         admin concede la excepción a ESTE personaje, global o solo para
+         contactos concretos. Solo tiene sentido en edición (el personaje
+         necesita existir para poder concederle nada), y solo un admin la ve
+         o puede tocarla - characters.edit() ignora estos campos si quien
+         postea no es admin, aunque los fuerce a mano. ─#}
+    {% if char and current_user.is_admin %}
+    <div class="card wh-card mb-4">
+      <div class="card-header wh-card-header">
+        <i class="bi bi-eye me-2"></i>Visibilidad de la carrera profesional de los contactos
+      </div>
+      <div class="card-body">
+        <p class="text-muted small">
+          La sección "Profesiones" de la ficha de un contacto solo la ven los administradores por defecto.
+          Desde aquí puedes concedérsela a este personaje.
+        </p>
+        <label class="d-flex align-items-center gap-2 mb-3" style="cursor:pointer">
+          <input type="checkbox" name="puede_ver_carreras_contactos" id="chk-carreras-global" class="form-check-input"
+                 {% if char.puede_ver_carreras_contactos %}checked{% endif %}>
+          Puede ver la carrera profesional de <strong>todos</strong> los contactos
+        </label>
+        <div id="carrerasContactosSection" {% if char.puede_ver_carreras_contactos %}style="display:none"{% endif %}>
+          <label class="form-label wh-label">O solo de estos contactos concretos</label>
+          <div id="careerGrantList" class="d-flex flex-wrap gap-2 mb-2">
+            {% for grant in char.career_visibility_grants %}
+            <span class="badge bg-secondary d-flex align-items-center gap-2 career-grant-chip" data-contact-id="{{ grant.contact_id }}">
+              <input type="hidden" name="career_contact_ids" value="{{ grant.contact_id }}">
+              {{ grant.contact.nombre }}
+              <button type="button" class="btn-close btn-close-white remove-career-grant" style="font-size:.55rem" aria-label="Quitar"></button>
+            </span>
+            {% endfor %}
+          </div>
+          <div class="contact-picker" style="max-width:320px">
+            <input type="hidden" class="prof-picker-hidden">
+            <input type="text" class="form-control wh-input prof-picker-input" autocomplete="off"
+                   placeholder="Buscar contacto para añadir…">
+            <div class="prof-picker-dropdown"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+    {% endif %}
+
     <div class="d-flex gap-2">
       <button type="submit" class="btn btn-wh"><i class="bi bi-floppy me-1"></i>Guardar</button>
       <a href="{{ url_for('characters.list_characters') }}" class="btn btn-outline-secondary">Cancelar</a>
@@ -217,5 +262,60 @@ profList.addEventListener('click', e => {
 });
 
 wireProfPickers(profList);
+
+// ── Visibilidad de la carrera de contactos (admin-only) ─────────────────────
+// Reutiliza la clase ProfessionPicker (agnóstica al dominio) pero SIN pasar
+// por initProfessionPickers(), que engancha todo `.prof-picker` de la página
+// con las opciones de profesiones - aquí el root es `.contact-picker` a
+// propósito, para no colisionar con el picker de la carrera del propio
+// personaje de más arriba. Cada selección se convierte al momento en un chip
+// y el picker se vacía, en vez de quedarse "rellenado" como una fila normal
+// - es una lista que crece, no un conjunto fijo de filas editables.
+const contactPickerRoot = document.querySelector('.contact-picker');
+if (contactPickerRoot) {
+  const CONTACT_PICKER_OPTIONS = {{ (all_contacts_picker_list if all_contacts_picker_list is defined else []) | tojson }};
+  const contactPicker = new ProfessionPicker(contactPickerRoot, { options: CONTACT_PICKER_OPTIONS });
+  const careerGrantList = document.getElementById('careerGrantList');
+
+  contactPickerRoot.addEventListener('prof-picker:change', () => {
+    const id = contactPicker.hidden.value;
+    const name = contactPicker.input.value;
+    contactPicker.hidden.value = '';
+    contactPicker.input.value = '';
+    if (!id || careerGrantList.querySelector(`[data-contact-id="${id}"]`)) return;
+
+    const chip = document.createElement('span');
+    chip.className = 'badge bg-secondary d-flex align-items-center gap-2 career-grant-chip';
+    chip.dataset.contactId = id;
+
+    const hidden = document.createElement('input');
+    hidden.type = 'hidden';
+    hidden.name = 'career_contact_ids';
+    hidden.value = id;
+    chip.appendChild(hidden);
+    chip.appendChild(document.createTextNode(name));
+
+    const removeBtn = document.createElement('button');
+    removeBtn.type = 'button';
+    removeBtn.className = 'btn-close btn-close-white remove-career-grant';
+    removeBtn.style.fontSize = '.55rem';
+    removeBtn.setAttribute('aria-label', 'Quitar');
+    chip.appendChild(removeBtn);
+
+    careerGrantList.appendChild(chip);
+  });
+
+  careerGrantList.addEventListener('click', e => {
+    if (e.target.closest('.remove-career-grant')) {
+      e.target.closest('.career-grant-chip').remove();
+    }
+  });
+
+  const globalChk = document.getElementById('chk-carreras-global');
+  const section = document.getElementById('carrerasContactosSection');
+  globalChk.addEventListener('change', () => {
+    section.style.display = globalChk.checked ? 'none' : '';
+  });
+}
 </script>
 {% endblock %}

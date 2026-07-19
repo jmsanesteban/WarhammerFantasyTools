@@ -15,6 +15,8 @@ from app.models.profession import Profession
 from app.models.skill import Skill
 from app.models.talent import Talent
 from app.models.user import User
+from app.models.contact import Contact
+from app.models.contact_career_visibility import ContactCareerVisibility
 from app.models.equipment import EquipmentItem, CharacterInventoryItem, CharacterPurchase, CharacterCartItem
 from app.models.untersuchung import (
     UNTERSUCHUNG_GRADOS, UNTERSUCHUNG_GRADOS_CON_MARCA, UNTERSUCHUNG_GRADOS_AGENTE, UNTERSUCHUNG_GRADOS_ADJUNTO,
@@ -213,6 +215,20 @@ def create():
                            **_grado_form_context())
 
 
+def _rebuild_career_visibility_grants(char_id):
+    """Sync ContactCareerVisibility rows from the parallel `career_contact_ids`
+    field (same convention as _rebuild_professions) - admin-only, called from
+    edit() only when current_user.is_admin, never from a non-admin's own
+    self-edit POST."""
+    ContactCareerVisibility.query.filter_by(character_id=char_id).delete()
+    seen = set()
+    for contact_id_str in request.form.getlist('career_contact_ids'):
+        if not contact_id_str or contact_id_str in seen:
+            continue
+        seen.add(contact_id_str)
+        db.session.add(ContactCareerVisibility(character_id=char_id, contact_id=int(contact_id_str)))
+
+
 @characters_bp.route('/<int:char_id>/editar', methods=['GET', 'POST'])
 @login_required
 @require_permission('characters.edit')
@@ -223,6 +239,11 @@ def edit(char_id):
 
     professions = Profession.query.order_by(Profession.name).all()
     picker_ctx = _professions_picker_context(professions)
+    career_visibility_ctx = {}
+    if current_user.is_admin:
+        career_visibility_ctx['all_contacts_picker_list'] = [
+            {'id': c.id, 'name': c.nombre} for c in Contact.query.order_by(Contact.nombre).all()
+        ]
 
     if request.method == 'POST':
         char.name = request.form.get('name', '').strip()
@@ -239,13 +260,19 @@ def edit(char_id):
         CharacterProfession.query.filter_by(character_id=char.id).delete()
         _rebuild_professions(char.id)
 
+        # Visibilidad de la carrera de contactos (2026-07-19): admin-only,
+        # ignorado si quien postea no es admin, aunque el form los incluya.
+        if current_user.is_admin:
+            char.puede_ver_carreras_contactos = request.form.get('puede_ver_carreras_contactos') == 'on'
+            _rebuild_career_visibility_grants(char.id)
+
         db.session.commit()
         flash(f'Personaje "{char.name}" actualizado.', 'success')
         return redirect(url_for('characters.detail', char_id=char.id))
 
     return render_template('characters/form.html', char=char, professions=professions,
                            salary_table=salary_service.get_salary_table(), **picker_ctx,
-                           **_grado_form_context())
+                           **_grado_form_context(), **career_visibility_ctx)
 
 
 @characters_bp.route('/<int:char_id>/eliminar', methods=['POST'])
