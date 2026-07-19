@@ -16,7 +16,7 @@ from app.models.skill import Skill
 from app.models.talent import Talent
 from app.models.user import User
 from app.models.contact import Contact
-from app.models.contact_career_visibility import ContactCareerVisibility
+from app.models.contact_career_visibility import ContactCareerVisibility, CARRERA_NIVELES, CARRERA_NIVEL_LABELS
 from app.models.equipment import EquipmentItem, CharacterInventoryItem, CharacterPurchase, CharacterCartItem
 from app.models.untersuchung import (
     UNTERSUCHUNG_GRADOS, UNTERSUCHUNG_GRADOS_CON_MARCA, UNTERSUCHUNG_GRADOS_AGENTE, UNTERSUCHUNG_GRADOS_ADJUNTO,
@@ -216,17 +216,22 @@ def create():
 
 
 def _rebuild_career_visibility_grants(char_id):
-    """Sync ContactCareerVisibility rows from the parallel `career_contact_ids`
-    field (same convention as _rebuild_professions) - admin-only, called from
-    edit() only when current_user.is_admin, never from a non-admin's own
-    self-edit POST."""
+    """Sync ContactCareerVisibility rows from the parallel `career_contact_ids`/
+    `career_contact_levels` fields (same convention as _rebuild_professions's
+    profession_ids/tipo_sueldo_list) - admin-only, called from edit() only
+    when current_user.is_admin, never from a non-admin's own self-edit POST."""
     ContactCareerVisibility.query.filter_by(character_id=char_id).delete()
+    contact_ids = request.form.getlist('career_contact_ids')
+    levels = request.form.getlist('career_contact_levels')
     seen = set()
-    for contact_id_str in request.form.getlist('career_contact_ids'):
+    for i, contact_id_str in enumerate(contact_ids):
         if not contact_id_str or contact_id_str in seen:
             continue
         seen.add(contact_id_str)
-        db.session.add(ContactCareerVisibility(character_id=char_id, contact_id=int(contact_id_str)))
+        nivel = levels[i] if i < len(levels) else ''
+        if nivel not in CARRERA_NIVELES:
+            nivel = 'ver'
+        db.session.add(ContactCareerVisibility(character_id=char_id, contact_id=int(contact_id_str), nivel=nivel))
 
 
 @characters_bp.route('/<int:char_id>/editar', methods=['GET', 'POST'])
@@ -244,6 +249,8 @@ def edit(char_id):
         career_visibility_ctx['all_contacts_picker_list'] = [
             {'id': c.id, 'name': c.nombre} for c in Contact.query.order_by(Contact.nombre).all()
         ]
+        career_visibility_ctx['carrera_niveles'] = CARRERA_NIVELES
+        career_visibility_ctx['carrera_nivel_labels'] = CARRERA_NIVEL_LABELS
 
     if request.method == 'POST':
         char.name = request.form.get('name', '').strip()
@@ -263,7 +270,8 @@ def edit(char_id):
         # Visibilidad de la carrera de contactos (2026-07-19): admin-only,
         # ignorado si quien postea no es admin, aunque el form los incluya.
         if current_user.is_admin:
-            char.puede_ver_carreras_contactos = request.form.get('puede_ver_carreras_contactos') == 'on'
+            nivel_global = request.form.get('carreras_contactos_nivel', '').strip()
+            char.carreras_contactos_nivel = nivel_global if nivel_global in CARRERA_NIVELES else None
             _rebuild_career_visibility_grants(char.id)
 
         db.session.commit()

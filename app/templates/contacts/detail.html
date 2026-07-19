@@ -95,6 +95,21 @@
     </div>
   </div>
 
+  {# ── Edición acotada de la Carrera Profesional (2026-07-19): un personaje
+       con nivel='editar' (ver contacts._can_edit_career) puede añadir/quitar
+       profesiones del contacto sin acceso al resto de la ficha - un admin ya
+       tiene esto (y más) desde el botón "Editar" de arriba, así que aquí no
+       se duplica para él. ─#}
+  {% if can_edit_career and not can_edit %}
+  <form method="POST" action="{{ url_for('contacts.career_save', contact_id=contact.id) }}">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    {% include 'contacts/_profesiones_form.html' %}
+    <div class="mb-4">
+      <button type="submit" class="btn btn-wh btn-sm"><i class="bi bi-floppy me-1"></i>Guardar carrera profesional</button>
+    </div>
+  </form>
+  {% endif %}
+
   <div class="card wh-card mb-4">
     <div class="card-header wh-card-header">
       <h3 class="wh-heading mb-0" style="font-size:1.1rem">Notas de contacto</h3>
@@ -324,4 +339,7 @@ function toggleNoteEdit(id) {
   edit.style.display = editing ? 'none' : '';
 }
 </script>
+{% if can_edit_career and not can_edit %}
+{% include 'contacts/_profesiones_scripts.html' %}
+{% endif %}
 {% endblock %}

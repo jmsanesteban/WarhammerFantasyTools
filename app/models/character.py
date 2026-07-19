@@ -168,14 +168,16 @@ class Character(db.Model):
     # None hasta que el jugador elija uno la primera vez que abre el inventario. ---
     mochila_o_saco = db.Column(db.String(10), nullable=True)
 
-    # --- Contactos: visibilidad de la Carrera Profesional (2026-07-19) - la
-    # sección "Profesiones" de la ficha de un contacto es admin-only por
-    # defecto; este flag, concedido a mano por un admin desde la propia
-    # edición del personaje, la abre para TODOS los contactos que este
-    # personaje pueda ver. Para conceder acceso solo a contactos concretos,
-    # ver ContactCareerVisibility (app/models/contact_career_visibility.py)
-    # en vez de este flag global. ---
-    puede_ver_carreras_contactos = db.Column(db.Boolean, nullable=False, default=False)
+    # --- Contactos: nivel de acceso a la Carrera Profesional (2026-07-19,
+    # ampliado el mismo día para distinguir ver de editar) - la sección
+    # "Profesiones" de la ficha de un contacto es admin-only por defecto;
+    # este campo, puesto a mano por un admin desde la propia edición del
+    # personaje, concede a este personaje 'ver' (solo lectura) o 'editar'
+    # (además puede añadir/quitar profesiones del contacto, igual que ya
+    # puede hacer un admin) para TODOS los contactos - ver CARRERA_NIVELES.
+    # Para conceder acceso solo a contactos concretos en vez de a todos, ver
+    # ContactCareerVisibility (app/models/contact_career_visibility.py). ---
+    carreras_contactos_nivel = db.Column(db.String(10), nullable=True)
 
     professions = db.relationship(
         'CharacterProfession',

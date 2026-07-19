@@ -153,14 +153,16 @@
       </div>
     </div>
 
-    {# ── Visibilidad de la carrera de contactos (2026-07-19, admin-only):
+    {# ── Nivel de acceso a la carrera de contactos (2026-07-19, admin-only):
          "Profesiones" en la ficha de un contacto es admin-only por defecto
-         (ver Contact detail + contacts._can_view_career) - desde aquí un
-         admin concede la excepción a ESTE personaje, global o solo para
-         contactos concretos. Solo tiene sentido en edición (el personaje
-         necesita existir para poder concederle nada), y solo un admin la ve
-         o puede tocarla - characters.edit() ignora estos campos si quien
-         postea no es admin, aunque los fuerce a mano. ─#}
+         (ver Contact detail + contacts._career_level) - desde aquí un admin
+         concede a ESTE personaje 'ver' o 'ver y editar' (añadir/quitar
+         profesiones del contacto, la misma acción que ya podía hacer un
+         admin), global o solo para contactos concretos. Solo tiene sentido
+         en edición (el personaje necesita existir para poder concederle
+         nada), y solo un admin la ve o puede tocarla - characters.edit()
+         ignora estos campos si quien postea no es admin, aunque los fuerce
+         a mano. ─#}
     {% if char and current_user.is_admin %}
     <div class="card wh-card mb-4">
       <div class="card-header wh-card-header">
@@ -168,23 +170,31 @@
       </div>
       <div class="card-body">
         <p class="text-muted small">
-          La sección "Profesiones" de la ficha de un contacto solo la ven los administradores por defecto.
-          Desde aquí puedes concedérsela a este personaje.
+          La sección "Profesiones" de la ficha de un contacto solo la ven (y editan) los administradores por
+          defecto. Desde aquí puedes concedérselo a este personaje: "Ver" solo muestra la sección, "Ver y
+          editar" además le deja añadir/quitar profesiones del contacto.
         </p>
-        <label class="d-flex align-items-center gap-2 mb-3" style="cursor:pointer">
-          <input type="checkbox" name="puede_ver_carreras_contactos" id="chk-carreras-global" class="form-check-input"
-                 {% if char.puede_ver_carreras_contactos %}checked{% endif %}>
-          Puede ver la carrera profesional de <strong>todos</strong> los contactos
-        </label>
-        <div id="carrerasContactosSection" {% if char.puede_ver_carreras_contactos %}style="display:none"{% endif %}>
+        <label class="form-label wh-label">Nivel global (todos los contactos)</label>
+        <select name="carreras_contactos_nivel" id="sel-carreras-global" class="form-select wh-input mb-3" style="max-width:260px">
+          <option value="" {% if not char.carreras_contactos_nivel %}selected{% endif %}>Ninguno</option>
+          {% for lvl in carrera_niveles %}
+          <option value="{{ lvl }}" {% if char.carreras_contactos_nivel == lvl %}selected{% endif %}>{{ carrera_nivel_labels[lvl] }}</option>
+          {% endfor %}
+        </select>
+        <div id="carrerasContactosSection" {% if char.carreras_contactos_nivel %}style="display:none"{% endif %}>
           <label class="form-label wh-label">O solo de estos contactos concretos</label>
-          <div id="careerGrantList" class="d-flex flex-wrap gap-2 mb-2">
+          <div id="careerGrantList" class="d-flex flex-column gap-2 mb-2">
             {% for grant in char.career_visibility_grants %}
-            <span class="badge bg-secondary d-flex align-items-center gap-2 career-grant-chip" data-contact-id="{{ grant.contact_id }}">
+            <div class="d-flex align-items-center gap-2 career-grant-row" data-contact-id="{{ grant.contact_id }}" style="max-width:520px">
               <input type="hidden" name="career_contact_ids" value="{{ grant.contact_id }}">
-              {{ grant.contact.nombre }}
-              <button type="button" class="btn-close btn-close-white remove-career-grant" style="font-size:.55rem" aria-label="Quitar"></button>
-            </span>
+              <span class="flex-grow-1">{{ grant.contact.nombre }}</span>
+              <select name="career_contact_levels" class="form-select form-select-sm wh-input" style="max-width:150px">
+                {% for lvl in carrera_niveles %}
+                <option value="{{ lvl }}" {% if grant.nivel == lvl %}selected{% endif %}>{{ carrera_nivel_labels[lvl] }}</option>
+                {% endfor %}
+              </select>
+              <button type="button" class="btn btn-outline-danger btn-sm remove-career-grant"><i class="bi bi-x-lg"></i></button>
+            </div>
             {% endfor %}
           </div>
           <div class="contact-picker" style="max-width:320px">
@@ -263,17 +273,20 @@ profList.addEventListener('click', e => {
 
 wireProfPickers(profList);
 
-// ── Visibilidad de la carrera de contactos (admin-only) ─────────────────────
+// ── Nivel de acceso a la carrera de contactos (admin-only) ──────────────────
 // Reutiliza la clase ProfessionPicker (agnóstica al dominio) pero SIN pasar
 // por initProfessionPickers(), que engancha todo `.prof-picker` de la página
 // con las opciones de profesiones - aquí el root es `.contact-picker` a
 // propósito, para no colisionar con el picker de la carrera del propio
-// personaje de más arriba. Cada selección se convierte al momento en un chip
-// y el picker se vacía, en vez de quedarse "rellenado" como una fila normal
-// - es una lista que crece, no un conjunto fijo de filas editables.
+// personaje de más arriba. Cada selección se convierte al momento en una
+// fila (nombre + nivel Ver/Editar, por defecto Ver) y el picker se vacía,
+// en vez de quedarse "rellenado" como una fila de profesión normal - es una
+// lista que crece, no un conjunto fijo de filas editables.
 const contactPickerRoot = document.querySelector('.contact-picker');
 if (contactPickerRoot) {
   const CONTACT_PICKER_OPTIONS = {{ (all_contacts_picker_list if all_contacts_picker_list is defined else []) | tojson }};
+  const CARRERA_NIVELES = {{ (carrera_niveles if carrera_niveles is defined else []) | tojson }};
+  const CARRERA_NIVEL_LABELS = {{ (carrera_nivel_labels if carrera_nivel_labels is defined else {}) | tojson }};
   const contactPicker = new ProfessionPicker(contactPickerRoot, { options: CONTACT_PICKER_OPTIONS });
   const careerGrantList = document.getElementById('careerGrantList');
 
@@ -284,37 +297,53 @@ if (contactPickerRoot) {
     contactPicker.input.value = '';
     if (!id || careerGrantList.querySelector(`[data-contact-id="${id}"]`)) return;
 
-    const chip = document.createElement('span');
-    chip.className = 'badge bg-secondary d-flex align-items-center gap-2 career-grant-chip';
-    chip.dataset.contactId = id;
+    const row = document.createElement('div');
+    row.className = 'd-flex align-items-center gap-2 career-grant-row';
+    row.style.maxWidth = '520px';
+    row.dataset.contactId = id;
 
     const hidden = document.createElement('input');
     hidden.type = 'hidden';
     hidden.name = 'career_contact_ids';
     hidden.value = id;
-    chip.appendChild(hidden);
-    chip.appendChild(document.createTextNode(name));
+    row.appendChild(hidden);
+
+    const label = document.createElement('span');
+    label.className = 'flex-grow-1';
+    label.textContent = name;
+    row.appendChild(label);
+
+    const select = document.createElement('select');
+    select.name = 'career_contact_levels';
+    select.className = 'form-select form-select-sm wh-input';
+    select.style.maxWidth = '150px';
+    CARRERA_NIVELES.forEach(lvl => {
+      const opt = document.createElement('option');
+      opt.value = lvl;
+      opt.textContent = CARRERA_NIVEL_LABELS[lvl] || lvl;
+      select.appendChild(opt);
+    });
+    row.appendChild(select);
 
     const removeBtn = document.createElement('button');
     removeBtn.type = 'button';
-    removeBtn.className = 'btn-close btn-close-white remove-career-grant';
-    removeBtn.style.fontSize = '.55rem';
-    removeBtn.setAttribute('aria-label', 'Quitar');
-    chip.appendChild(removeBtn);
+    removeBtn.className = 'btn btn-outline-danger btn-sm remove-career-grant';
+    removeBtn.innerHTML = '<i class="bi bi-x-lg"></i>';
+    row.appendChild(removeBtn);
 
-    careerGrantList.appendChild(chip);
+    careerGrantList.appendChild(row);
   });
 
   careerGrantList.addEventListener('click', e => {
     if (e.target.closest('.remove-career-grant')) {
-      e.target.closest('.career-grant-chip').remove();
+      e.target.closest('.career-grant-row').remove();
     }
   });
 
-  const globalChk = document.getElementById('chk-carreras-global');
+  const globalSelect = document.getElementById('sel-carreras-global');
   const section = document.getElementById('carrerasContactosSection');
-  globalChk.addEventListener('change', () => {
-    section.style.display = globalChk.checked ? 'none' : '';
+  globalSelect.addEventListener('change', () => {
+    section.style.display = globalSelect.value ? 'none' : '';
   });
 }
 </script>

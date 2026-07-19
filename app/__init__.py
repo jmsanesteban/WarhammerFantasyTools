@@ -304,12 +304,40 @@ def _register_cli_commands(app):
                 if 'grados_untersuchung' not in char_cols:
                     conn.execute(text('ALTER TABLE characters ADD COLUMN grados_untersuchung JSON NULL'))
                     click.echo('  Added characters.grados_untersuchung')
-                if 'puede_ver_carreras_contactos' not in char_cols:
+                if 'carreras_contactos_nivel' not in char_cols:
+                    conn.execute(text('ALTER TABLE characters ADD COLUMN carreras_contactos_nivel VARCHAR(10) NULL'))
+                    click.echo('  Added characters.carreras_contactos_nivel')
+
+            # Un solo día de vida en prepro: 'puede_ver_carreras_contactos'
+            # (booleano) se sustituye por 'carreras_contactos_nivel'
+            # ('ver'/'editar') el mismo 2026-07-19, antes de llegar a
+            # producción - backfill directo (True -> 'ver') y DROP, sin
+            # necesidad de un comando de migración aparte para algo que
+            # nunca se promovió.
+            char_cols_career = {c['name'] for c in inspector.get_columns('characters')}
+            if 'puede_ver_carreras_contactos' in char_cols_career:
+                with db.engine.begin() as conn:
                     conn.execute(text(
-                        'ALTER TABLE characters ADD COLUMN puede_ver_carreras_contactos '
-                        'BOOLEAN NOT NULL DEFAULT FALSE'
+                        "UPDATE characters SET carreras_contactos_nivel = 'ver' "
+                        "WHERE puede_ver_carreras_contactos = 1"
                     ))
-                    click.echo('  Added characters.puede_ver_carreras_contactos')
+                    conn.execute(text('ALTER TABLE characters DROP COLUMN puede_ver_carreras_contactos'))
+                click.echo('  Backfilled characters.carreras_contactos_nivel from legacy '
+                           'puede_ver_carreras_contactos, then dropped it')
+
+            # Incremental column: contact_career_visibilities.nivel (tabla
+            # nueva el mismo 2026-07-19; solo hace falta este ALTER si
+            # alguien ya la creó sin la columna en las horas entre ambos
+            # despliegues - un create_all() normal ya la incluye desde cero).
+            if inspector.has_table('contact_career_visibilities'):
+                ccv_cols = {c['name'] for c in inspector.get_columns('contact_career_visibilities')}
+                if 'nivel' not in ccv_cols:
+                    with db.engine.begin() as conn:
+                        conn.execute(text(
+                            "ALTER TABLE contact_career_visibilities ADD COLUMN nivel "
+                            "VARCHAR(10) NOT NULL DEFAULT 'ver'"
+                        ))
+                    click.echo('  Added contact_career_visibilities.nivel')
 
             # Incremental column: characters.image_path (retrato del personaje)
             char_cols = {c['name'] for c in inspector.get_columns('characters')}

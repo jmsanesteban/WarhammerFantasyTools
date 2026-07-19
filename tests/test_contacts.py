@@ -188,10 +188,10 @@ def test_edit_contact_toggles_is_visible(db, client, admin_user, login_as, make_
 _PROFESIONES_FACT = b'<dt class="col-sm-4 wh-label">Profesiones</dt>'
 
 
-# ── Visibilidad de la carrera profesional (2026-07-19): admin-only por
-# defecto, con dos formas de excepción concedidas por un admin desde la
-# ficha de edición del personaje (Character.puede_ver_carreras_contactos
-# global, o ContactCareerVisibility por contacto concreto) ─────────────────
+# ── Visibilidad/edición de la carrera profesional (2026-07-19): admin-only
+# por defecto, con dos niveles ('ver'/'editar') concedidos por un admin desde
+# la ficha de edición del personaje (Character.carreras_contactos_nivel
+# global, o ContactCareerVisibility.nivel por contacto concreto) ───────────
 
 def test_professions_hidden_from_character_without_grant(client, regular_user, make_character,
                                                            make_contact, make_profession, login_as):
@@ -216,9 +216,9 @@ def test_professions_visible_to_admin_regardless(client, admin_user, make_contac
     assert b'Herrero' in resp.data
 
 
-def test_professions_visible_with_global_grant(client, regular_user, make_character, make_contact,
-                                                make_profession, login_as):
-    char = make_character(regular_user, puede_ver_carreras_contactos=True)
+def test_professions_visible_with_global_ver_grant(client, regular_user, make_character, make_contact,
+                                                     make_profession, login_as):
+    char = make_character(regular_user, carreras_contactos_nivel='ver')
     prof = make_profession(name='Herrero')
     contact = make_contact(professions=[prof])
     login_as(client, regular_user, 'userpass123')
@@ -226,16 +226,17 @@ def test_professions_visible_with_global_grant(client, regular_user, make_charac
     resp = client.get(f'/contactos/{contact.id}?personaje_id={char.id}')
     assert _PROFESIONES_FACT in resp.data
     assert b'Herrero' in resp.data
+    assert b'Guardar carrera profesional' not in resp.data  # solo 'ver', sin formulario de edición
 
 
-def test_professions_visible_with_specific_contact_grant(client, regular_user, make_character, make_contact,
-                                                          make_profession, login_as, db):
+def test_professions_visible_with_specific_contact_ver_grant(client, regular_user, make_character, make_contact,
+                                                              make_profession, login_as, db):
     from app.models.contact_career_visibility import ContactCareerVisibility
     char = make_character(regular_user)
     prof = make_profession(name='Herrero')
     granted_contact = make_contact(nombre='Con permiso', professions=[prof])
     other_contact = make_contact(nombre='Sin permiso', professions=[prof])
-    db.session.add(ContactCareerVisibility(character_id=char.id, contact_id=granted_contact.id))
+    db.session.add(ContactCareerVisibility(character_id=char.id, contact_id=granted_contact.id, nivel='ver'))
     db.session.commit()
     login_as(client, regular_user, 'userpass123')
 
@@ -244,6 +245,74 @@ def test_professions_visible_with_specific_contact_grant(client, regular_user, m
 
     resp = client.get(f'/contactos/{other_contact.id}?personaje_id={char.id}')
     assert _PROFESIONES_FACT not in resp.data
+
+
+# ── Edición acotada de la carrera (nivel='editar') ──────────────────────────
+
+def test_career_edit_form_shown_with_editar_grant_not_with_ver(client, regular_user, make_character, make_contact,
+                                                                login_as):
+    char_ver = make_character(regular_user, name='Solo ve', carreras_contactos_nivel='ver')
+    char_edit = make_character(regular_user, name='Puede editar', carreras_contactos_nivel='editar')
+    contact = make_contact()
+    login_as(client, regular_user, 'userpass123')
+
+    resp = client.get(f'/contactos/{contact.id}?personaje_id={char_ver.id}')
+    assert b'Guardar carrera profesional' not in resp.data
+
+    resp = client.get(f'/contactos/{contact.id}?personaje_id={char_edit.id}')
+    assert b'Guardar carrera profesional' in resp.data
+
+
+def test_career_save_requires_editar_grant(db, client, regular_user, make_character, make_contact,
+                                            make_profession, login_as):
+    char = make_character(regular_user, carreras_contactos_nivel='ver')
+    prof = make_profession(name='Herrero')
+    contact = make_contact()
+    login_as(client, regular_user, 'userpass123')
+
+    resp = client.post(f'/contactos/{contact.id}/carrera', data={
+        'personaje_id': str(char.id), 'profession_ids': [str(prof.id)],
+    })
+    assert resp.status_code == 403
+    db.session.refresh(contact)
+    assert contact.professions == []
+
+
+def test_career_save_updates_professions_with_editar_grant(db, client, regular_user, make_character, make_contact,
+                                                            make_profession, login_as, set_active_character):
+    char = make_character(regular_user, carreras_contactos_nivel='editar')
+    prof = make_profession(name='Herrero')
+    contact = make_contact()
+    set_active_character(regular_user, char)
+    login_as(client, regular_user, 'userpass123')
+
+    resp = client.post(f'/contactos/{contact.id}/carrera', data={
+        'profession_ids': [str(prof.id)],
+    }, follow_redirects=True)
+    assert resp.status_code == 200
+
+    db.session.refresh(contact)
+    assert [cp.profession.name for cp in contact.professions] == ['Herrero']
+
+
+def test_career_save_with_specific_contact_editar_grant(db, client, regular_user, make_character, make_contact,
+                                                         make_profession, login_as, set_active_character):
+    from app.models.contact_career_visibility import ContactCareerVisibility
+    char = make_character(regular_user)
+    prof = make_profession(name='Herrero')
+    contact = make_contact()
+    db.session.add(ContactCareerVisibility(character_id=char.id, contact_id=contact.id, nivel='editar'))
+    db.session.commit()
+    set_active_character(regular_user, char)
+    login_as(client, regular_user, 'userpass123')
+
+    resp = client.post(f'/contactos/{contact.id}/carrera', data={
+        'profession_ids': [str(prof.id)],
+    }, follow_redirects=True)
+    assert resp.status_code == 200
+
+    db.session.refresh(contact)
+    assert [cp.profession.name for cp in contact.professions] == ['Herrero']
 
 
 # ── Vínculo personaje-contacto ───────────────────────────────────────────────

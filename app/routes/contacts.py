@@ -10,7 +10,7 @@ from app.models.contact_character_link import (
     ContactCharacterLink, NIVEL_LABELS, TIPO_RELACION_CHOICES, TIPO_RELACION_EXCLUSIVE_PAIRS,
 )
 from app.models.contact_note import ContactNote
-from app.models.contact_career_visibility import ContactCareerVisibility
+from app.models.contact_career_visibility import ContactCareerVisibility, nivel_permite, nivel_mas_alto
 from app.services import salary_service
 from app.utils import require_permission
 
@@ -149,22 +149,29 @@ def _can_view(contact):
     return current_user.is_admin or contact.is_visible
 
 
-def _can_view_career(contact, active_character):
-    """Whether the "Carrera Profesional" (Profesiones) section of a contact's
-    ficha is visible to the current viewer (2026-07-19, director's request):
-    admin-only by default, opened up per-character either globally
-    (Character.puede_ver_carreras_contactos) or for specific contacts
-    (ContactCareerVisibility), both admin-granted from the character's own
-    edit form - see app/routes/characters.py."""
+def _career_level(contact, active_character):
+    """Highest access level (None/'ver'/'editar') the current viewer has to
+    a contact's "Carrera Profesional" (Profesiones) section (2026-07-19,
+    director's request): admin-only by default ('editar', always), opened up
+    per-character either globally (Character.carreras_contactos_nivel) or
+    for specific contacts (ContactCareerVisibility.nivel), both admin-granted
+    from the character's own edit form - see app/routes/characters.py."""
     if current_user.is_admin:
-        return True
+        return 'editar'
     if not active_character:
-        return False
-    if active_character.puede_ver_carreras_contactos:
-        return True
-    return ContactCareerVisibility.query.filter_by(
+        return None
+    grant = ContactCareerVisibility.query.filter_by(
         character_id=active_character.id, contact_id=contact.id,
-    ).first() is not None
+    ).first()
+    return nivel_mas_alto(active_character.carreras_contactos_nivel, grant.nivel if grant else None)
+
+
+def _can_view_career(contact, active_character):
+    return nivel_permite(_career_level(contact, active_character), 'ver')
+
+
+def _can_edit_career(contact, active_character):
+    return nivel_permite(_career_level(contact, active_character), 'editar')
 
 
 def _active_character():
@@ -405,6 +412,12 @@ def detail(contact_id):
         .all()
     )
 
+    can_edit_career = _can_edit_career(contact, active_character)
+    career_picker_ctx = {}
+    if can_edit_career:
+        professions = Profession.query.order_by(Profession.name).all()
+        career_picker_ctx = _professions_picker_context(professions)
+
     return render_template(
         'contacts/detail.html',
         contact=contact,
@@ -416,12 +429,34 @@ def detail(contact_id):
         note_counts=note_counts,
         can_edit=current_user.is_admin,
         can_view_career=_can_view_career(contact, active_character),
+        can_edit_career=can_edit_career,
         estado_labels=ESTADO_LABELS,
         nivel_labels=NIVEL_LABELS,
         tipo_relacion_choices=TIPO_RELACION_CHOICES,
         tipo_relacion_groups=_tipo_relacion_groups(),
         compute_sueldo=salary_service.compute_sueldo,
+        **career_picker_ctx,
     )
+
+
+@contacts_bp.route('/<int:contact_id>/carrera', methods=['POST'])
+@login_required
+def career_save(contact_id):
+    """Edición acotada de solo la Carrera Profesional de un contacto, para un
+    personaje con nivel='editar' (ver _career_level) - a diferencia de
+    contacts.edit (el formulario completo del contacto, exclusivo de
+    contacts.edit/admin), esta ruta no requiere ningún permiso de plantilla:
+    la autorización es enteramente la concesión per-personaje."""
+    contact = Contact.query.get_or_404(contact_id)
+    active_character = _active_character()
+    if not _can_edit_career(contact, active_character):
+        abort(403)
+
+    ContactProfession.query.filter_by(contact_id=contact.id).delete()
+    _rebuild_contact_professions(contact.id)
+    db.session.commit()
+    flash('Carrera profesional actualizada.', 'success')
+    return redirect(url_for('contacts.detail', contact_id=contact.id, personaje_id=active_character.id))
 
 
 # ── Vínculo personaje-contacto ──────────────────────────────────────────────

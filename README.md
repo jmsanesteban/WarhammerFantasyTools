@@ -990,7 +990,7 @@ Para cada ruta se muestra:
 
 Un jugador normal solo ve sus propios personajes en el listado; un administrador ve los de todos los jugadores (agrupados por usuario), aunque cualquiera puede editar/ver la ficha de cualquier personaje ya conociendo su URL.
 
-> **Visibilidad de la carrera de contactos** (2026-07-19, solo admin): al **editar** un personaje ya existente, un administrador ve una tarjeta extra "Visibilidad de la carrera profesional de los contactos" — un interruptor para concederle a ese personaje ver la sección Profesiones de **todos** los contactos, o un buscador para concedérsela solo para **contactos concretos** (chips añadibles/quitables). No aparece al crear un personaje (todavía no existe a quién conceder nada) ni para nadie que no sea admin — ver "Gestionar Contactos" más abajo para el porqué de esta restricción.
+> **Visibilidad de la carrera de contactos** (2026-07-19, solo admin): al **editar** un personaje ya existente, un administrador ve una tarjeta extra "Visibilidad de la carrera profesional de los contactos" con dos niveles — **Ver** (solo lectura de la sección Profesiones en la ficha del contacto) o **Ver y editar** (además puede añadir/quitar profesiones de ese contacto, la misma acción que ya podía hacer un admin). Se concede con un desplegable **global** (aplica a todos los contactos) o, si se deja en "Ninguno", con un buscador para concedérselo solo a **contactos concretos** (cada uno con su propio nivel, filas añadibles/quitables). No aparece al crear un personaje (todavía no existe a quién conceder nada) ni para nadie que no sea admin — ver "Gestionar Contactos" más abajo para el porqué de esta restricción.
 
 Hay dos formas de crear un personaje desde **Personajes**:
 
@@ -1044,7 +1044,7 @@ Ve a **Contactos** en el menú principal. Un contacto (NPC) tiene datos **global
 - **Estado**: Vivo / Muerto / Desconocido, como insignia en el listado y la ficha.
 - **Visibilidad**: un único interruptor admin, **Visible** (en Editar contacto) — si está desmarcado, el contacto queda oculto para todos los no-admin. Sin concesiones por personaje.
 - **Carrera profesional y sueldo** (2026-07-17): en Editar contacto, las profesiones se añaden con el mismo buscador + filas repetibles que la carrera de un Personaje (columnas Profesión / Tipo de trabajador / Calidad del trabajador / Sueldo del trabajador). El sueldo es un **hecho objetivo** que pone el director (no una creencia por personaje): se calcula en vivo a partir de la tabla de referencia de sueldos (tipo × calidad, sin ajuste por % de habilidad — a diferencia de un Personaje, un NPC no tiene ese dato) y se muestra también en la ficha, junto a cada profesión.
-- **Visibilidad de "Profesiones" en la ficha** (2026-07-19): esa sección es **solo para administradores** por defecto — el resto de usuarios no la ve en ningún contacto salvo que un admin se la conceda a su personaje. La concesión se gestiona desde **Editar personaje** (no desde el contacto), con dos niveles: un interruptor **global** (ese personaje ve la carrera de *todos* los contactos) o una lista de **contactos concretos** (buscador con chips añadibles/quitables, mismo widget que el buscador de profesiones). Ver "Crear y gestionar personajes" más abajo.
+- **Visibilidad/edición de "Profesiones" en la ficha** (2026-07-19): esa sección es **solo para administradores** por defecto (que además pueden editarla) — el resto de usuarios no la ve en ningún contacto salvo que un admin se la conceda a su personaje, con **Ver** (solo lectura) o **Ver y editar** (el personaje puede entonces añadir/quitar profesiones del contacto desde su propia ficha, sin acceso al resto de sus datos). La concesión se gestiona desde **Editar personaje** (no desde el contacto): un desplegable **global** (aplica a *todos* los contactos) o, alternativamente, una lista de **contactos concretos** con su propio nivel cada uno (buscador con filas añadibles/quitables, mismo widget que el buscador de profesiones). Ver "Crear y gestionar personajes" más abajo.
 - **Nivel y tipo de relación**: el nivel es un desplegable de 5 a -5 con etiqueta descriptiva (Amigo incondicional…Enemigo mortal). El tipo de relación es una selección múltiple (Baza, Unter, Súbdito, Señor, Otra) — con una pareja mutuamente excluyente (Súbdito/Señor: marcar una desmarca la otra, tanto en el formulario como al guardar); el resto de opciones (incluida Unter) se pueden combinar libremente entre sí y con "Otra".
 - **Untersuchung** (2026-07-19): ya no es un hecho global del contacto — es un valor más de **tipo de relación** (`Unter`) en el vínculo de cada personaje, a petición del director de juego: dos personajes distintos pueden tener información distinta sobre si un mismo NPC pertenece a la Untersuchung. La ficha del contacto ya no muestra ningún dato de Untersuchung propio; solo el/los **Personajes** siguen teniendo su propia pertenencia y grado(s) en su ficha de edición (un jugador puede ser él mismo agente de la Untersuchung, con los mismos dos tiers de siempre: **Agente** —Escudo/Estilete/Gato/Brújula/Pluma/Corona, hasta 3 marcas, repetible = veteranía— y **Adjunto** —Carro/Paloma, exactamente 1 marca—).
 - **Notas**: privadas de cada personaje — una nota de tu personaje A nunca aparece al ver el contacto como tu personaje B. Fuera de la propia ficha, solo se muestra su **número**, nunca el contenido.
@@ -1099,7 +1099,7 @@ users
        │                           generador — raza, signo astral, altura/peso/edad,
        │                           procedencia, situación familiar, nivel social,
        │                           Puntos de Historial, dinero, es_untersuchung,
-       │                           puede_ver_carreras_contactos — ver más abajo)
+       │                           carreras_contactos_nivel — ver más abajo)
        ├─ character_professions   (lista ordenada de profesiones + tipo_sueldo/estado_habilidad)
        ├─ character_skills        (skill_id + specialization, p.ej. "Hablar idioma (Reikspiel)")
        ├─ character_talents       (talent_id + specialization + times_taken)
@@ -1138,11 +1138,13 @@ contact_character_links            (la visión de UN personaje sobre un Contacto
                                      Señor son mutuamente excluyentes, el resto se combina libremente;
                                      'Unter' = este vínculo cree que el contacto es de la Untersuchung)
 
-contact_career_visibilities        (2026-07-19: excepción admin-only concedida a UN personaje concreto
-  ├─ character_id, contact_id      para ver la Carrera Profesional de UN contacto concreto, aunque esa
-  │                                 sección sea admin-only por defecto - ver characters.puede_ver_carreras_
-  │                                 contactos para la versión global de la misma concesión; gestionadas
-  │                                 ambas desde Editar personaje, nunca desde el propio contacto)
+contact_career_visibilities         (2026-07-19: excepción admin-only concedida a UN personaje concreto
+  ├─ character_id, contact_id       para ver/editar la Carrera Profesional de UN contacto concreto, aunque
+  │                                  esa sección sea admin-only por defecto - ver characters.carreras_
+  │                                  contactos_nivel para la versión global de la misma concesión; ambas
+  │                                  se gestionan desde Editar personaje, nunca desde el propio contacto)
+  ├─ nivel                          ('ver' | 'editar' - 'editar' permite además añadir/quitar profesiones
+  │                                  del contacto vía contacts.career_save, sin acceso al resto de su ficha)
   └─ UNIQUE(character_id, contact_id)
 
 contact_notes
