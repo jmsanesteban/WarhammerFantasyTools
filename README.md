@@ -1,5 +1,15 @@
 # Warhammer Fantasy Tools
 
+> **⚠️ Aviso.** Este proyecto es un encargo personal para un grupo de juego concreto, no un ejercicio de
+> arquitectura de software. A lo largo de su desarrollo, varias decisiones de estructura, modelo de datos y
+> diseño interno se han tomado (y deshecho, y vuelto a tomar) siguiendo peticiones directas del cliente/director
+> de juego, incluso cuando iban en contra de buenas prácticas habituales de desarrollo y de diseño de bases de
+> datos (normalización, estabilidad de esquema, separación de responsabilidades...). Se ha priorizado siempre
+> la petición del cliente sobre la "pureza" técnica de la solución. Si vas a usar código de este repositorio
+> con fines de aprendizaje o como referencia de diseño, ten esto en cuenta — no todo lo que hay aquí es un
+> ejemplo a seguir, es el resultado de iterar sobre necesidades reales y cambiantes de un cliente concreto.
+> Disculpa las molestias.
+
 Aplicación web para gestionar profesiones, habilidades, talentos y personajes del juego de rol **Warhammer Fantasy Roleplay (2ª edición)**. Permite importar profesiones desde PDFs del libro de reglas (incluyendo páginas escaneadas en inglés o español), buscar rutas de progresión entre profesiones y crear personajes.
 
 ---
