@@ -28,6 +28,10 @@ class User(UserMixin, db.Model):
     # simplemente deja de haber uno activo, no falla el borrado.
     active_character_id = db.Column(db.Integer, db.ForeignKey('characters.id', ondelete='SET NULL'),
                                      nullable=True)
+    # Cuántos contactos se muestran por página en /contactos/ (2026-07-19) -
+    # preferencia por usuario, editable desde Mi perfil. 25 es el valor con
+    # el que arrancó el listado antes de ser configurable.
+    contactos_por_pagina = db.Column(db.Integer, nullable=False, default=25)
 
     # Relationships
     characters = db.relationship('Character', backref='owner', lazy='dynamic',

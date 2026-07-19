@@ -50,15 +50,19 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // Equipment images: click to open a full-size lightbox (complements the
   // hover-zoom in custom.css, which is only meant as a quick peek).
+  // Delegated on `document` (2026-07-19) rather than bound per-image at load
+  // time, so it keeps working for `.wh-lightbox-trigger` images swapped into
+  // the page later (e.g. the Contactos live-search result fragment) without
+  // needing to re-wire anything after each swap.
   const lightbox = document.getElementById('whLightbox');
   const lightboxImg = lightbox ? lightbox.querySelector('img') : null;
   if (lightbox && lightboxImg) {
-    document.querySelectorAll('.wh-lightbox-trigger').forEach(img => {
-      img.addEventListener('click', () => {
-        lightboxImg.src = img.src;
-        lightboxImg.alt = img.alt;
-        lightbox.classList.add('wh-lightbox-open');
-      });
+    document.addEventListener('click', e => {
+      const img = e.target.closest('.wh-lightbox-trigger');
+      if (!img) return;
+      lightboxImg.src = img.src;
+      lightboxImg.alt = img.alt;
+      lightbox.classList.add('wh-lightbox-open');
     });
     const closeLightbox = () => lightbox.classList.remove('wh-lightbox-open');
     lightbox.addEventListener('click', closeLightbox);

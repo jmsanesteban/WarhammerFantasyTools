@@ -512,6 +512,16 @@ def _register_cli_commands(app):
                     ))
                     click.echo('  Added users.active_character_id')
 
+            # Incremental column: users.contactos_por_pagina (2026-07-19) -
+            # tamaño de página configurable por usuario en /contactos/,
+            # editable desde Mi perfil. 25 = mismo valor que tenía fijo.
+            if 'contactos_por_pagina' not in user_cols:
+                with db.engine.begin() as conn:
+                    conn.execute(text(
+                        'ALTER TABLE users ADD COLUMN contactos_por_pagina INT NOT NULL DEFAULT 25'
+                    ))
+                    click.echo('  Added users.contactos_por_pagina')
+
             # drinks.sabor changed meaning (base category instead of descriptor+parens)
             # and gained sabor_variante. It's a closed catalog seeded only from JSON
             # (never user-edited), so a shape change just drops and reseeds it rather

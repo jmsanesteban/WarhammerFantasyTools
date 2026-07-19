@@ -215,7 +215,7 @@ def index():
     any user) have a link to it, expandable to nivel+tipo per character."""
     page = request.args.get('page', 1, type=int)
     search = request.args.get('q', '').strip()
-    per_page = 25
+    per_page = current_user.contactos_por_pagina or 25
 
     query = Contact.query.order_by(Contact.nombre)
     if not current_user.is_admin:
@@ -247,6 +247,27 @@ def index():
         nivel_labels=NIVEL_LABELS,
         estado_labels=ESTADO_LABELS,
     )
+
+
+_POR_PAGINA_MIN, _POR_PAGINA_MAX = 5, 200
+
+
+@contacts_bp.route('/preferencias', methods=['POST'])
+@login_required
+def preferencias_save():
+    """Preferencia de usuario (2026-07-19): cuántos contactos se muestran
+    por página en /contactos/, editable desde Mi perfil - ver
+    User.contactos_por_pagina. No requiere contacts.view: guardar la
+    preferencia no expone ningún dato, solo afecta a cómo se pagina la
+    próxima vez que el propio usuario visite el listado (si es que puede)."""
+    valor = request.form.get('contactos_por_pagina', type=int)
+    if valor is None or not (_POR_PAGINA_MIN <= valor <= _POR_PAGINA_MAX):
+        flash(f'El número de contactos por página debe estar entre {_POR_PAGINA_MIN} y {_POR_PAGINA_MAX}.', 'danger')
+    else:
+        current_user.contactos_por_pagina = valor
+        db.session.commit()
+        flash('Preferencia actualizada.', 'success')
+    return _safe_redirect('auth.profile')
 
 
 @contacts_bp.route('/vinculos')

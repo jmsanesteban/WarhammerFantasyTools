@@ -17,17 +17,21 @@
     </div>
   </div>
 
-  <form method="GET" class="d-flex gap-2 mb-3">
-    <input type="text" name="q" class="form-control wh-input" placeholder="Buscar contactos por nombre…"
-           value="{{ search }}" autocomplete="off">
+  <form method="GET" class="d-flex gap-2 mb-3" id="contactSearchForm">
+    <input type="text" name="q" id="contactSearchInput" class="form-control wh-input"
+           placeholder="Buscar contactos por nombre…" value="{{ search }}" autocomplete="off">
     <button class="btn btn-wh px-3" type="submit"><i class="bi bi-search"></i></button>
-    {% if search %}
-    <a href="{{ url_for('contacts.index') }}" class="btn btn-outline-secondary" title="Limpiar búsqueda">
+    {# Renderizado siempre (no solo {% if search %}) y su visibilidad
+       controlada por JS - vive fuera de #contactsListArea, así que la
+       búsqueda en vivo no lo actualizaría si dependiera de `search` en cada
+       fetch. clase d-none cuando no hay término tecleado aún. #}
+    <a href="{{ url_for('contacts.index') }}" id="clearSearchBtn" class="btn btn-outline-secondary {% if not search %}d-none{% endif %}"
+       title="Limpiar búsqueda">
       <i class="bi bi-x-lg"></i>
     </a>
-    {% endif %}
   </form>
 
+  <div id="contactsListArea">
   {% if not contacts %}
   <div class="alert wh-alert">
     {% if search %}No se encontraron contactos para «{{ search }}».
@@ -148,5 +152,55 @@
   </div>
   {% endif %}
   {% endif %}
+  </div>
 </div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+// Búsqueda en vivo (2026-07-19): sin endpoint JSON dedicado - reutiliza la
+// propia ruta contacts.index (misma lógica de permisos/paginación/filtrado
+// que ya tenía), pide la página completa por fetch() y sustituye solo
+// #contactsListArea por el mismo id ya presente en la respuesta. El
+// &lt;form&gt; sigue siendo un GET normal (funciona igual sin JS); esto solo
+// añade la búsqueda mientras se escribe encima, con debounce para no lanzar
+// una petición por cada tecla.
+(function () {
+  const input = document.getElementById('contactSearchInput');
+  const listArea = document.getElementById('contactsListArea');
+  const clearBtn = document.getElementById('clearSearchBtn');
+  if (!input || !listArea) return;
+
+  let debounceTimer = null;
+  let currentController = null;
+
+  async function fetchAndSwap(url) {
+    if (currentController) currentController.abort();
+    currentController = new AbortController();
+    let html;
+    try {
+      const resp = await fetch(url, { signal: currentController.signal });
+      html = await resp.text();
+    } catch (err) {
+      if (err.name === 'AbortError') return;
+      throw err;
+    }
+    const doc = new DOMParser().parseFromString(html, 'text/html');
+    const newArea = doc.getElementById('contactsListArea');
+    if (newArea) listArea.innerHTML = newArea.innerHTML;
+    history.replaceState(null, '', url);
+  }
+
+  input.addEventListener('input', () => {
+    if (clearBtn) clearBtn.classList.toggle('d-none', !input.value.trim());
+    clearTimeout(debounceTimer);
+    debounceTimer = setTimeout(() => {
+      const url = new URL(window.location.href);
+      url.searchParams.set('q', input.value.trim());
+      url.searchParams.delete('page');
+      fetchAndSwap(url.toString());
+    }, 300);
+  });
+})();
+</script>
 {% endblock %}

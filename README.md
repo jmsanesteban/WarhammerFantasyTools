@@ -1059,6 +1059,8 @@ Ve a **Contactos** en el menú principal. Un contacto (NPC) tiene datos **global
 - **Notas**: privadas de cada personaje — una nota de tu personaje A nunca aparece al ver el contacto como tu personaje B. Fuera de la propia ficha, solo se muestra su **número**, nunca el contenido.
 - La ficha de un contacto muestra siempre **todos** los campos globales, tengan o no dato (con un guion si están vacíos).
 - El listado de Contactos es global (visible para cualquier usuario, ya no hay filtrado por personaje): miniatura con zoom al pasar el ratón/lightbox al hacer clic (mismo sistema que Personajes), Raza, Estado, y un botón con el nº de personajes vinculados que despliega su nivel y tipo en un panel con una paleta de color propia (teal), para diferenciarlo claramente del resto de la tabla — el botón queda resaltado mientras el panel está abierto. La ficha añade al final una tabla **"Personajes con relación"**, visible a cualquiera que pueda ver el contacto.
+- **Búsqueda en vivo** (2026-07-19): el buscador por nombre filtra mientras escribes, sin recargar la página (con un pequeño retardo tras dejar de teclear para no lanzar una petición por letra) — sigue funcionando como un `&lt;form&gt;` GET normal si JavaScript está desactivado.
+- **Paginación configurable por usuario** (2026-07-19): el tamaño de página (25 por defecto) se cambia desde **Mi perfil → Preferencias → Contactos por página** (10/25/50/100/200) y se aplica la próxima vez que se visite el listado.
 - **Vínculos** (`/contactos/vinculos`, menú **Contactos → Vínculos**) ya no es admin-only: cualquier usuario lo ve, por defecto filtrado a los vínculos de su propio personaje activo (columnas: Contacto, Tipo de relación, Nivel, nº de notas, Ver ficha); un botón **"Ver todos"** amplía a los vínculos de todos los personajes de todos los usuarios (añade la columna Personaje). Un administrador ve siempre todos.
 - Los administradores gestionan además desde **Admin → Contactos**: listado completo de **todos** los contactos del sistema (mostrar/ocultar, eliminar, editar), e importación/exportación Excel con columnas fijas (`nombre`, `profesiones` separadas por comas — deben existir ya en el catálogo de Profesiones; el resto de campos, incluido el sueldo, solo viaja en el "Backup completo" JSON).
 
@@ -1104,6 +1106,8 @@ users
   ├─ created_by_id → users.id             (lineage: quién creó la cuenta, opcional)
   ├─ active_character_id → characters.id  (personaje activo del usuario, ON DELETE SET NULL;
   │                                         sustituye al selector "Ver como" por página en Contactos)
+  ├─ contactos_por_pagina                 (tamaño de página del listado de Contactos, editable desde
+  │                                         Mi perfil - default 25)
   └─ characters                   (perfil completo: características WFRP2, trasfondo del
        │                           generador — raza, signo astral, altura/peso/edad,
        │                           procedencia, situación familiar, nivel social,

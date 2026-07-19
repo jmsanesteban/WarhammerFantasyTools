@@ -20,6 +20,25 @@
     </div>
   </div>
 
+  <div class="card wh-card mb-4" style="max-width:600px">
+    <div class="card-header wh-card-header">Preferencias</div>
+    <div class="card-body">
+      <form method="POST" action="{{ url_for('contacts.preferencias_save') }}" class="d-flex align-items-end gap-2 flex-wrap">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <input type="hidden" name="next_url" value="{{ url_for('auth.profile') }}">
+        <div>
+          <label class="form-label wh-label">Contactos por página</label>
+          <select name="contactos_por_pagina" class="form-select wh-input" style="max-width:10rem">
+            {% for n in [10, 25, 50, 100, 200] %}
+            <option value="{{ n }}" {% if current_user.contactos_por_pagina == n %}selected{% endif %}>{{ n }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <button type="submit" class="btn btn-wh btn-sm">Guardar</button>
+      </form>
+    </div>
+  </div>
+
   <div class="card wh-card" style="max-width:600px">
     <div class="card-header wh-card-header">Personaje activo</div>
     <div class="card-body">

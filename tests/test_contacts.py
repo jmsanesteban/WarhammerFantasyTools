@@ -17,6 +17,51 @@ def test_index_requires_login(client):
     assert '/auth/login' in resp.headers['Location']
 
 
+# ── Tamaño de página configurable por usuario (2026-07-19) ─────────────────
+
+def test_index_defaults_to_25_per_page(client, regular_user, login_as):
+    assert regular_user.contactos_por_pagina == 25
+
+
+def test_index_respects_user_per_page_preference(db, client, regular_user, login_as, make_contact):
+    for i in range(6):
+        make_contact(nombre=f'Contacto {i}')
+    regular_user.contactos_por_pagina = 5
+    db.session.commit()
+    login_as(client, regular_user, 'userpass123')
+
+    resp = client.get('/contactos/')
+    assert resp.status_code == 200
+    assert b'P\xc3\xa1gina 1 de 2' in resp.data
+
+
+def test_preferencias_save_requires_login(client):
+    resp = client.post('/contactos/preferencias', data={'contactos_por_pagina': '50'})
+    assert resp.status_code == 302
+    assert '/auth/login' in resp.headers['Location']
+
+
+def test_preferencias_save_updates_value(db, client, regular_user, login_as):
+    login_as(client, regular_user, 'userpass123')
+
+    resp = client.post('/contactos/preferencias', data={'contactos_por_pagina': '50'}, follow_redirects=True)
+    assert resp.status_code == 200
+
+    db.session.refresh(regular_user)
+    assert regular_user.contactos_por_pagina == 50
+
+
+def test_preferencias_save_rejects_out_of_range_value(db, client, regular_user, login_as):
+    login_as(client, regular_user, 'userpass123')
+
+    resp = client.post('/contactos/preferencias', data={'contactos_por_pagina': '9999'}, follow_redirects=True)
+    assert resp.status_code == 200
+    assert 'entre 5 y 200'.encode() in resp.data
+
+    db.session.refresh(regular_user)
+    assert regular_user.contactos_por_pagina == 25
+
+
 # ── Estado ────────────────────────────────────────────────────────────────
 
 def test_index_shows_muerto_badge(client, regular_user, login_as, make_contact):
@@ -115,6 +160,19 @@ def test_search_filters_by_nombre(client, regular_user, login_as, make_contact):
     resp = client.get('/contactos/?q=Gotrek')
     assert f'/contactos/{c1.id}'.encode() in resp.data
     assert f'/contactos/{c2.id}'.encode() not in resp.data
+
+
+def test_index_has_live_search_target_container(client, regular_user, login_as, make_contact):
+    """The live-search JS (contacts/index.html) fetches this same route and
+    swaps in #contactsListArea by id - if this id ever gets renamed/removed
+    from the template without updating the script, search-as-you-type
+    silently breaks even though the plain GET fallback still works."""
+    make_contact(nombre='Gotrek Gurnisson')
+    login_as(client, regular_user, 'userpass123')
+
+    resp = client.get('/contactos/')
+    assert b'id="contactsListArea"' in resp.data
+    assert b'id="contactSearchInput"' in resp.data
 
 
 # ── Creación/edición de contactos (admin-only desde el rework) ──────────────
