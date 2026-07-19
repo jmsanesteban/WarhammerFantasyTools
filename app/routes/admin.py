@@ -25,6 +25,9 @@ from app.models.character import Character
 from app.models.food import CookingMethod, Ingredient, IngredientCookingMethod, Recipe
 from app.models.equipment import EquipmentItem
 from app.models.shop import current_markup_pct, set_markup_pct
+from app.models.contact_career_visibility import (
+    CARRERA_NIVELES, CARRERA_NIVEL_LABELS, current_career_default, set_career_default,
+)
 from app.utils import (
     admin_required, allowed_file, generate_secure_password,
     json_download_response, flash_import_summary,
@@ -2043,6 +2046,42 @@ def shop_markup_edit():
         return redirect(url_for('admin.shop_markup_edit'))
 
     return render_template('admin/shop_markup.html', pct=current_markup_pct())
+
+
+# ---------------------------------------------------------------------------
+# Carrera de contactos: nivel por defecto (2026-07-19) - "de forma global" a
+# nivel de aplicación, no solo por personaje (ver characters.edit para la
+# concesión por personaje/contacto concreto). Dos acciones independientes
+# sobre el mismo desplegable: fijarlo como valor por defecto para personajes
+# NUEVOS, o aplicarlo de una vez a TODOS los personajes ya existentes (un
+# UPDATE puntual, no queda "vinculado" a este ajuste después).
+# ---------------------------------------------------------------------------
+
+@admin_bp.route('/carrera-contactos', methods=['GET', 'POST'])
+@login_required
+@admin_required
+def career_default_edit():
+    if request.method == 'POST':
+        nivel = request.form.get('nivel', '').strip()
+        nivel = nivel if nivel in CARRERA_NIVELES else None
+        if request.form.get('action') == 'apply_all':
+            count = Character.query.update({'carreras_contactos_nivel': nivel})
+            db.session.commit()
+            label = CARRERA_NIVEL_LABELS.get(nivel, 'Ninguno')
+            flash(f'Nivel "{label}" aplicado a {count} personaje(s) existentes.', 'success')
+        else:
+            set_career_default(nivel, updated_by_id=current_user.id)
+            db.session.commit()
+            flash('Valor por defecto actualizado para los personajes que se creen a partir de ahora.', 'success')
+        return redirect(url_for('admin.career_default_edit'))
+
+    return render_template(
+        'admin/career_default.html',
+        nivel=current_career_default(),
+        carrera_niveles=CARRERA_NIVELES,
+        carrera_nivel_labels=CARRERA_NIVEL_LABELS,
+        total_characters=Character.query.count(),
+    )
 
 
 # ---------------------------------------------------------------------------

@@ -332,6 +332,82 @@ def test_edit_form_shows_career_visibility_section_to_admin(client, admin_user, 
     assert b'Visibilidad de la carrera profesional de los contactos' in resp.data
 
 
+# ── Nivel por defecto a nivel de aplicación (2026-07-19, Admin → Carrera de
+# contactos) - distinto de la concesión por personaje: aquí se fija un valor
+# que se aplica automáticamente a personajes NUEVOS, o se vuelca de una vez
+# sobre todos los ya existentes ─────────────────────────────────────────────
+
+def test_career_default_page_requires_admin(client, regular_user, login_as):
+    login_as(client, regular_user, 'userpass123')
+    resp = client.get('/admin/carrera-contactos')
+    assert resp.status_code == 403
+
+
+def test_career_default_save_persists(db, client, admin_user, login_as):
+    from app.models.contact_career_visibility import current_career_default
+    login_as(client, admin_user, 'adminpass123')
+
+    resp = client.post('/admin/carrera-contactos', data={
+        'nivel': 'ver', 'action': 'save_default',
+    }, follow_redirects=True)
+    assert resp.status_code == 200
+    assert current_career_default() == 'ver'
+
+
+def test_new_character_gets_the_default_level(db, client, regular_user, admin_user, login_as):
+    from app.models.contact_career_visibility import set_career_default
+    set_career_default('editar', updated_by_id=admin_user.id)
+    db.session.commit()
+
+    login_as(client, regular_user, 'userpass123')
+    client.post('/personajes/nuevo', data={'name': 'Personaje con default'}, follow_redirects=True)
+
+    from app.models.character import Character
+    char = Character.query.filter_by(name='Personaje con default').first()
+    assert char is not None
+    assert char.carreras_contactos_nivel == 'editar'
+
+
+def test_character_created_with_no_default_gets_none(db, client, regular_user, login_as):
+    login_as(client, regular_user, 'userpass123')
+    client.post('/personajes/nuevo', data={'name': 'Personaje sin default'}, follow_redirects=True)
+
+    from app.models.character import Character
+    char = Character.query.filter_by(name='Personaje sin default').first()
+    assert char is not None
+    assert char.carreras_contactos_nivel is None
+
+
+def test_career_default_apply_all_updates_every_existing_character(db, client, admin_user, regular_user,
+                                                                    make_character, login_as):
+    char1 = make_character(regular_user, name='Uno')
+    char2 = make_character(regular_user, name='Dos', carreras_contactos_nivel='ver')
+    login_as(client, admin_user, 'adminpass123')
+
+    resp = client.post('/admin/carrera-contactos', data={
+        'nivel': 'editar', 'action': 'apply_all',
+    }, follow_redirects=True)
+    assert resp.status_code == 200
+
+    db.session.refresh(char1)
+    db.session.refresh(char2)
+    assert char1.carreras_contactos_nivel == 'editar'
+    assert char2.carreras_contactos_nivel == 'editar'
+
+
+def test_career_default_apply_all_does_not_change_the_saved_default(db, client, admin_user, login_as):
+    from app.models.contact_career_visibility import current_career_default, set_career_default
+    set_career_default('ver', updated_by_id=admin_user.id)
+    db.session.commit()
+    login_as(client, admin_user, 'adminpass123')
+
+    client.post('/admin/carrera-contactos', data={
+        'nivel': 'editar', 'action': 'apply_all',
+    }, follow_redirects=True)
+
+    assert current_career_default() == 'ver'
+
+
 def test_delete_blocks_non_owner(db, client, make_user, make_character, login_as):
     owner = make_user(username='owner1', password='ownerpass123')
     other = make_user(username='other1', password='otherpass123')

@@ -598,6 +598,15 @@ Inicia sesión con las credenciales de administrador y accede desde el menú **A
 
 Ya no es admin-only (ver [Gestionar Contactos](#gestionar-contactos)) — para un administrador muestra siempre **todas** las relaciones contacto↔personaje: contacto, personaje, tipo de relación, nivel de relación y número de notas (recuento, no contenido). Busca por nombre de contacto o de personaje. Desde cada fila: **Ver ficha** abre la ficha del contacto ya filtrada como ese personaje concreto (ahí están el vínculo completo y las notas).
 
+#### Carrera de contactos (`/admin/carrera-contactos`)
+
+Complementa la concesión por personaje (ver [Gestionar Contactos](#gestionar-contactos) y "Visibilidad de la carrera de contactos" en "Crear y gestionar personajes") con dos acciones a nivel de toda la aplicación, sobre el mismo desplegable de nivel (Ninguno/Ver/Ver y editar):
+
+- **Guardar como valor por defecto para personajes nuevos** — a partir de ahora, cualquier personaje creado (alta rápida o Generador) arranca ya con ese nivel, sin tener que ir a concedérselo luego a mano. No toca a los personajes que ya existían.
+- **Aplicar a los N personajes existentes ahora** — acción puntual e inmediata: pone ese nivel a **todos** los personajes ya creados de golpe (con confirmación, ya que no tiene deshacer más allá de repetir la acción con otro nivel). No los deja "enganchados" al valor por defecto — es un `UPDATE` de una vez, no una referencia viva; cambiar el valor por defecto después no vuelve a tocarlos salvo que pulses el botón otra vez.
+
+Las concesiones puntuales por personaje o por contacto concreto (desde **Editar personaje**) siguen funcionando igual encima de lo que se fije aquí — están pensadas para excepciones sueltas, no para sustituir esta pantalla cuando lo que hace falta es un cambio masivo.
+
 #### Comida y bebida (`/admin/comida`)
 
 - **Ingredientes** (`/admin/comida/ingredientes`) — CRUD completo del catálogo de ingredientes: nombre, vigor,
@@ -990,7 +999,7 @@ Para cada ruta se muestra:
 
 Un jugador normal solo ve sus propios personajes en el listado; un administrador ve los de todos los jugadores (agrupados por usuario), aunque cualquiera puede editar/ver la ficha de cualquier personaje ya conociendo su URL.
 
-> **Visibilidad de la carrera de contactos** (2026-07-19, solo admin): al **editar** un personaje ya existente, un administrador ve una tarjeta extra "Visibilidad de la carrera profesional de los contactos" con dos niveles — **Ver** (solo lectura de la sección Profesiones en la ficha del contacto) o **Ver y editar** (además puede añadir/quitar profesiones de ese contacto, la misma acción que ya podía hacer un admin). Se concede con un desplegable **global** (aplica a todos los contactos) o, si se deja en "Ninguno", con un buscador para concedérselo solo a **contactos concretos** (cada uno con su propio nivel, filas añadibles/quitables). No aparece al crear un personaje (todavía no existe a quién conceder nada) ni para nadie que no sea admin — ver "Gestionar Contactos" más abajo para el porqué de esta restricción.
+> **Visibilidad de la carrera de contactos** (2026-07-19, solo admin): al **editar** un personaje ya existente, un administrador ve una tarjeta extra "Visibilidad de la carrera profesional de los contactos" con dos niveles — **Ver** (solo lectura de la sección Profesiones en la ficha del contacto) o **Ver y editar** (además puede añadir/quitar profesiones de ese contacto, la misma acción que ya podía hacer un admin). Se concede con un desplegable **global** (aplica a todos los contactos, *para ese personaje*) o, si se deja en "Ninguno", con un buscador para concedérselo solo a **contactos concretos** (cada uno con su propio nivel, filas añadibles/quitables). No aparece al crear un personaje (todavía no existe a quién conceder nada) ni para nadie que no sea admin — ver "Gestionar Contactos" más abajo para el porqué de esta restricción. Para aplicarlo a **todos los personajes de golpe** (en vez de uno a uno) o fijar el valor por defecto de los personajes que se creen a partir de ahora, ver **Admin → Carrera de contactos** en la guía de administrador más abajo.
 
 Hay dos formas de crear un personaje desde **Personajes**:
 
@@ -1146,6 +1155,13 @@ contact_career_visibilities         (2026-07-19: excepción admin-only concedida
   ├─ nivel                          ('ver' | 'editar' - 'editar' permite además añadir/quitar profesiones
   │                                  del contacto vía contacts.career_save, sin acceso al resto de su ficha)
   └─ UNIQUE(character_id, contact_id)
+
+career_visibility_default          (fila única, mismo patrón que shop_markup - "nivel" a aplicar de golpe a
+  ├─ nivel                          todos los personajes existentes desde Admin → Carrera de contactos, y/o
+  │                                  valor con el que arranca cualquier personaje NUEVO desde ese momento;
+  │                                  ninguna fila = 'ninguno'; nunca se consulta la tabla directamente, solo
+  │                                  vía current_career_default()/set_career_default())
+  └─ updated_by_id → users.id
 
 contact_notes
   ├─ contact_id, character_id      (nota propia de un personaje, nunca de otro)

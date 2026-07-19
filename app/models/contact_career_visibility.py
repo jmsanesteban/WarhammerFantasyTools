@@ -1,3 +1,4 @@
+from datetime import datetime
 from app.extensions import db
 
 # Dos niveles: 'ver' (solo lectura de la sección Profesiones en la ficha del
@@ -54,3 +55,37 @@ class ContactCareerVisibility(db.Model):
 
     def __repr__(self):
         return f'<ContactCareerVisibility character={self.character_id} contact={self.contact_id} nivel={self.nivel}>'
+
+
+class CareerVisibilityDefault(db.Model):
+    """Un único nivel por defecto (2026-07-19, "de forma global" a nivel de
+    aplicación, no solo por personaje) - mismo patrón de fila única que
+    ShopMarkup (app/models/shop.py): se espera una sola fila (o ninguna, lo
+    que equivale a "ninguno"). Se aplica automáticamente a todo personaje
+    NUEVO en el momento de crearse (ver characters.create) - los ya
+    existentes no cambian solos; para eso está el botón "Aplicar a todos los
+    personajes existentes ahora" en Admin, que hace un UPDATE puntual, no
+    una vinculación permanente a este valor."""
+    __tablename__ = 'career_visibility_default'
+
+    id = db.Column(db.Integer, primary_key=True)
+    nivel = db.Column(db.String(10), nullable=True)  # None | 'ver' | 'editar', ver CARRERA_NIVELES
+    updated_by_id = db.Column(db.Integer, db.ForeignKey('users.id', ondelete='SET NULL'), nullable=True)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    updated_by = db.relationship('User')
+
+
+def current_career_default():
+    row = CareerVisibilityDefault.query.first()
+    return row.nivel if row else None
+
+
+def set_career_default(nivel, updated_by_id=None):
+    row = CareerVisibilityDefault.query.first()
+    if row is None:
+        row = CareerVisibilityDefault()
+        db.session.add(row)
+    row.nivel = nivel
+    row.updated_by_id = updated_by_id
+    return row

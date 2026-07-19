@@ -16,7 +16,9 @@ from app.models.skill import Skill
 from app.models.talent import Talent
 from app.models.user import User
 from app.models.contact import Contact
-from app.models.contact_career_visibility import ContactCareerVisibility, CARRERA_NIVELES, CARRERA_NIVEL_LABELS
+from app.models.contact_career_visibility import (
+    ContactCareerVisibility, CARRERA_NIVELES, CARRERA_NIVEL_LABELS, current_career_default,
+)
 from app.models.equipment import EquipmentItem, CharacterInventoryItem, CharacterPurchase, CharacterCartItem
 from app.models.untersuchung import (
     UNTERSUCHUNG_GRADOS, UNTERSUCHUNG_GRADOS_CON_MARCA, UNTERSUCHUNG_GRADOS_AGENTE, UNTERSUCHUNG_GRADOS_ADJUNTO,
@@ -199,6 +201,11 @@ def create():
             grados_untersuchung=grados,
             nivel_social=_form_int('nivel_social', 1),
             dinero_coronas=_form_int('dinero_coronas', 0),
+            # Nivel de acceso a la carrera de contactos (2026-07-19): un
+            # personaje nuevo arranca con el valor por defecto que un admin
+            # haya fijado en Admin → Carrera de contactos, no con "ninguno"
+            # a piñón fijo - ver CareerVisibilityDefault.
+            carreras_contactos_nivel=current_career_default(),
         )
         db.session.add(char)
         db.session.flush()
@@ -883,6 +890,7 @@ def generator_save():
         history_points_total=_int('history_points_total') or 0,
         history_points_spent=_int('history_points_spent') or 0,
         es_untersuchung=request.form.get('es_untersuchung') == 'on',
+        carreras_contactos_nivel=current_career_default(),
     )
     for field in Character.PRIMARY_FIELDS + Character.SECONDARY_FIELDS:
         setattr(char, field, _int(field))

@@ -1,0 +1,56 @@
+{% extends 'base.html' %}
+{% block title %}Carrera de contactos — Warhammer Fantasy Tools{% endblock %}
+
+{% block content %}
+<div class="container mt-4" style="max-width:700px">
+  <div class="d-flex justify-content-between align-items-center mb-3">
+    <h2 class="wh-heading mb-0"><i class="bi bi-eye me-2"></i>Carrera de contactos</h2>
+    <a href="{{ url_for('admin.dashboard') }}" class="btn btn-outline-secondary btn-sm">
+      <i class="bi bi-arrow-left me-1"></i>Panel
+    </a>
+  </div>
+
+  <div class="alert alert-info wh-alert">
+    Nivel de acceso a la sección "Profesiones" de la ficha de un contacto (<strong>Ver</strong> / <strong>Ver y
+    editar</strong>), aplicado a nivel de toda la aplicación en vez de personaje a personaje. Esto es
+    independiente de las concesiones puntuales que ya puedes hacer desde la ficha de cada personaje (Editar
+    personaje → Visibilidad de la carrera profesional) — aquellas siguen funcionando igual y pueden usarse para
+    excepciones sueltas encima de lo que fijes aquí.
+  </div>
+
+  <div class="card wh-card">
+    <div class="card-header wh-card-header">
+      Nivel actual por defecto: <strong>{{ carrera_nivel_labels.get(nivel, 'Ninguno') }}</strong>
+    </div>
+    <div class="card-body">
+      <form method="POST">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <div class="mb-3">
+          <label class="form-label wh-label">Nivel</label>
+          <select name="nivel" class="form-select wh-input" style="max-width:260px">
+            <option value="" {% if not nivel %}selected{% endif %}>Ninguno</option>
+            {% for lvl in carrera_niveles %}
+            <option value="{{ lvl }}" {% if nivel == lvl %}selected{% endif %}>{{ carrera_nivel_labels[lvl] }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="d-flex flex-wrap gap-2">
+          <button type="submit" name="action" value="save_default" class="btn btn-wh">
+            <i class="bi bi-check-lg me-1"></i>Guardar como valor por defecto para personajes nuevos
+          </button>
+          <button type="submit" name="action" value="apply_all" class="btn btn-outline-warning"
+                  onclick="return confirm('Esto cambia el nivel de TODOS los {{ total_characters }} personajes existentes ahora mismo. ¿Continuar?')">
+            <i class="bi bi-people me-1"></i>Aplicar a los {{ total_characters }} personajes existentes ahora
+          </button>
+        </div>
+        <small class="text-muted d-block mt-2">
+          "Guardar como valor por defecto" solo afecta a los personajes que se creen a partir de ahora (manual o
+          desde el Generador). "Aplicar a los personajes existentes" es una acción puntual: cambia el nivel de
+          todos ellos ahora mismo, pero no los deja "enganchados" a este ajuste — un cambio posterior aquí no
+          los tocará salvo que vuelvas a pulsar el botón.
+        </small>
+      </form>
+    </div>
+  </div>
+</div>
+{% endblock %}
