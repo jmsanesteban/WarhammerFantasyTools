@@ -42,11 +42,18 @@
             </select>
           </div>
 
-          <div class="col-md-4">
+          <div class="col-md-5">
             <label class="form-label wh-label">Foto/imagen</label>
             <input type="file" name="image" class="form-control wh-input" accept="image/*">
+            <div class="mt-3">
+              <label class="d-flex align-items-center gap-2" style="cursor:pointer">
+                <input type="checkbox" name="is_visible" class="form-check-input" checked>
+                Visible (si se desmarca, queda oculto para todos los jugadores — útil para precargar contactos
+                de partidas o módulos futuros)
+              </label>
+            </div>
           </div>
-          <div class="col-md-8">
+          <div class="col-md-7">
             <div class="row g-3">
               <div class="col-12">
                 <label class="form-label wh-label">Lugar de descanso</label>
@@ -60,26 +67,17 @@
                 <label class="form-label wh-label">Lugar de ocio</label>
                 <textarea name="lugar_ocio" class="form-control wh-input" rows="2"></textarea>
               </div>
+              <div class="col-12">
+                <label class="form-label wh-label">Notas de contacto</label>
+                <textarea name="notas_generales" class="form-control wh-input" rows="3"
+                          placeholder="Visibles para cualquiera que pueda ver este contacto"></textarea>
+              </div>
+              <div class="col-12">
+                <label class="form-label wh-label">Notas del director</label>
+                <textarea name="notas_director" class="form-control wh-input" rows="3"
+                          placeholder="Solo visibles para el director de juego"></textarea>
+              </div>
             </div>
-          </div>
-
-          <div class="col-12">
-            <label class="d-flex align-items-center gap-2" style="cursor:pointer">
-              <input type="checkbox" name="is_visible" class="form-check-input" checked>
-              Visible (si se desmarca, queda oculto para todos los jugadores — útil para precargar contactos de
-              partidas o módulos futuros)
-            </label>
-          </div>
-
-          <div class="col-md-6">
-            <label class="form-label wh-label">Notas de contacto</label>
-            <textarea name="notas_generales" class="form-control wh-input" rows="3"
-                      placeholder="Visibles para cualquiera que pueda ver este contacto"></textarea>
-          </div>
-          <div class="col-md-6">
-            <label class="form-label wh-label">Notas del director</label>
-            <textarea name="notas_director" class="form-control wh-input" rows="3"
-                      placeholder="Solo visibles para el director de juego"></textarea>
           </div>
         </div>
       </div>
