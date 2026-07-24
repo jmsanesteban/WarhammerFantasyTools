@@ -64,7 +64,9 @@
             {% endif %}
           </td>
           <td>
-            <strong>{{ contact.nombre }}</strong>
+            <a href="{{ url_for('contacts.detail', contact_id=contact.id) }}" class="wh-row-link">
+              <strong>{{ contact.nombre }}</strong>
+            </a>
             {% if current_user.is_admin and not contact.is_visible %}
             <span class="badge bg-secondary" style="font-size:.65rem">Oculto</span>
             {% endif %}

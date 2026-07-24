@@ -417,6 +417,14 @@ a:hover { color: var(--wh-gold-light); }
 .wh-link { color: var(--wh-gold); text-decoration: none; }
 .wh-link:hover { color: var(--wh-gold-light); text-decoration: underline; }
 
+/* Row-primary link that keeps the surrounding text's own color (2026-07-24,
+   Contactos list) - unlike .wh-link (always gold), this is for making an
+   existing piece of text tappable without changing how it looks, so on
+   narrow/mobile widths you don't have to scroll a table-responsive all the
+   way right to reach the "Ver" button just to open a ficha. */
+.wh-row-link { color: inherit; text-decoration: none; }
+.wh-row-link:hover { text-decoration: underline; }
+
 .wh-breadcrumb { background: transparent; font-size: 0.85rem; }
 .wh-breadcrumb .breadcrumb-item + .breadcrumb-item::before { color: var(--wh-text-muted); }
 .wh-breadcrumb .breadcrumb-item.active { color: var(--wh-text-muted); }
