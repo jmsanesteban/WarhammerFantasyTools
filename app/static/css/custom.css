@@ -689,6 +689,31 @@ a:hover { color: var(--wh-gold-light); }
   z-index: 20;
 }
 
+/* Round avatar for the Contactos list table (2026-07-24) - unlike
+   .wh-char-avatar, this deliberately has NO hover-zoom: inside a
+   .table-responsive wrapper (overflow-x:auto, needed for the table to work
+   on phone-width screens) a scaled-up hover preview gets clipped by that
+   wrapper's edge, which is worse than no preview at all. Click still opens
+   the full-size lightbox (wh-lightbox-trigger, unchanged - see main.js).
+   object-fit:contain (not cover) because contact photos vary wildly -
+   headshots, waist-up, full-body - and cover was cropping tall/full-body
+   photos down to an arbitrary square slice, sometimes cutting the head off
+   entirely. contain scales the whole photo down to fit instead, leaving
+   the rest of the circle transparent (shows the table row underneath) for
+   photos that aren't already square - always uncropped, at the cost of not
+   filling every corner of the circle for a non-square photo. Slightly
+   bigger than .wh-char-avatar (56px vs 48px) so the shrunk photo still
+   reads clearly at a glance. */
+.wh-contact-avatar {
+  width: 56px;
+  height: 56px;
+  object-fit: contain;
+  border-radius: 50%;
+  border: 1px solid var(--wh-border-gold);
+  flex-shrink: 0;
+  cursor: zoom-in;
+}
+
 /* ---- Stat number ---- */
 .wh-stat-number {
   font-family: 'Cinzel', serif;

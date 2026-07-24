@@ -60,7 +60,7 @@
           <td>
             {% if contact.image_path %}
             <img src="{{ url_for('main.uploaded_file', filename=contact.image_path) }}"
-                 class="wh-char-avatar wh-lightbox-trigger" alt="{{ contact.nombre }}">
+                 class="wh-contact-avatar wh-lightbox-trigger" alt="{{ contact.nombre }}">
             {% endif %}
           </td>
           <td>
