@@ -29,9 +29,13 @@ class User(UserMixin, db.Model):
     active_character_id = db.Column(db.Integer, db.ForeignKey('characters.id', ondelete='SET NULL'),
                                      nullable=True)
     # Cuántos contactos se muestran por página en /contactos/ (2026-07-19) -
-    # preferencia por usuario, editable desde Mi perfil. 25 es el valor con
-    # el que arrancó el listado antes de ser configurable.
-    contactos_por_pagina = db.Column(db.Integer, nullable=False, default=25)
+    # preferencia por usuario, editable desde Mi perfil. Subido de 25 a 150
+    # (2026-07-24, petición del director: en móvil cambiar de página es
+    # incómodo) - los usuarios que ya tenían el viejo valor por defecto (25,
+    # sin haberlo tocado nunca) se migraron una vez a 150 con el comando
+    # `flask migrate-contactos-pagina-default --apply`; este default solo
+    # afecta a usuarios nuevos a partir de ahora.
+    contactos_por_pagina = db.Column(db.Integer, nullable=False, default=150)
 
     # Relationships
     characters = db.relationship('Character', backref='owner', lazy='dynamic',

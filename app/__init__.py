@@ -514,11 +514,14 @@ def _register_cli_commands(app):
 
             # Incremental column: users.contactos_por_pagina (2026-07-19) -
             # tamaño de página configurable por usuario en /contactos/,
-            # editable desde Mi perfil. 25 = mismo valor que tenía fijo.
+            # editable desde Mi perfil. 150 (subido de 25 el 2026-07-24 - ver
+            # migrate-contactos-pagina-default para la instancia que ya tenía
+            # la columna con el viejo valor) es el default para una instancia
+            # completamente nueva que nunca tuvo esta columna.
             if 'contactos_por_pagina' not in user_cols:
                 with db.engine.begin() as conn:
                     conn.execute(text(
-                        'ALTER TABLE users ADD COLUMN contactos_por_pagina INT NOT NULL DEFAULT 25'
+                        'ALTER TABLE users ADD COLUMN contactos_por_pagina INT NOT NULL DEFAULT 150'
                     ))
                     click.echo('  Added users.contactos_por_pagina')
 
@@ -1049,6 +1052,43 @@ def _register_cli_commands(app):
                     click.echo('  Dropped contacts.grados_untersuchung')
 
             click.echo('Migration applied.')
+
+    @app.cli.command('migrate-contactos-pagina-default')
+    @click.option('--apply', 'do_apply', is_flag=True,
+                  help='Write changes. Without this flag, only reports what would happen.')
+    def migrate_contactos_pagina_default_cmd(do_apply):
+        """One-off data migration (2026-07-24): raises the default for
+        User.contactos_por_pagina from 25 to 150 (director's call - paging
+        through Contactos a page at a time is annoying on a phone). The model/
+        schema default only applies to *new* users from now on; every user who
+        already has the column sitting at exactly 25 needs a one-time backfill
+        to 150, since that's indistinguishable in the DB from "never touched
+        their preference" - the profile dropdown offers 25 as a real choice
+        too, so this assumes nobody deliberately picked 25 in the ~5 days the
+        setting existed before this change (2026-07-19 to 2026-07-24).
+
+        Deliberately NOT part of `init-db` (which reruns on every deploy) -
+        running this again later would keep sweeping up anyone who
+        legitimately chose 25 afterwards back to 150. Run manually, once.
+
+        Sin --apply solo IMPRIME un informe (dry-run, no escribe nada)."""
+        from app.models.user import User
+
+        with app.app_context():
+            users = User.query.filter_by(contactos_por_pagina=25).order_by(User.username).all()
+
+            click.echo(f'Usuarios con contactos_por_pagina=25 (valor por defecto anterior): {len(users)}.')
+            for u in users[:20]:
+                click.echo(f'    #{u.id} {u.username}')
+
+            if not do_apply:
+                click.echo('\nDry-run only - nada escrito. Ejecuta con --apply tras revisar este informe.')
+                return
+
+            for u in users:
+                u.contactos_por_pagina = 150
+            db.session.commit()
+            click.echo(f'{len(users)} usuario(s) actualizado(s) a contactos_por_pagina=150.')
 
     @app.cli.command('import-legacy-contacts')
     @click.option('--apply', 'do_apply', is_flag=True,

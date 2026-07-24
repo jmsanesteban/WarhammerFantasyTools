@@ -29,7 +29,7 @@
         <div>
           <label class="form-label wh-label">Contactos por página</label>
           <select name="contactos_por_pagina" class="form-select wh-input" style="max-width:10rem">
-            {% for n in [10, 25, 50, 100, 200] %}
+            {% for n in [10, 25, 50, 100, 150, 200] %}
             <option value="{{ n }}" {% if current_user.contactos_por_pagina == n %}selected{% endif %}>{{ n }}</option>
             {% endfor %}
           </select>

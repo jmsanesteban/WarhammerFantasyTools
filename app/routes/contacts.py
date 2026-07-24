@@ -241,7 +241,7 @@ def index():
     any user) have a link to it, expandable to nivel+tipo per character."""
     page = request.args.get('page', 1, type=int)
     search = request.args.get('q', '').strip()
-    per_page = current_user.contactos_por_pagina or 25
+    per_page = current_user.contactos_por_pagina or 150
 
     query = Contact.query.order_by(Contact.nombre)
     if not current_user.is_admin:

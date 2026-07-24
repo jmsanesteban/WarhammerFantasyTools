@@ -19,8 +19,8 @@ def test_index_requires_login(client):
 
 # ── Tamaño de página configurable por usuario (2026-07-19) ─────────────────
 
-def test_index_defaults_to_25_per_page(client, regular_user, login_as):
-    assert regular_user.contactos_por_pagina == 25
+def test_index_defaults_to_150_per_page(client, regular_user, login_as):
+    assert regular_user.contactos_por_pagina == 150
 
 
 def test_index_respects_user_per_page_preference(db, client, regular_user, login_as, make_contact):
@@ -59,7 +59,7 @@ def test_preferencias_save_rejects_out_of_range_value(db, client, regular_user, 
     assert 'entre 5 y 200'.encode() in resp.data
 
     db.session.refresh(regular_user)
-    assert regular_user.contactos_por_pagina == 25
+    assert regular_user.contactos_por_pagina == 150
 
 
 # ── Estado ────────────────────────────────────────────────────────────────
