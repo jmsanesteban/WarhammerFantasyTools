@@ -116,6 +116,56 @@ def test_vinculos_search_filters_by_personaje(client, admin_user, make_user, mak
     assert b'Personaje B' not in resp.data
 
 
+def test_vinculos_buscar_contacto_requires_login(client):
+    resp = client.get('/contactos/vinculos/buscar')
+    assert resp.status_code == 302
+    assert '/auth/login' in resp.headers['Location']
+
+
+def test_vinculos_buscar_contacto_matches_nombre(client, regular_user, make_contact, login_as):
+    make_contact(nombre='Wilhelm el tabernero')
+    make_contact(nombre='Grombrindal')
+    login_as(client, regular_user, 'userpass123')
+
+    resp = client.get('/contactos/vinculos/buscar?q=wilhelm')
+    assert resp.status_code == 200
+    data = resp.get_json()
+    assert [c['nombre'] for c in data['contacts']] == ['Wilhelm el tabernero']
+
+
+def test_vinculos_buscar_contacto_matches_raza(client, regular_user, make_contact, login_as):
+    make_contact(nombre='Grombrindal', raza='Enano')
+    make_contact(nombre='Wilhelm el tabernero', raza='Humano')
+    login_as(client, regular_user, 'userpass123')
+
+    resp = client.get('/contactos/vinculos/buscar?q=enan')
+    data = resp.get_json()
+    assert [c['nombre'] for c in data['contacts']] == ['Grombrindal']
+
+
+def test_vinculos_buscar_contacto_gender_synonym(client, regular_user, make_contact, login_as):
+    """Contact.raza solo guarda la forma masculina (RAZA_CHOICES) - buscar
+    la palabra completa "enana" debe encontrar igualmente un contacto
+    guardado con raza "Enano" (ver _RACE_GENDER_SYNONYMS)."""
+    make_contact(nombre='Grombrindal', raza='Enano')
+    login_as(client, regular_user, 'userpass123')
+
+    resp = client.get('/contactos/vinculos/buscar?q=enana')
+    data = resp.get_json()
+    assert [c['nombre'] for c in data['contacts']] == ['Grombrindal']
+
+
+def test_vinculos_buscar_contacto_hides_invisible_for_non_admin(
+    client, regular_user, make_contact, login_as,
+):
+    make_contact(nombre='Contacto oculto', is_visible=False)
+    login_as(client, regular_user, 'userpass123')
+
+    resp = client.get('/contactos/vinculos/buscar?q=oculto')
+    data = resp.get_json()
+    assert data['contacts'] == []
+
+
 def test_note_create_redirects_to_vinculos_next_url(
     db, client, admin_user, regular_user, make_character, make_contact, login_as,
 ):

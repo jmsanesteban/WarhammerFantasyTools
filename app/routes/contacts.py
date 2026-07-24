@@ -87,6 +87,32 @@ def _raza_from_form():
     return choice or None
 
 
+# Contact.raza es texto libre y solo tiene la forma masculina (ver
+# RAZA_CHOICES) - sin esto, buscar "enana"/"elfa"/"humana" (palabra completa)
+# no encontraría contactos guardados como "Enano"/"Elfo"/"Humano". No
+# reutiliza la tabla Synonym (app/models/synonym.py): esa vive acoplada al
+# import de PDFs, con alcance global compartido con habilidades/talentos.
+_RACE_GENDER_SYNONYMS = {
+    'enano': 'enana', 'enana': 'enano',
+    'elfo': 'elfa', 'elfa': 'elfo',
+    'humano': 'humana', 'humana': 'humano',
+    'ogro': 'ogra', 'ogra': 'ogro',
+}
+
+
+def _search_query_variants(q):
+    """q y, si su última palabra tiene una forma de género alternativa, esa
+    misma búsqueda con la última palabra sustituida - así "elfo" y "elfa"
+    encuentran los mismos contactos aunque solo se escriba uno de los dos."""
+    words = q.split()
+    variants = {q}
+    if words:
+        alt = _RACE_GENDER_SYNONYMS.get(words[-1].lower())
+        if alt:
+            variants.add(' '.join(words[:-1] + [alt]))
+    return variants
+
+
 def _save_image_from_form(contact):
     file = request.files.get('image')
     if not file or not file.filename:
@@ -283,11 +309,20 @@ def vinculos():
     search = request.args.get('q', '').strip()
     per_page = 30
     show_all = current_user.is_admin or request.args.get('todos') == '1'
+    # El propio personaje activo del usuario (no el _active_character() con
+    # override admin de ?personaje_id=, que es para "editar como" en la
+    # ficha de un contacto) - controla el botón/modal "Añadir vínculo",
+    # que siempre crea el vínculo para el personaje del usuario logueado.
+    active_character = (
+        Character.query.get(current_user.active_character_id)
+        if current_user.active_character_id else None
+    )
 
     if not show_all and not current_user.active_character_id:
         return render_template(
             'contacts/vinculos.html', links=[], pagination=None, search=search,
             show_all=False, no_active_character=True, note_counts={}, nivel_labels=NIVEL_LABELS,
+            active_character=active_character,
         )
 
     query = (
@@ -321,7 +356,39 @@ def vinculos():
         links=links, pagination=pagination, search=search,
         show_all=show_all, no_active_character=False,
         note_counts=note_counts, nivel_labels=NIVEL_LABELS,
+        active_character=active_character,
     )
+
+
+@contacts_bp.route('/vinculos/buscar')
+@require_permission('contacts.vinculos')
+def vinculos_buscar_contacto():
+    """Búsqueda JSON de contactos para el modal "Añadir vínculo" de
+    vinculos.html - filtra por nombre o raza (con sinónimos de género, ver
+    _search_query_variants), sin término devuelve los primeros 30 para que
+    el modal no arranque vacío."""
+    q = request.args.get('q', '').strip()
+    query = Contact.query.order_by(Contact.nombre)
+    if not current_user.is_admin:
+        query = query.filter_by(is_visible=True)
+    if q:
+        conditions = [
+            db.or_(Contact.nombre.ilike(f'%{v}%'), Contact.raza.ilike(f'%{v}%'))
+            for v in _search_query_variants(q)
+        ]
+        query = query.filter(db.or_(*conditions))
+    contacts = query.limit(30).all()
+    return {
+        'contacts': [
+            {
+                'id': c.id,
+                'nombre': c.nombre,
+                'raza': c.raza or '',
+                'image_url': url_for('main.uploaded_file', filename=c.image_path) if c.image_path else None,
+            }
+            for c in contacts
+        ]
+    }
 
 
 @contacts_bp.route('/nuevo', methods=['GET', 'POST'])

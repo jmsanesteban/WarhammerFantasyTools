@@ -6,6 +6,11 @@
   <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
     <h2 class="wh-heading mb-0"><i class="bi bi-diagram-3 me-2"></i>Vínculos</h2>
     <div class="d-flex gap-2">
+      {% if active_character %}
+      <button type="button" class="btn btn-wh btn-sm" data-bs-toggle="modal" data-bs-target="#addLinkModal">
+        <i class="bi bi-plus-circle me-1"></i>Añadir vínculo
+      </button>
+      {% endif %}
       {% if current_user.is_admin %}
       <a href="{{ url_for('admin.contacts_full_export') }}" class="btn btn-outline-secondary btn-sm">
         <i class="bi bi-download me-1"></i>Exportar
@@ -113,4 +118,153 @@
   {% endif %}
   {% endif %}
 </div>
+
+{% if active_character %}
+{# ── Modal "Añadir vínculo" (2026-07-24): crea un ContactCharacterLink para
+     el propio personaje activo del usuario sin salir de esta página - busca
+     contacto por nombre/raza (JS, contra vinculos_buscar_contacto) y envía
+     el nivel al mismo endpoint que usa la ficha del contacto (link_save). ─ #}
+<div class="modal fade" id="addLinkModal" tabindex="-1">
+  <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable">
+    <div class="modal-content wh-card">
+      <div class="modal-header wh-card-header border-0">
+        <div class="d-flex align-items-center gap-2">
+          {% if active_character.image_path %}
+          <img src="{{ url_for('main.uploaded_file', filename=active_character.image_path) }}"
+               alt="{{ active_character.name }}"
+               style="width:36px;height:36px;object-fit:cover;border-radius:50%">
+          {% endif %}
+          <h5 class="modal-title wh-label mb-0">Añadir vínculo — {{ active_character.name }}</h5>
+        </div>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <input type="text" id="addLinkSearchInput" class="form-control wh-input mb-3"
+               placeholder="Buscar por nombre o raza…" autocomplete="off">
+        <div id="addLinkResults" class="list-group mb-3" style="max-height:280px;overflow-y:auto"></div>
+        <div id="addLinkSelected" class="d-none">
+          <hr class="wh-divider-sm">
+          <label class="form-label wh-label">Nivel de relación con <strong id="addLinkSelectedName"></strong></label>
+          <select id="addLinkNivel" class="form-select wh-input">
+            <option value="">— Sin evaluar —</option>
+            {% for n in range(5, -6, -1) %}
+            <option value="{{ n }}">{{ n }} — {{ nivel_labels[n] }}</option>
+            {% endfor %}
+          </select>
+        </div>
+      </div>
+      <div class="modal-footer border-0">
+        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
+        <button type="button" id="addLinkConfirmBtn" class="btn btn-wh" disabled>Añadir vínculo</button>
+      </div>
+    </div>
+  </div>
+</div>
+{% endif %}
+{% endblock %}
+
+{% block extra_scripts %}
+{% if active_character %}
+<script>
+(function () {
+  const modalEl = document.getElementById('addLinkModal');
+  const searchInput = document.getElementById('addLinkSearchInput');
+  const resultsEl = document.getElementById('addLinkResults');
+  const selectedBox = document.getElementById('addLinkSelected');
+  const selectedNameEl = document.getElementById('addLinkSelectedName');
+  const nivelSelect = document.getElementById('addLinkNivel');
+  const confirmBtn = document.getElementById('addLinkConfirmBtn');
+  const searchUrl = '{{ url_for("contacts.vinculos_buscar_contacto") }}';
+  const linkUrlTmpl = '{{ url_for("contacts.link_save", contact_id=999999) }}';
+  const csrfToken = '{{ csrf_token() }}';
+
+  let selectedContactId = null;
+  let debounceTimer = null;
+  let currentController = null;
+
+  function renderResults(contacts) {
+    resultsEl.innerHTML = '';
+    if (!contacts.length) {
+      resultsEl.innerHTML = '<div class="text-muted small p-2">Sin resultados.</div>';
+      return;
+    }
+    contacts.forEach(c => {
+      const row = document.createElement('button');
+      row.type = 'button';
+      row.className = 'list-group-item list-group-item-action d-flex align-items-center gap-2';
+      const img = c.image_url
+        ? `<img src="${c.image_url}" alt="" style="width:32px;height:32px;object-fit:cover;border-radius:4px">`
+        : '';
+      row.innerHTML = `${img}<span class="flex-grow-1">${c.nombre}</span><span class="text-muted small">${c.raza || ''}</span>`;
+      row.addEventListener('click', () => selectContact(c.id, c.nombre, row));
+      resultsEl.appendChild(row);
+    });
+  }
+
+  function selectContact(id, nombre, row) {
+    selectedContactId = id;
+    resultsEl.querySelectorAll('.list-group-item').forEach(el => el.classList.remove('active'));
+    row.classList.add('active');
+    selectedNameEl.textContent = nombre;
+    selectedBox.classList.remove('d-none');
+    confirmBtn.disabled = false;
+  }
+
+  async function fetchResults(q) {
+    if (currentController) currentController.abort();
+    currentController = new AbortController();
+    const url = new URL(searchUrl, window.location.origin);
+    if (q) url.searchParams.set('q', q);
+    let data;
+    try {
+      const resp = await fetch(url, { signal: currentController.signal });
+      data = await resp.json();
+    } catch (err) {
+      if (err.name === 'AbortError') return;
+      throw err;
+    }
+    renderResults(data.contacts);
+  }
+
+  searchInput.addEventListener('input', () => {
+    clearTimeout(debounceTimer);
+    debounceTimer = setTimeout(() => fetchResults(searchInput.value.trim()), 300);
+  });
+
+  modalEl.addEventListener('shown.bs.modal', () => {
+    selectedContactId = null;
+    selectedBox.classList.add('d-none');
+    confirmBtn.disabled = true;
+    searchInput.value = '';
+    nivelSelect.value = '';
+    searchInput.focus();
+    fetchResults('');
+  });
+
+  confirmBtn.addEventListener('click', async () => {
+    if (!selectedContactId) return;
+    confirmBtn.disabled = true;
+    const formData = new FormData();
+    formData.set('csrf_token', csrfToken);
+    formData.set('personaje_id', '{{ active_character.id }}');
+    formData.set('nivel', nivelSelect.value);
+    const url = linkUrlTmpl.replace('999999', selectedContactId);
+    try {
+      // redirect: 'manual' evita que fetch siga la redirección a
+      // contacts.detail (link_save siempre redirige ahí) - si la siguiera,
+      // esa petición en segundo plano consumiría el flash "Vínculo
+      // actualizado." antes de que el usuario vuelva a ver esta página.
+      const resp = await fetch(url, { method: 'POST', body: formData, redirect: 'manual' });
+      if (resp.type === 'opaqueredirect' || resp.ok) {
+        bootstrap.Modal.getOrCreateInstance(modalEl).hide();
+        window.location.reload();
+        return;
+      }
+    } catch (err) { /* cae al re-habilitar el botón */ }
+    confirmBtn.disabled = false;
+    alert('No se ha podido añadir el vínculo.');
+  });
+})();
+</script>
+{% endif %}
 {% endblock %}
