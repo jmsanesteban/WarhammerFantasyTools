@@ -64,7 +64,10 @@
             {% endif %}
           </td>
           <td>
-            <a href="{{ url_for('contacts.detail', contact_id=contact.id) }}" class="wh-row-link">
+            {# Admin -> directo a Editar (su destino habitual al pinchar un contacto);
+               resto de usuarios -> ficha de solo lectura, como antes. #}
+            <a href="{{ url_for('contacts.edit', contact_id=contact.id) if current_user.is_admin else url_for('contacts.detail', contact_id=contact.id) }}"
+               class="wh-row-link">
               <strong>{{ contact.nombre }}</strong>
             </a>
             {% if current_user.is_admin and not contact.is_visible %}
